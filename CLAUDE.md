@@ -79,6 +79,23 @@ USD only at launch. `Account.currency` field exists in schema for future multi-c
 - **FTE single-account constraint** enforced at application layer + DB partial unique index (`WHERE end_date IS NULL AND tech_type = 'FTE'`)
 - **SDM data scoping** enforced at every query (middleware or Prisma extension), not just at UI
 
+## Destructive Action Policy
+
+**Always ask the user for authorization before running any destructive or hard-to-reverse action.** Do not infer permission from a related earlier approval — each destructive action needs its own explicit go-ahead.
+
+Examples that always require an explicit prompt:
+
+- `git push --force` / `git push --delete <branch>`
+- `git reset --hard`, `git clean -fd`, `git branch -D` on shared branches
+- `git rebase` on pushed branches
+- `gh repo delete`, deleting GitHub issues / PRs / releases
+- `rm -rf` on anything outside a clearly-scratch dir
+- Dropping DB tables, truncating tables, destructive migrations
+- Overwriting `KD/` or any tracked file beyond the immediate task
+- Force-overwriting a remote (`gh repo create … --push` over an existing repo)
+
+State exactly what will be deleted/overwritten and what cannot be undone before asking.
+
 ## Open Decisions
 
 Surface to user before implementing the relevant slice:
