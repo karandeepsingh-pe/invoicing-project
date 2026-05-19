@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-**Scaffold phase.** Internal invoice automation web app. Replaces manual xlsx generation for client billing. Next.js + Postgres, hosted (target: Vercel or cPanel). No code exists yet — only this doc, `.gitignore`, `README.md`, and a reference data drop at `KD/KD/` (gitignored).
+**Phase 1–2 complete.** Internal invoice automation web app. Replaces manual xlsx generation for client billing. Next.js + Postgres, hosted (target: Vercel or cPanel). Bootstrap (Next.js 15 + TS + Tailwind + Vitest + Playwright + Prisma + Zod env validation) and the data-model schema with seed are in place. NextAuth wiring (Phase 3), admin/SDM UIs (Phases 4–5), and the invoice engine (Phase 6) are still to come.
 
-Before scaffolding `package.json` or any source code, surface the **Open Decisions** section to the user.
+Reference data lives in a gitignored drop at `KD/KD/`.
 
 ## Goal
 
@@ -19,25 +19,37 @@ Replaces nine manual xlsx files currently in `KD/KD/` (gitignored — real clien
 
 ## Entity Model
 
+The user-facing term is **"Account"**, but in the Prisma schema the model is named **`ClientAccount`** (and the table is `client_accounts`). This avoids a collision with NextAuth's `Account` model (which the `@auth/prisma-adapter` reserves for OAuth provider links). Always say "Account" in copy, but `prisma.clientAccount.*` in code.
+
 ```
 Org (HCL, Cognizant, TCS, Wipro, …)
  │  output_template: FSO (HCL) | PRE_INVOICE (default)
  │  default_currency: USD
- └─ Account (Acadia, ZF, JLL, EverSource, Hiscox, MAS_NJ, …)
+ └─ ClientAccount (Acadia, ZF, JLL, EverSource, Hiscox, MAS_NJ, …)
      │  currency (defaults to org default)
      └─ RateCard rows — one per (tech type, rate unit, effective period)
-         ├─ FTE              — dedicated; locked to single account
+         ├─ FTE              — dedicated; locked to single client account
          ├─ Project          — flexible; multi-account
          ├─ Dispatch         — flexible; multi-account
          └─ Scheduled Visit  — flexible; multi-account
 
 Technician          → belongs to one employer Org; one primary type
-Assignment          → Technician × Account; multi-row for flexible techs, single active row for FTE
-TimesheetEntry      → Assignment + date + hours (+ check_in?/check_out?); entered by an SDM
-InvoiceRun          → Account + period + format + file; audit record per generation
+Assignment          → Technician × ClientAccount; multi-row for flexible techs, single active row for FTE
+TimesheetEntry      → Assignment + date + hours (DATE-only at launch); entered by an SDM
+InvoiceRun          → ClientAccount + period + format + file; audit record per generation
 User                → ADMIN | SDM
-UserAccountAccess   → SDM × Account; data-scoping table
+UserAccountAccess   → SDM × ClientAccount; data-scoping table
 ```
+
+The DB-side half of the FTE single-account constraint is a partial unique index in `prisma/migrations/<ts>_fte_single_active_index/migration.sql`:
+
+```sql
+CREATE UNIQUE INDEX "assignment_fte_single_active"
+  ON "assignments" ("technicianId")
+  WHERE "endDate" IS NULL AND "techType" = 'FTE';
+```
+
+Application code must also enforce this on write — never rely on the index alone.
 
 ## Roles
 
@@ -100,33 +112,36 @@ State exactly what will be deleted/overwritten and what cannot be undone before 
 
 Surface to user before implementing the relevant slice:
 
+- ✅ **Auth provider** — Microsoft Entra ID, restricted to `@ovationwps.com` (locked in for Phase 3).
+- ✅ **Time zone model** — DATE-only `TimesheetEntry` (locked in; no `check_in`/`check_out` columns at launch).
 - **Exact rate units per tech type** — user submitting pricing commercials later. Schema is flexible (per-row `rate_unit` + `rate_amount` + `ot_rate`).
-- **Auth provider** — magic link vs Google SSO vs credentials.
 - **File storage for generated xlsx** — Vercel Blob vs S3 vs local filesystem.
 - **Hosting target** — Vercel vs cPanel (user has prior cPanel experience).
 - **Audit retention policy** — how long to keep `InvoiceRun` records and generated files.
-- **Time zone model** — DATE-only entries vs date + local time (HH:MM in account tz). Decide before Phase 4 (SDM timesheet UI).
 - **Mid-month FTE re-assignment** — billing split per Assignment vs disallow mid-month moves.
 
 ## Common Commands
 
-*To be populated once `package.json` exists. Anticipated:*
-
 ```
 pnpm install
-pnpm dev               # local dev server (Next.js)
+pnpm dev               # local dev server (Next.js) on :3000
 pnpm build && pnpm start
-pnpm test              # vitest
-pnpm e2e               # playwright
-pnpm prisma migrate dev
-pnpm prisma studio
+pnpm lint              # next lint
+pnpm typecheck         # tsc --noEmit
+pnpm test              # vitest (unit)
+pnpm e2e               # playwright (needs dev server running)
+pnpm db:migrate        # prisma migrate dev
+pnpm db:seed           # tsx prisma/seed.ts (idempotent)
+pnpm db:studio         # prisma studio
 ```
+
+For local Postgres in this remote container, the system `postgresql` service is used and a `invoicing/invoicing` role + `invoicing` database are pre-created. `DATABASE_URL` defaults to `postgresql://invoicing:invoicing@localhost:5432/invoicing?schema=public` (see `.env.example`).
 
 ## Phased Build
 
-1. **Bootstrap** (this commit): `CLAUDE.md`, `.gitignore`, `README.md`
-2. **Data model**: Prisma schema + migrations (Org, Account, RateCard, Technician, Assignment, TimesheetEntry, InvoiceRun, User, UserAccountAccess)
-3. **Auth + role middleware**: NextAuth + ADMIN/SDM RBAC + `UserAccountAccess` scoping
+1. ✅ **Bootstrap**: `CLAUDE.md`, `.gitignore`, `README.md`, Next.js 15 + TS + Tailwind, Vitest + Playwright, Zod env validation, Prisma client singleton
+2. ✅ **Data model**: Prisma schema + migrations (Org, ClientAccount, RateCard, Technician, Assignment, TimesheetEntry, InvoiceRun, User, UserAccountAccess) + NextAuth adapter tables + FTE partial-unique index + idempotent seed
+3. **Auth + role middleware**: NextAuth (Microsoft Entra ID, restricted to `@ovationwps.com`) + ADMIN/SDM RBAC + `UserAccountAccess` scoping
 4. **Admin CRUD UI**: orgs / accounts / rate cards / technicians / users
 5. **SDM timesheet UI**: per-account monthly grid; tech × day cells; account auto-tagged
 6. **Invoice generation engine**: template-driven xlsx via ExcelJS; FSO + Pre-Invoice templates extracted from `KD/KD/` reference files
