@@ -9,6 +9,7 @@ const serverSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_ID: z.string().optional(),
   AUTH_MICROSOFT_ENTRA_ID_SECRET: z.string().optional(),
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.string().optional(),
+  DEV_ADMIN_EMAIL: z.string().email().optional(),
 });
 
 const clientSchema = z.object({
@@ -23,6 +24,7 @@ const processEnv = {
   AUTH_MICROSOFT_ENTRA_ID_SECRET: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:
     process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
+  DEV_ADMIN_EMAIL: process.env.DEV_ADMIN_EMAIL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
 };
 
