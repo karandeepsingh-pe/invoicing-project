@@ -19,7 +19,9 @@ Replaces nine manual xlsx files currently in `KD/KD/` (gitignored — real clien
 
 ## Entity Model
 
-The user-facing term is **"Account"**, but in the Prisma schema the model is named **`ClientAccount`** (and the table is `client_accounts`). This avoids a collision with NextAuth's `Account` model (which the `@auth/prisma-adapter` reserves for OAuth provider links). Always say "Account" in copy, but `prisma.clientAccount.*` in code.
+The user-facing term is **"Account"**, but in the Prisma schema the model is named **`ClientAccount`** (table `client_accounts`). This avoids a collision with NextAuth's `Account` model (which `@auth/prisma-adapter` reserves for OAuth provider links). Always say "Account" in copy, but `prisma.clientAccount.*` in code.
+
+Each account carries a structured **rate sheet**: three top-level rate categories, master tables of SLAs and sub-categories, and an extensible per-account `AccountRate` matrix. Rate amounts are nullable so commercial teams can fill them in over time.
 
 ```
 Org (HCL, Cognizant, TCS, Wipro, …)
@@ -27,26 +29,33 @@ Org (HCL, Cognizant, TCS, Wipro, …)
  │  default_currency: USD
  └─ ClientAccount (Acadia, ZF, JLL, EverSource, Hiscox, MAS_NJ, …)
      │  currency (defaults to org default)
-     └─ RateCard rows — one per (tech type, rate unit, effective period)
-         ├─ FTE              — dedicated; locked to single client account
-         ├─ Project          — flexible; multi-account
-         ├─ Dispatch         — flexible; multi-account
-         └─ Scheduled Visit  — flexible; multi-account
+     ├─ AccountRate rows — one per (sub-category, band 0..4, SLA, effective period)
+     │     RateCategory (enum):
+     │       ├─ DEDICATED        — single active assignment per technician
+     │       ├─ PROJECT_TM
+     │       └─ DISPATCH_SCHED   — dispatch + scheduled visit merged
+     │     RateSubCategory (master table, extensible):
+     │       e.g. ANNUAL_BACKFILL, HOURLY_BACKFILL_OT, FIRST_HOUR, FULL_DAY, …
+     │     Sla (master table, extensible):
+     │       NBD / SBD / 2BD / 3BD / 9X5X4 / 24X7X4 / SCHEDULE / NA
+     └─ MiscFee rows — retainer, mileage, BGV, per diem, toolkit, …
 
-Technician          → belongs to one employer Org; one primary type
-Assignment          → Technician × ClientAccount; multi-row for flexible techs, single active row for FTE
+Technician          → firstName, lastName, primaryCategory (RateCategory), band 0..4
+                       belongs to one employer Org
+Assignment          → Technician × ClientAccount × RateCategory; inherits rates from
+                       AccountRate rows matching the technician's specific band
 TimesheetEntry      → Assignment + date + hours (DATE-only at launch); entered by an SDM
-InvoiceRun          → ClientAccount + period + format + file; audit record per generation
+InvoiceRun          → ClientAccount + period + format + file
 User                → ADMIN | SDM
 UserAccountAccess   → SDM × ClientAccount; data-scoping table
 ```
 
-The DB-side half of the FTE single-account constraint is a partial unique index in `prisma/migrations/<ts>_fte_single_active_index/migration.sql`:
+The DB-side half of the DEDICATED single-account constraint is a partial unique index in `prisma/migrations/<ts>_rate_sheet_v2/migration.sql`:
 
 ```sql
-CREATE UNIQUE INDEX "assignment_fte_single_active"
+CREATE UNIQUE INDEX "assignment_dedicated_single_active"
   ON "assignments" ("technicianId")
-  WHERE "endDate" IS NULL AND "techType" = 'FTE';
+  WHERE "endDate" IS NULL AND "rateCategory" = 'DEDICATED';
 ```
 
 Application code must also enforce this on write — never rely on the index alone.
@@ -140,7 +149,7 @@ For local Postgres in this remote container, the system `postgresql` service is 
 ## Phased Build
 
 1. ✅ **Bootstrap**: `CLAUDE.md`, `.gitignore`, `README.md`, Next.js 15 + TS + Tailwind, Vitest + Playwright, Zod env validation, Prisma client singleton
-2. ✅ **Data model**: Prisma schema + migrations (Org, ClientAccount, RateCard, Technician, Assignment, TimesheetEntry, InvoiceRun, User, UserAccountAccess) + NextAuth adapter tables + FTE partial-unique index + idempotent seed
+2. ✅ **Data model**: rate-sheet-v2 schema — RateCategory enum (3), Band 0..4, master tables for Sla and RateSubCategory, per-account AccountRate matrix, MiscFee, Technician (firstName/lastName/band/primaryCategory), Assignment.rateCategory, DEDICATED partial-unique index, idempotent seed including masters
 3. **Auth + role middleware**: NextAuth (Microsoft Entra ID, restricted to `@ovationwps.com`) + ADMIN/SDM RBAC + `UserAccountAccess` scoping
 4. **Admin CRUD UI**: orgs / accounts / rate cards / technicians / users
 5. **SDM timesheet UI**: per-account monthly grid; tech × day cells; account auto-tagged

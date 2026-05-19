@@ -17,7 +17,7 @@ export async function createAssignment(
   const parsed = assignmentCreateSchema.safeParse({
     technicianId: formData.get("technicianId"),
     clientAccountId: formData.get("clientAccountId"),
-    techType: formData.get("techType"),
+    rateCategory: formData.get("rateCategory"),
     startDate: formData.get("startDate"),
     endDate: formData.get("endDate") || undefined,
   });
@@ -28,23 +28,35 @@ export async function createAssignment(
   const startDate = new Date(parsed.data.startDate);
   const endDate = parsed.data.endDate ? new Date(parsed.data.endDate) : null;
 
-  const [accountRateCards, existingTechAssignments] = await Promise.all([
-    prisma.rateCard.findMany({
+  const tech = await prisma.technician.findUnique({
+    where: { id: parsed.data.technicianId },
+    select: { id: true, band: true },
+  });
+  if (!tech) return { ok: false, formError: "Technician not found" };
+
+  const [accountRates, existingTechAssignments] = await Promise.all([
+    prisma.accountRate.findMany({
       where: { clientAccountId: parsed.data.clientAccountId },
-      select: { techType: true, effectiveFrom: true, effectiveTo: true },
+      select: {
+        band: true,
+        effectiveFrom: true,
+        effectiveTo: true,
+        rateSubCategory: { select: { rateCategory: true } },
+      },
     }),
     prisma.assignment.findMany({
       where: { technicianId: parsed.data.technicianId },
-      select: { id: true, techType: true, endDate: true },
+      select: { id: true, rateCategory: true, endDate: true },
     }),
   ]);
 
   const validation = validateAssignment({
-    technicianId: parsed.data.technicianId,
-    techType: parsed.data.techType,
+    technicianId: tech.id,
+    technicianBand: tech.band,
+    rateCategory: parsed.data.rateCategory,
     startDate,
     endDate,
-    accountRateCards,
+    accountRates,
     existingTechnicianAssignments: existingTechAssignments,
   });
   if (!validation.ok) {
@@ -56,7 +68,7 @@ export async function createAssignment(
       data: {
         technicianId: parsed.data.technicianId,
         clientAccountId: parsed.data.clientAccountId,
-        techType: parsed.data.techType,
+        rateCategory: parsed.data.rateCategory,
         startDate,
         endDate,
       },
@@ -65,11 +77,10 @@ export async function createAssignment(
     revalidatePath(`/admin/accounts/${parsed.data.clientAccountId}`);
     return { ok: true, id: assignment.id };
   } catch (err) {
-    // Catch the DB-side FTE single-active partial unique index for race conditions.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return {
         ok: false,
-        formError: "Technician already has an active FTE assignment (DB constraint).",
+        formError: "Technician already has an active DEDICATED assignment (DB constraint).",
       };
     }
     throw err;

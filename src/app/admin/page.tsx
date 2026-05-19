@@ -2,12 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 
 export default async function AdminDashboard() {
-  const [orgCount, accountCount, techCount, assignmentCount, activeFteCount] = await Promise.all([
+  const [orgCount, accountCount, techCount, assignmentCount, activeDedicatedCount] = await Promise.all([
     prisma.org.count(),
     prisma.clientAccount.count(),
     prisma.technician.count(),
     prisma.assignment.count(),
-    prisma.assignment.count({ where: { techType: "FTE", endDate: null } }),
+    prisma.assignment.count({ where: { rateCategory: "DEDICATED", endDate: null } }),
   ]);
 
   const cards = [
@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
     { label: "Client accounts", value: accountCount, href: "/admin/orgs" },
     { label: "Technicians", value: techCount, href: "/admin/technicians" },
     { label: "Assignments", value: assignmentCount, href: "/admin/technicians" },
-    { label: "Active FTE", value: activeFteCount, href: "/admin/technicians" },
+    { label: "Active dedicated", value: activeDedicatedCount, href: "/admin/technicians" },
   ];
 
   return (

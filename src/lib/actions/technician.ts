@@ -14,8 +14,10 @@ export async function createTechnician(
 
   const parsed = technicianCreateSchema.safeParse({
     employerOrgId: formData.get("employerOrgId"),
-    name: formData.get("name"),
-    primaryType: formData.get("primaryType"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    primaryCategory: formData.get("primaryCategory"),
+    band: formData.get("band"),
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

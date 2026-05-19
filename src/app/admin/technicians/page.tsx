@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { TechnicianCreateForm } from "./create-form";
+
+const categoryLabel: Record<RateCategory, string> = {
+  DEDICATED: "Dedicated",
+  PROJECT_TM: "Project / T&M",
+  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+};
 
 export default async function TechniciansPage() {
   const [techs, orgs] = await Promise.all([
@@ -9,7 +16,7 @@ export default async function TechniciansPage() {
         employerOrg: true,
         _count: { select: { assignments: true } },
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
@@ -26,7 +33,8 @@ export default async function TechniciansPage() {
           <thead className="bg-neutral-50 dark:bg-neutral-900">
             <tr>
               <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Primary type</th>
+              <th className="px-3 py-2 text-left">Primary category</th>
+              <th className="px-3 py-2 text-left">Band</th>
               <th className="px-3 py-2 text-left">Employer</th>
               <th className="px-3 py-2 text-right">Assignments</th>
             </tr>
@@ -36,17 +44,18 @@ export default async function TechniciansPage() {
               <tr key={t.id} className="border-t border-neutral-200 dark:border-neutral-800">
                 <td className="px-3 py-2">
                   <Link className="underline" href={`/admin/technicians/${t.id}` as never}>
-                    {t.name}
+                    {t.firstName} {t.lastName}
                   </Link>
                 </td>
-                <td className="px-3 py-2">{t.primaryType}</td>
+                <td className="px-3 py-2">{categoryLabel[t.primaryCategory]}</td>
+                <td className="px-3 py-2">Band {t.band}</td>
                 <td className="px-3 py-2">{t.employerOrg.name}</td>
                 <td className="px-3 py-2 text-right">{t._count.assignments}</td>
               </tr>
             ))}
             {techs.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-neutral-500">
+                <td colSpan={5} className="px-3 py-4 text-neutral-500">
                   No technicians yet.
                 </td>
               </tr>

@@ -1,4 +1,4 @@
-// Invoicing project - Phase 2 data model
+// Invoicing project - rate-sheet-v2 schema
 // See CLAUDE.md for entity-model intent.
 
 generator client {
@@ -24,18 +24,11 @@ enum OutputTemplate {
   PRE_INVOICE
 }
 
-enum TechType {
-  FTE
-  PROJECT
-  DISPATCH
-  SCHEDULED_VISIT
-}
-
-enum RateUnit {
-  HOURLY
-  DAILY
-  PER_VISIT
-  MONTHLY
+// The three top-level rate categories on every account's rate sheet.
+enum RateCategory {
+  DEDICATED // formerly TechType.FTE
+  PROJECT_TM // formerly TechType.PROJECT
+  DISPATCH_SCHED // dispatch + scheduled visit (merged)
 }
 
 enum InvoiceFormat {
@@ -43,8 +36,19 @@ enum InvoiceFormat {
   PRE_INVOICE
 }
 
+enum MiscFeeKind {
+  MISCELLANEOUS_PRICES
+  RETAINER_FEES
+  MILEAGE
+  BGV_COST
+  PER_DIEM
+  TOOLKIT
+  ACCOUNT_SPECIFIC
+  OTHER
+}
+
 // -------------------------------------------------------------------
-// Domain
+// Domain — Org / ClientAccount preserved
 // -------------------------------------------------------------------
 
 model Org {
@@ -69,59 +73,125 @@ model ClientAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  org         Org                 @relation(fields: [orgId], references: [id])
-  rateCards   RateCard[]
-  assignments Assignment[]
-  invoiceRuns InvoiceRun[]
-  userAccess  UserAccountAccess[]
+  org          Org                 @relation(fields: [orgId], references: [id])
+  accountRates AccountRate[]
+  miscFees     MiscFee[]
+  assignments  Assignment[]
+  invoiceRuns  InvoiceRun[]
+  userAccess   UserAccountAccess[]
 
   @@unique([orgId, name])
   @@map("client_accounts")
 }
 
-model RateCard {
-  id              String    @id @default(cuid())
+// -------------------------------------------------------------------
+// Rate-sheet masters (extensible — SLAs + sub-categories may grow)
+// -------------------------------------------------------------------
+
+// SLA master — NBD / SBD / 2BD / 3BD / 9X5X4 / 24X7X4 / SCHEDULE / NA
+model Sla {
+  id        String @id @default(cuid())
+  code      String @unique
+  label     String
+  sortOrder Int    @default(0)
+
+  accountRates AccountRate[]
+
+  @@map("slas")
+}
+
+// Rate sub-category master — one row per (rate category, sub-cat code).
+// e.g. (DISPATCH_SCHED, FIRST_HOUR), (PROJECT_TM, FULL_DAY), (DEDICATED, ANNUAL_BACKFILL)
+model RateSubCategory {
+  id                String       @id @default(cuid())
+  rateCategory      RateCategory
+  code              String
+  label             String
+  sortOrder         Int          @default(0)
+  // True for sub-categories that already represent an OT/weekend variant
+  // (e.g. HOURLY_BACKFILL_OT); the UI groups these with their base sub-cat.
+  isOvertimeVariant Boolean      @default(false)
+
+  accountRates AccountRate[]
+
+  @@unique([rateCategory, code])
+  @@map("rate_sub_categories")
+}
+
+// Per-account rate row. `rateAmount` is nullable so admins can leave the
+// cell blank and fill in later when commercials are finalised.
+model AccountRate {
+  id                String    @id @default(cuid())
+  clientAccountId   String
+  rateSubCategoryId String
+  band              Int // 0..4
+  slaId             String
+  rateAmount        Decimal?  @db.Decimal(12, 4)
+  effectiveFrom     DateTime  @db.Date
+  effectiveTo       DateTime? @db.Date
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  clientAccount   ClientAccount   @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
+  rateSubCategory RateSubCategory @relation(fields: [rateSubCategoryId], references: [id])
+  sla             Sla             @relation(fields: [slaId], references: [id])
+
+  @@unique([clientAccountId, rateSubCategoryId, band, slaId, effectiveFrom])
+  @@index([clientAccountId, rateSubCategoryId])
+  @@index([clientAccountId, band])
+  @@map("account_rates")
+}
+
+// Account-level miscellaneous fees (retainer, mileage, BGV, per diem, …).
+model MiscFee {
+  id              String      @id @default(cuid())
   clientAccountId String
-  techType        TechType
-  rateUnit        RateUnit
-  rateAmount      Decimal   @db.Decimal(12, 2)
-  otRate          Decimal?  @db.Decimal(12, 2)
-  effectiveFrom   DateTime  @db.Date
-  effectiveTo     DateTime? @db.Date
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  kind            MiscFeeKind
+  label           String
+  amount          Decimal?    @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   clientAccount ClientAccount @relation(fields: [clientAccountId], references: [id], onDelete: Cascade)
 
-  @@index([clientAccountId, techType, effectiveFrom])
-  @@map("rate_cards")
+  @@index([clientAccountId])
+  @@map("misc_fees")
 }
 
+// -------------------------------------------------------------------
+// Workforce
+// -------------------------------------------------------------------
+
 model Technician {
-  id            String   @id @default(cuid())
-  employerOrgId String
-  name          String
-  primaryType   TechType
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String       @id @default(cuid())
+  employerOrgId   String
+  firstName       String
+  lastName        String
+  primaryCategory RateCategory
+  band            Int // 0..4, technician's level/seniority
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   employerOrg Org          @relation(fields: [employerOrgId], references: [id])
   assignments Assignment[]
 
   @@index([employerOrgId, active])
+  @@index([primaryCategory, band])
   @@map("technicians")
 }
 
 model Assignment {
-  id              String    @id @default(cuid())
+  id              String       @id @default(cuid())
   technicianId    String
   clientAccountId String
-  techType        TechType
-  startDate       DateTime  @db.Date
-  endDate         DateTime? @db.Date
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  rateCategory    RateCategory
+  startDate       DateTime     @db.Date
+  endDate         DateTime?    @db.Date
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   technician       Technician       @relation(fields: [technicianId], references: [id])
   clientAccount    ClientAccount    @relation(fields: [clientAccountId], references: [id])
@@ -204,7 +274,6 @@ model UserAccountAccess {
 
 // -------------------------------------------------------------------
 // NextAuth adapter models (Phase 3 wiring)
-// Names locked by @auth/prisma-adapter; tables prefixed `auth_*`.
 // -------------------------------------------------------------------
 
 model Account {

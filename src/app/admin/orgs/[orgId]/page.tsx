@@ -13,7 +13,7 @@ export default async function OrgDetailPage({
     where: { id: orgId },
     include: {
       clientAccounts: {
-        include: { _count: { select: { rateCards: true, assignments: true } } },
+        include: { _count: { select: { accountRates: true, assignments: true } } },
         orderBy: { name: "asc" },
       },
     },
@@ -41,7 +41,7 @@ export default async function OrgDetailPage({
             <tr>
               <th className="px-3 py-2 text-left">Name</th>
               <th className="px-3 py-2 text-left">Currency</th>
-              <th className="px-3 py-2 text-right">Rate cards</th>
+              <th className="px-3 py-2 text-right">Rate rows</th>
               <th className="px-3 py-2 text-right">Assignments</th>
             </tr>
           </thead>
@@ -54,7 +54,7 @@ export default async function OrgDetailPage({
                   </Link>
                 </td>
                 <td className="px-3 py-2">{a.currency ?? org.defaultCurrency}</td>
-                <td className="px-3 py-2 text-right">{a._count.rateCards}</td>
+                <td className="px-3 py-2 text-right">{a._count.accountRates}</td>
                 <td className="px-3 py-2 text-right">{a._count.assignments}</td>
               </tr>
             ))}

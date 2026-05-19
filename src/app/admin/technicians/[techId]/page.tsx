@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TechType } from "@prisma/client";
+import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { filterActiveForTechType } from "@/lib/domain/rate-card-resolver";
+import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { AssignmentCreateForm, type AccountOption } from "./create-assignment-form";
 import { EndAssignmentButton } from "./end-assignment-button";
+
+const categoryLabel: Record<RateCategory, string> = {
+  DEDICATED: "Dedicated",
+  PROJECT_TM: "Project / T&M",
+  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+};
 
 function fmtDate(d: Date | null): string {
   return d ? d.toISOString().slice(0, 10) : "—";
@@ -31,32 +37,35 @@ export default async function TechnicianDetailPage({
   const accounts = await prisma.clientAccount.findMany({
     include: {
       org: { select: { name: true, defaultCurrency: true } },
-      rateCards: {
-        select: { techType: true, rateUnit: true, rateAmount: true, otRate: true, effectiveFrom: true, effectiveTo: true },
+      accountRates: {
+        include: { rateSubCategory: true, sla: true },
       },
     },
     orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
   });
 
   const today = new Date();
-  const accountOptions: AccountOption[] = accounts.map((a) => ({
-    id: a.id,
-    label: `${a.org.name} / ${a.name}`,
-    currency: a.currency ?? a.org.defaultCurrency,
-    activeByTechType: Object.fromEntries(
-      Object.values(TechType).map((t) => [
-        t,
-        filterActiveForTechType(a.rateCards, t, today).map((c) => ({
-          rateUnit: c.rateUnit,
-          rateAmount: c.rateAmount.toString(),
-          otRate: c.otRate ? c.otRate.toString() : null,
+  const accountOptions: AccountOption[] = accounts.map((a) => {
+    const previewByCategory = Object.fromEntries(
+      Object.values(RateCategory).map((cat) => [
+        cat,
+        ratesForTechnician(a.accountRates, cat, tech.band, today).map((r) => ({
+          subCategoryLabel: r.rateSubCategory.label,
+          sla: r.sla.code,
+          rateAmount: r.rateAmount ? r.rateAmount.toString() : null,
         })),
       ]),
-    ) as AccountOption["activeByTechType"],
-  }));
+    ) as AccountOption["previewByCategory"];
+    return {
+      id: a.id,
+      label: `${a.org.name} / ${a.name}`,
+      currency: a.currency ?? a.org.defaultCurrency,
+      previewByCategory,
+    };
+  });
 
-  const activeFte = tech.assignments.find(
-    (a) => a.techType === TechType.FTE && a.endDate === null,
+  const activeDedicated = tech.assignments.find(
+    (a) => a.rateCategory === RateCategory.DEDICATED && a.endDate === null,
   );
 
   return (
@@ -65,13 +74,16 @@ export default async function TechnicianDetailPage({
         <Link href="/admin/technicians" className="text-sm text-neutral-500 underline">
           ← Technicians
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{tech.name}</h1>
+        <h1 className="mt-1 text-2xl font-semibold">
+          {tech.firstName} {tech.lastName}
+        </h1>
         <p className="text-sm text-neutral-500">
-          Primary {tech.primaryType} · employed by {tech.employerOrg.name}
+          {categoryLabel[tech.primaryCategory]} · Band {tech.band} · employed by {tech.employerOrg.name}
         </p>
-        {activeFte && (
+        {activeDedicated && (
           <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-            Active FTE assignment at {activeFte.clientAccount.org.name} / {activeFte.clientAccount.name}. End it before starting a new FTE engagement.
+            Active DEDICATED assignment at {activeDedicated.clientAccount.org.name} /{" "}
+            {activeDedicated.clientAccount.name}. End it before starting a new DEDICATED engagement.
           </p>
         )}
       </div>
@@ -84,7 +96,7 @@ export default async function TechnicianDetailPage({
           <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900">
             <tr>
               <th className="px-3 py-2 text-left">Account</th>
-              <th className="px-3 py-2 text-left">Type</th>
+              <th className="px-3 py-2 text-left">Category</th>
               <th className="px-3 py-2 text-left">Start</th>
               <th className="px-3 py-2 text-left">End</th>
               <th className="px-3 py-2"></th>
@@ -98,7 +110,7 @@ export default async function TechnicianDetailPage({
                     {a.clientAccount.org.name} / {a.clientAccount.name}
                   </Link>
                 </td>
-                <td className="px-3 py-2">{a.techType}</td>
+                <td className="px-3 py-2">{categoryLabel[a.rateCategory]}</td>
                 <td className="px-3 py-2">{fmtDate(a.startDate)}</td>
                 <td className="px-3 py-2">{fmtDate(a.endDate)}</td>
                 <td className="px-3 py-2 text-right">
@@ -121,12 +133,13 @@ export default async function TechnicianDetailPage({
         <h2 className="text-lg font-semibold">New assignment</h2>
         {accountOptions.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            Create at least one client account with rate cards first.
+            Create at least one client account with rate rows first.
           </p>
         ) : (
           <AssignmentCreateForm
             technicianId={tech.id}
-            primaryType={tech.primaryType}
+            technicianBand={tech.band}
+            primaryCategory={tech.primaryCategory}
             accounts={accountOptions}
           />
         )}

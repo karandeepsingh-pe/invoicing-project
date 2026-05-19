@@ -1,37 +1,49 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { TechType } from "@prisma/client";
+import { RateCategory } from "@prisma/client";
 import { createAssignment } from "@/lib/actions/assignment";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
 
-type RatePreview = { rateUnit: string; rateAmount: string; otRate: string | null };
+type PreviewRow = {
+  subCategoryLabel: string;
+  sla: string;
+  rateAmount: string | null;
+};
 
 export type AccountOption = {
   id: string;
   label: string;
   currency: string;
-  activeByTechType: Record<keyof typeof TechType, RatePreview[]>;
+  previewByCategory: Record<keyof typeof RateCategory, PreviewRow[]>;
+};
+
+const categoryLabel: Record<RateCategory, string> = {
+  DEDICATED: "Dedicated",
+  PROJECT_TM: "Project / T&M",
+  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
 };
 
 export function AssignmentCreateForm({
   technicianId,
-  primaryType,
+  technicianBand,
+  primaryCategory,
   accounts,
 }: {
   technicianId: string;
-  primaryType: TechType;
+  technicianBand: number;
+  primaryCategory: RateCategory;
   accounts: AccountOption[];
 }) {
   const [state, action] = useActionState(createAssignment, null);
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-  const [techType, setTechType] = useState<TechType>(primaryType);
+  const [category, setCategory] = useState<RateCategory>(primaryCategory);
 
   const selectedAccount = useMemo(
     () => accounts.find((a) => a.id === accountId),
     [accountId, accounts],
   );
-  const preview = selectedAccount?.activeByTechType[techType] ?? [];
+  const preview = selectedAccount?.previewByCategory[category] ?? [];
 
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
@@ -57,17 +69,17 @@ export function AssignmentCreateForm({
           ))}
         </SelectField>
         <SelectField
-          label="Tech type"
-          name="techType"
+          label="Category"
+          name="rateCategory"
           required
-          value={techType}
-          onChange={(e) => setTechType(e.target.value as TechType)}
-          errors={fieldErrors?.techType}
-          hint={`Default: ${primaryType}`}
+          value={category}
+          onChange={(e) => setCategory(e.target.value as RateCategory)}
+          errors={fieldErrors?.rateCategory}
+          hint={`Default: ${categoryLabel[primaryCategory]}`}
         >
-          {Object.values(TechType).map((t) => (
-            <option key={t} value={t}>
-              {t}
+          {Object.values(RateCategory).map((c) => (
+            <option key={c} value={c}>
+              {categoryLabel[c]}
             </option>
           ))}
         </SelectField>
@@ -83,30 +95,42 @@ export function AssignmentCreateForm({
           name="endDate"
           type="date"
           errors={fieldErrors?.endDate}
-          hint="Leave blank for open-ended (required for FTE)"
+          hint="Open-ended if blank (typical for DEDICATED)"
         />
       </div>
 
       <div className="rounded border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-        <div className="mb-1 text-xs uppercase tracking-wide text-neutral-500">
-          Inherited rates ({selectedAccount?.label}, {techType})
+        <div className="mb-2 text-xs uppercase tracking-wide text-neutral-500">
+          Inherited rates for {selectedAccount?.label} · {categoryLabel[category]} · Band {technicianBand}
         </div>
         {preview.length === 0 ? (
           <div className="text-red-700">
-            No active rate cards for this combination — assignment will be blocked. Add a rate card on the account first.
+            No active rate rows for this combination — the assignment will be blocked. Add at least one rate
+            row on the account for {categoryLabel[category]} at Band {technicianBand} first.
           </div>
         ) : (
-          <ul className="grid grid-cols-1 gap-1 md:grid-cols-2">
-            {preview.map((p) => (
-              <li key={p.rateUnit} className="text-neutral-700 dark:text-neutral-300">
-                <span className="font-mono text-xs">{p.rateUnit}</span> · {selectedAccount!.currency}{" "}
-                {Number(p.rateAmount).toFixed(2)}
-                {p.otRate && (
-                  <span className="text-neutral-500"> (OT {Number(p.otRate).toFixed(2)})</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <table className="w-full text-xs">
+            <thead className="text-neutral-500">
+              <tr>
+                <th className="py-1 text-left">Sub-category</th>
+                <th className="py-1 text-left">SLA</th>
+                <th className="py-1 text-right">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((p, i) => (
+                <tr key={`${p.subCategoryLabel}-${p.sla}-${i}`}>
+                  <td className="py-1">{p.subCategoryLabel}</td>
+                  <td className="py-1">{p.sla}</td>
+                  <td className="py-1 text-right">
+                    {p.rateAmount === null
+                      ? "—"
+                      : `${selectedAccount!.currency} ${Number(p.rateAmount).toFixed(4).replace(/\.?0+$/, "")}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
