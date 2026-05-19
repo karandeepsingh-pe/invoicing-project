@@ -7,6 +7,9 @@ build/
 .turbo/
 .pnpm-store/
 
+# TypeScript
+*.tsbuildinfo
+
 # Env
 .env
 .env.local
