@@ -3,6 +3,7 @@ import Link from "next/link";
 const sections: { href: string; label: string }[] = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/orgs", label: "Orgs" },
+  { href: "/admin/commercials", label: "Commercials" },
   { href: "/admin/technicians", label: "Technicians" },
 ];
 
