@@ -8,8 +8,11 @@ export function MiscFeeDeleteButton({ id }: { id: string }) {
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      <button type="submit" className="text-xs text-red-600 underline hover:text-red-800">
-        delete
+      <button
+        type="submit"
+        className="text-xs font-medium text-danger underline-offset-2 hover:underline"
+      >
+        Delete
       </button>
     </form>
   );

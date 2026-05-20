@@ -1,22 +1,42 @@
 import Link from "next/link";
 import { env } from "@/lib/env";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">
-        {env.NEXT_PUBLIC_APP_NAME}
-      </h1>
-      <p className="text-neutral-600 dark:text-neutral-400">
-        Onboarding-v1 — admins configure orgs, accounts, rate cards, technicians,
-        and assignments. Timesheet capture and invoice generation land in later phases.
-      </p>
-      <Link
-        href="/admin"
-        className="self-start rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-      >
-        Open admin
-      </Link>
+    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-6">
+      <div className="absolute right-6 top-6 w-32">
+        <ThemeToggle />
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-sm font-bold tracking-tight text-accent-fg shadow-sm">
+          OV
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+          {env.NEXT_PUBLIC_APP_NAME}
+        </span>
+      </div>
+      <div className="flex flex-col gap-4">
+        <h1 className="max-w-2xl text-5xl font-semibold leading-[1.05] tracking-tighter2 text-fg">
+          Invoice automation,<br />
+          <span className="text-fg-muted">end to end.</span>
+        </h1>
+        <p className="max-w-xl text-base leading-relaxed text-fg-muted">
+          Admins configure orgs, accounts, rate cards, technicians, and assignments. SDMs capture
+          timesheets. The engine generates FSO and Pre-Invoice sheets on demand.
+        </p>
+      </div>
+      <div className="flex gap-3">
+        <Link
+          href="/admin"
+          className="inline-flex items-center rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg shadow-sm transition-colors hover:bg-accent-hover"
+        >
+          Open admin
+          <svg className="ml-1.5 h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+          </svg>
+        </Link>
+      </div>
     </main>
   );
 }

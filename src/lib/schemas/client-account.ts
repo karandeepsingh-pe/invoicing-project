@@ -13,3 +13,17 @@ export const clientAccountCreateSchema = z.object({
 });
 
 export type ClientAccountCreateInput = z.infer<typeof clientAccountCreateSchema>;
+
+export const clientAccountUpdateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(120),
+  currency: z
+    .string()
+    .trim()
+    .length(3)
+    .regex(/^[A-Z]{3}$/, "ISO 4217 currency code (e.g. USD)")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+export type ClientAccountUpdateInput = z.infer<typeof clientAccountUpdateSchema>;

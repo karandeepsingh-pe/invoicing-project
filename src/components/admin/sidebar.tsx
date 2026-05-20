@@ -1,30 +1,174 @@
-import Link from "next/link";
+"use client";
 
-const sections: { href: string; label: string }[] = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/orgs", label: "Orgs" },
-  { href: "/admin/commercials", label: "Commercials" },
-  { href: "/admin/technicians", label: "Technicians" },
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
+
+type FlatLink = { kind: "link"; href: string; label: string };
+type Group = { kind: "group"; id: string; label: string; children: FlatLink[] };
+type Section = FlatLink | Group;
+
+const sections: Section[] = [
+  { kind: "link", href: "/admin", label: "Dashboard" },
+  { kind: "link", href: "/admin/management", label: "Management" },
+  { kind: "link", href: "/admin/orgs", label: "Orgs" },
+  { kind: "link", href: "/admin/accounts", label: "Accounts" },
+  { kind: "link", href: "/admin/commercials", label: "Commercials" },
+  { kind: "link", href: "/admin/technicians", label: "Technicians" },
+  {
+    kind: "group",
+    id: "masters",
+    label: "Masters",
+    children: [
+      { kind: "link", href: "/admin/masters/slas", label: "SLAs" },
+      { kind: "link", href: "/admin/masters/sub-categories", label: "Sub-categories" },
+      { kind: "link", href: "/admin/masters/bands", label: "Bands" },
+    ],
+  },
 ];
 
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function groupContainsActive(pathname: string, group: Group): boolean {
+  return group.children.some((c) => isActive(pathname, c.href));
+}
+
 export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
+  const pathname = usePathname() ?? "/admin";
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+
+  // Auto-open the group whose child is active (on first mount + when path changes).
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      for (const s of sections) {
+        if (s.kind === "group" && groupContainsActive(pathname, s)) {
+          next.add(s.id);
+        }
+      }
+      return next;
+    });
+  }, [pathname]);
+
+  function toggleGroup(id: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
-    <aside className="flex w-56 flex-col gap-2 border-r border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-      <div className="mb-4">
-        <div className="text-xs uppercase tracking-wider text-neutral-500">Signed in</div>
-        <div className="text-sm font-medium">{adminEmail}</div>
+    <aside className="glass-strong sticky top-0 flex h-screen w-64 flex-col justify-between rounded-none border-b-0 border-l-0 border-t-0 px-4 py-5">
+      <div className="flex flex-col gap-7">
+        <Link href="/admin" className="flex items-center gap-2.5 px-1">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold tracking-tight text-accent-fg shadow-sm">
+            OV
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-semibold tracking-tightish">Ovation</span>
+            <span className="text-[10px] uppercase tracking-wider text-fg-subtle">Invoicing</span>
+          </div>
+        </Link>
+
+        <nav className="flex flex-col gap-0.5">
+          <span className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+            Workspace
+          </span>
+          {sections.map((s) => {
+            if (s.kind === "link") {
+              const active = isActive(pathname, s.href);
+              return (
+                <Link
+                  key={s.href}
+                  href={s.href as never}
+                  aria-current={active ? "page" : undefined}
+                  className={
+                    "group relative flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all " +
+                    (active
+                      ? "bg-surface/60 text-fg shadow-sm backdrop-blur"
+                      : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                  }
+                >
+                  {active && (
+                    <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" aria-hidden="true" />
+                  )}
+                  <span>{s.label}</span>
+                </Link>
+              );
+            }
+            // Group
+            const open = openGroups.has(s.id);
+            const containsActive = groupContainsActive(pathname, s);
+            return (
+              <div key={s.id} className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(s.id)}
+                  aria-expanded={open}
+                  className={
+                    "group flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-all " +
+                    (containsActive
+                      ? "text-fg"
+                      : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                  }
+                >
+                  <span>{s.label}</span>
+                  <ChevronIcon
+                    className={`h-3.5 w-3.5 text-fg-subtle transition-transform duration-200 ${open ? "rotate-90" : "rotate-0"}`}
+                  />
+                </button>
+                {open && (
+                  <div className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-border/60 pl-2">
+                    {s.children.map((c) => {
+                      const active = isActive(pathname, c.href);
+                      return (
+                        <Link
+                          key={c.href}
+                          href={c.href as never}
+                          aria-current={active ? "page" : undefined}
+                          className={
+                            "relative flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-all " +
+                            (active
+                              ? "bg-surface/60 text-fg shadow-sm backdrop-blur"
+                              : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                          }
+                        >
+                          {active && (
+                            <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent" aria-hidden="true" />
+                          )}
+                          <span>{c.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
       </div>
-      <nav className="flex flex-col gap-1">
-        {sections.map((s) => (
-          <Link
-            key={s.href}
-            href={s.href as never}
-            className="rounded px-2 py-1.5 text-sm hover:bg-neutral-200 dark:hover:bg-neutral-800"
-          >
-            {s.label}
-          </Link>
-        ))}
-      </nav>
+
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <div className="px-1">
+          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">Signed in</div>
+          <div className="truncate text-xs font-medium text-fg">{adminEmail}</div>
+        </div>
+        <ThemeToggle />
+      </div>
     </aside>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+    </svg>
   );
 }

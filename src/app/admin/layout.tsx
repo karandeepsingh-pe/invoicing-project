@@ -8,7 +8,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-screen">
       <AdminSidebar adminEmail={admin.email} />
-      <main className="flex-1 p-6">{children}</main>
+      <main className="flex-1 px-8 py-8">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   );
 }

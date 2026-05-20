@@ -1,79 +1,147 @@
-import Link from "next/link";
-import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { TechnicianCreateForm } from "./create-form";
+import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
+import { TechnicianCreateDialog } from "./create-dialog";
+import {
+  TechniciansGrid,
+  type RateGroup,
+  type RateRow,
+  type TechCard,
+} from "./technicians-grid";
 
-const categoryLabel: Record<RateCategory, string> = {
-  DEDICATED: "Dedicated",
-  PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
-};
+function fmtDate(d: Date | null): string {
+  return d ? d.toISOString().slice(0, 10) : "—";
+}
 
 export default async function TechniciansPage() {
-  const [techs, orgs] = await Promise.all([
+  const [techs, orgs, accounts] = await Promise.all([
     prisma.technician.findMany({
       include: {
         employerOrg: true,
         _count: { select: { assignments: true } },
+        assignments: {
+          where: { endDate: null },
+          include: {
+            clientAccount: {
+              include: {
+                org: { select: { name: true, defaultCurrency: true } },
+                accountRates: { include: { rateSubCategory: true, sla: true } },
+              },
+            },
+          },
+          orderBy: { startDate: "desc" },
+        },
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.clientAccount.findMany({
+      include: {
+        org: { select: { name: true, defaultCurrency: true } },
+        accountRates: { include: { rateSubCategory: true, sla: true } },
+      },
+      orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+    }),
   ]);
 
+  const today = new Date();
+
+  const cards: TechCard[] = techs.map((t) => {
+    const activeGroups: RateGroup[] = t.assignments.map((a) => {
+      const rows: RateRow[] = ratesForTechnician(
+        a.clientAccount.accountRates,
+        a.rateCategory,
+        t.band,
+        today,
+      ).map((r) => ({
+        id: r.id,
+        subCategoryLabel: r.rateSubCategory.label,
+        sla: r.sla.code,
+        rateAmount: r.rateAmount ? r.rateAmount.toString() : null,
+        effectiveFrom: fmtDate(r.effectiveFrom),
+        effectiveTo: r.effectiveTo ? fmtDate(r.effectiveTo) : null,
+      }));
+      return {
+        accountId: a.clientAccount.id,
+        orgName: a.clientAccount.org.name,
+        accountName: a.clientAccount.name,
+        category: a.rateCategory,
+        currency: a.clientAccount.currency ?? a.clientAccount.org.defaultCurrency,
+        rows,
+        kind: "active" as const,
+      };
+    });
+
+    // Fallback "potential" view when tech has no active assignments.
+    // Show what they would inherit at each account at their primary category + band.
+    const potentialGroups: RateGroup[] =
+      activeGroups.length === 0
+        ? accounts
+            .map((a): RateGroup | null => {
+              const rows: RateRow[] = ratesForTechnician(
+                a.accountRates,
+                t.primaryCategory,
+                t.band,
+                today,
+              ).map((r) => ({
+                id: r.id,
+                subCategoryLabel: r.rateSubCategory.label,
+                sla: r.sla.code,
+                rateAmount: r.rateAmount ? r.rateAmount.toString() : null,
+                effectiveFrom: fmtDate(r.effectiveFrom),
+                effectiveTo: r.effectiveTo ? fmtDate(r.effectiveTo) : null,
+              }));
+              if (rows.length === 0) return null;
+              return {
+                accountId: a.id,
+                orgName: a.org.name,
+                accountName: a.name,
+                category: t.primaryCategory,
+                currency: a.currency ?? a.org.defaultCurrency,
+                rows,
+                kind: "potential",
+              };
+            })
+            .filter((g): g is RateGroup => g !== null)
+        : [];
+
+    return {
+      id: t.id,
+      firstName: t.firstName,
+      lastName: t.lastName,
+      primaryCategory: t.primaryCategory,
+      band: t.band,
+      employerOrgName: t.employerOrg.name,
+      active: t.active,
+      totalAssignments: t._count.assignments,
+      activeAssignmentCount: t.assignments.length,
+      rateGroups: [...activeGroups, ...potentialGroups],
+    };
+  });
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold">Technicians</h1>
-        <span className="text-sm text-neutral-500">{techs.length} total</span>
-      </div>
+    <div className="flex flex-col gap-8 animate-fade-in">
+      <header className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Workforce</span>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-4xl font-semibold tracking-tighter2">Technicians</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-fg-subtle">{cards.length} total</span>
+            <TechnicianCreateDialog
+              orgs={orgs}
+              accounts={accounts.map((a) => ({
+                id: a.id,
+                label: `${a.org.name} / ${a.name}`,
+              }))}
+            />
+          </div>
+        </div>
+        <p className="max-w-2xl text-sm text-fg-muted">
+          Field techs assignable to client accounts. The rate sheet on each card is computed
+          live from the tech&rsquo;s active assignments at their current band.
+        </p>
+      </header>
 
-      <section className="rounded border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 dark:bg-neutral-900">
-            <tr>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Primary category</th>
-              <th className="px-3 py-2 text-left">Band</th>
-              <th className="px-3 py-2 text-left">Employer</th>
-              <th className="px-3 py-2 text-right">Assignments</th>
-            </tr>
-          </thead>
-          <tbody>
-            {techs.map((t) => (
-              <tr key={t.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                <td className="px-3 py-2">
-                  <Link className="underline" href={`/admin/technicians/${t.id}` as never}>
-                    {t.firstName} {t.lastName}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">{categoryLabel[t.primaryCategory]}</td>
-                <td className="px-3 py-2">Band {t.band}</td>
-                <td className="px-3 py-2">{t.employerOrg.name}</td>
-                <td className="px-3 py-2 text-right">{t._count.assignments}</td>
-              </tr>
-            ))}
-            {techs.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-4 text-neutral-500">
-                  No technicians yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="flex flex-col gap-3 rounded border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">Add technician</h2>
-        {orgs.length === 0 ? (
-          <p className="text-sm text-neutral-500">
-            Create an org first so the technician has an employer.
-          </p>
-        ) : (
-          <TechnicianCreateForm orgs={orgs} />
-        )}
-      </section>
+      <TechniciansGrid techs={cards} />
     </div>
   );
 }

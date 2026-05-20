@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { MiscFeeKind } from "@prisma/client";
 import { createMiscFee } from "@/lib/actions/misc-fee";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
@@ -16,10 +16,20 @@ const kindLabel: Record<MiscFeeKind, string> = {
   OTHER: "Other",
 };
 
-export function MiscFeeCreateForm({ clientAccountId }: { clientAccountId: string }) {
+export function MiscFeeCreateForm({
+  clientAccountId,
+  onSuccess,
+}: {
+  clientAccountId: string;
+  onSuccess?: () => void;
+}) {
   const [state, action] = useActionState(createMiscFee, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useEffect(() => {
+    if (state && state.ok) onSuccess?.();
+  }, [state, onSuccess]);
 
   return (
     <form action={action} className="grid grid-cols-2 gap-3 md:grid-cols-4">

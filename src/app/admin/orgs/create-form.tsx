@@ -1,14 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { OutputTemplate } from "@prisma/client";
 import { createOrg } from "@/lib/actions/org";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
 
-export function OrgCreateForm() {
+export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const [state, action] = useActionState(createOrg, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useEffect(() => {
+    if (state && state.ok) onSuccess?.();
+  }, [state, onSuccess]);
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -33,7 +37,7 @@ export function OrgCreateForm() {
         errors={fieldErrors?.defaultCurrency}
       />
       <SubmitButton>Create org</SubmitButton>
-      {state && state.ok && <div className="text-sm text-green-700">Org created.</div>}
+      {state && state.ok && !onSuccess && <div className="text-sm text-success">Org created.</div>}
     </form>
   );
 }
