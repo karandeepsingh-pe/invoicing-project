@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { ClientAccountCreateForm } from "./create-account-form";
+import { CreateAccountUnderOrgDialog } from "./create-account-dialog";
 
 export default async function OrgDetailPage({
   params,
@@ -21,46 +21,50 @@ export default async function OrgDetailPage({
   if (!org) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link href="/admin/orgs" className="text-sm text-neutral-500 underline">
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-1">
+        <Link href="/admin/orgs" className="text-xs font-medium text-fg-subtle hover:text-fg">
           ← Orgs
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{org.name}</h1>
-        <p className="text-sm text-neutral-500">
-          {org.outputTemplate} · default {org.defaultCurrency}
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{org.name}</h1>
+        <p className="text-sm text-fg-muted">
+          {org.outputTemplate} · default currency {org.defaultCurrency}
         </p>
-      </div>
+      </header>
 
-      <section className="rounded border border-neutral-200 dark:border-neutral-800">
-        <div className="border-b border-neutral-200 px-3 py-2 text-sm font-medium dark:border-neutral-800">
-          Client accounts
+      <section className="glass overflow-hidden">
+        <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5">
+          <span className="text-sm font-semibold tracking-tight">Client accounts</span>
+          <CreateAccountUnderOrgDialog orgId={org.id} defaultCurrency={org.defaultCurrency} />
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-neutral-50 dark:bg-neutral-900">
-            <tr>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Currency</th>
-              <th className="px-3 py-2 text-right">Rate rows</th>
-              <th className="px-3 py-2 text-right">Assignments</th>
+          <thead className="text-xs uppercase tracking-wider text-fg-subtle">
+            <tr className="border-b border-border">
+              <th className="px-4 py-2 text-left font-medium">Name</th>
+              <th className="px-4 py-2 text-left font-medium">Currency</th>
+              <th className="px-4 py-2 text-right font-medium">Rate rows</th>
+              <th className="px-4 py-2 text-right font-medium">Assignments</th>
             </tr>
           </thead>
           <tbody>
             {org.clientAccounts.map((a) => (
-              <tr key={a.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                <td className="px-3 py-2">
-                  <Link className="underline" href={`/admin/accounts/${a.id}` as never}>
+              <tr
+                key={a.id}
+                className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
+              >
+                <td className="px-4 py-2.5">
+                  <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${a.id}` as never}>
                     {a.name}
                   </Link>
                 </td>
-                <td className="px-3 py-2">{a.currency ?? org.defaultCurrency}</td>
-                <td className="px-3 py-2 text-right">{a._count.accountRates}</td>
-                <td className="px-3 py-2 text-right">{a._count.assignments}</td>
+                <td className="px-4 py-2.5 text-fg-muted">{a.currency ?? org.defaultCurrency}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{a._count.accountRates}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{a._count.assignments}</td>
               </tr>
             ))}
             {org.clientAccounts.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-neutral-500">
+                <td colSpan={4} className="px-4 py-4 text-sm text-fg-subtle">
                   No accounts yet.
                 </td>
               </tr>
@@ -69,10 +73,6 @@ export default async function OrgDetailPage({
         </table>
       </section>
 
-      <section className="flex flex-col gap-3 rounded border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">Create account</h2>
-        <ClientAccountCreateForm orgId={org.id} defaultCurrency={org.defaultCurrency} />
-      </section>
     </div>
   );
 }

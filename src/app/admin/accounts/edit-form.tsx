@@ -1,0 +1,69 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { updateClientAccount } from "@/lib/actions/client-account";
+import { FormError, SubmitButton, TextField } from "@/components/admin/field";
+
+export function ClientAccountEditForm({
+  id,
+  name,
+  currency,
+  orgDefaultCurrency,
+}: {
+  id: string;
+  name: string;
+  currency: string | null;
+  orgDefaultCurrency: string;
+}) {
+  const [state, action] = useActionState(updateClientAccount, null);
+  const [open, setOpen] = useState(false);
+
+  const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
+  const formError = state && state.ok === false ? state.formError : undefined;
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+      >
+        Edit
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={action}
+      className="glass-soft flex flex-col gap-2 rounded-md p-3"
+    >
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs font-semibold tracking-tightish">Edit account</span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-xs font-medium text-fg-subtle hover:text-fg"
+        >
+          Cancel
+        </button>
+      </div>
+      <input type="hidden" name="id" value={id} />
+      <FormError error={formError} />
+      <TextField label="Name" name="name" defaultValue={name} required errors={fieldErrors?.name} />
+      <TextField
+        label="Currency override"
+        name="currency"
+        maxLength={3}
+        defaultValue={currency ?? ""}
+        placeholder={orgDefaultCurrency}
+        hint={`Leave blank to inherit org default (${orgDefaultCurrency}).`}
+        errors={fieldErrors?.currency}
+      />
+      <div className="flex items-center gap-2">
+        <SubmitButton>Save</SubmitButton>
+        {state && state.ok && <span className="text-xs text-success">Saved.</span>}
+      </div>
+    </form>
+  );
+}

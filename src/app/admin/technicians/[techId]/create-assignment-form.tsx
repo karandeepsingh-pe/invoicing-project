@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { createAssignment } from "@/lib/actions/assignment";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
@@ -29,13 +29,19 @@ export function AssignmentCreateForm({
   technicianBand,
   primaryCategory,
   accounts,
+  onSuccess,
 }: {
   technicianId: string;
   technicianBand: number;
   primaryCategory: RateCategory;
   accounts: AccountOption[];
+  onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createAssignment, null);
+
+  useEffect(() => {
+    if (state && state.ok) onSuccess?.();
+  }, [state, onSuccess]);
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [category, setCategory] = useState<RateCategory>(primaryCategory);
 
@@ -99,18 +105,18 @@ export function AssignmentCreateForm({
         />
       </div>
 
-      <div className="rounded border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-        <div className="mb-2 text-xs uppercase tracking-wide text-neutral-500">
+      <div className="glass-soft rounded-md p-3 text-sm">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-fg-subtle">
           Inherited rates for {selectedAccount?.label} · {categoryLabel[category]} · Band {technicianBand}
         </div>
         {preview.length === 0 ? (
-          <div className="text-red-700">
+          <div className="text-danger">
             No active rate rows for this combination — the assignment will be blocked. Add at least one rate
             row on the account for {categoryLabel[category]} at Band {technicianBand} first.
           </div>
         ) : (
           <table className="w-full text-xs">
-            <thead className="text-neutral-500">
+            <thead className="text-fg-subtle">
               <tr>
                 <th className="py-1 text-left">Sub-category</th>
                 <th className="py-1 text-left">SLA</th>
@@ -121,8 +127,8 @@ export function AssignmentCreateForm({
               {preview.map((p, i) => (
                 <tr key={`${p.subCategoryLabel}-${p.sla}-${i}`}>
                   <td className="py-1">{p.subCategoryLabel}</td>
-                  <td className="py-1">{p.sla}</td>
-                  <td className="py-1 text-right">
+                  <td className="py-1 text-fg-muted">{p.sla}</td>
+                  <td className="py-1 text-right tabular-nums">
                     {p.rateAmount === null
                       ? "—"
                       : `${selectedAccount!.currency} ${Number(p.rateAmount).toFixed(4).replace(/\.?0+$/, "")}`}
@@ -135,7 +141,7 @@ export function AssignmentCreateForm({
       </div>
 
       <SubmitButton>Create assignment</SubmitButton>
-      {state && state.ok && <div className="text-sm text-green-700">Assignment created.</div>}
+      {state && state.ok && <div className="text-sm text-success">Assignment created.</div>}
     </form>
   );
 }

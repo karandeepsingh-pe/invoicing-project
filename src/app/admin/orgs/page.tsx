@@ -1,58 +1,40 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { OrgCreateForm } from "./create-form";
+import { OrgCreateDialog } from "./create-dialog";
+import { OrgsGrid, type OrgCard } from "./orgs-grid";
 
 export default async function OrgsPage() {
-  const orgs = await prisma.org.findMany({
-    include: { _count: { select: { clientAccounts: true } } },
+  const rows = await prisma.org.findMany({
+    include: { _count: { select: { clientAccounts: true, technicians: true } } },
     orderBy: { name: "asc" },
   });
 
+  const orgs: OrgCard[] = rows.map((o) => ({
+    id: o.id,
+    name: o.name,
+    outputTemplate: o.outputTemplate,
+    defaultCurrency: o.defaultCurrency,
+    accountCount: o._count.clientAccounts,
+    technicianCount: o._count.technicians,
+  }));
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold">Orgs</h1>
-        <span className="text-sm text-neutral-500">{orgs.length} total</span>
-      </div>
+    <div className="flex flex-col gap-8 animate-fade-in">
+      <header className="flex flex-col gap-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Workspace</span>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-4xl font-semibold tracking-tighter2">Orgs</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-fg-subtle">{orgs.length} total</span>
+            <OrgCreateDialog />
+          </div>
+        </div>
+        <p className="max-w-2xl text-sm text-fg-muted">
+          Vendor partners that own client accounts. HCL receives FSO output; every other org
+          receives Pre-Invoice.
+        </p>
+      </header>
 
-      <section className="rounded border border-neutral-200 dark:border-neutral-800">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 dark:bg-neutral-900">
-            <tr>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Output template</th>
-              <th className="px-3 py-2 text-left">Default currency</th>
-              <th className="px-3 py-2 text-right">Accounts</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orgs.map((o) => (
-              <tr key={o.id} className="border-t border-neutral-200 dark:border-neutral-800">
-                <td className="px-3 py-2">
-                  <Link className="underline" href={`/admin/orgs/${o.id}` as never}>
-                    {o.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2">{o.outputTemplate}</td>
-                <td className="px-3 py-2">{o.defaultCurrency}</td>
-                <td className="px-3 py-2 text-right">{o._count.clientAccounts}</td>
-              </tr>
-            ))}
-            {orgs.length === 0 && (
-              <tr>
-                <td className="px-3 py-4 text-neutral-500" colSpan={4}>
-                  No orgs yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="flex flex-col gap-3 rounded border border-neutral-200 p-4 dark:border-neutral-800">
-        <h2 className="text-lg font-semibold">Create org</h2>
-        <OrgCreateForm />
-      </section>
+      <OrgsGrid orgs={orgs} />
     </div>
   );
 }

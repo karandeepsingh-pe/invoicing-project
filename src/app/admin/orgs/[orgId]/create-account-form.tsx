@@ -1,19 +1,25 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { createClientAccount } from "@/lib/actions/client-account";
 import { FormError, SubmitButton, TextField } from "@/components/admin/field";
 
 export function ClientAccountCreateForm({
   orgId,
   defaultCurrency,
+  onSuccess,
 }: {
   orgId: string;
   defaultCurrency: string;
+  onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createClientAccount, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useEffect(() => {
+    if (state && state.ok) onSuccess?.();
+  }, [state, onSuccess]);
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -29,7 +35,7 @@ export function ClientAccountCreateForm({
         errors={fieldErrors?.currency}
       />
       <SubmitButton>Create account</SubmitButton>
-      {state && state.ok && <div className="text-sm text-green-700">Account created.</div>}
+      {state && state.ok && !onSuccess && <div className="text-sm text-success">Account created.</div>}
     </form>
   );
 }

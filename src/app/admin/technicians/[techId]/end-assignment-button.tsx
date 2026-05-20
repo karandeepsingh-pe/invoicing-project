@@ -13,16 +13,16 @@ export function EndAssignmentButton({ id }: { id: string }) {
         type="date"
         name="endDate"
         defaultValue={today}
-        className="rounded border border-neutral-300 px-1.5 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+        className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
       />
       <button
         type="submit"
-        className="rounded border border-neutral-300 px-2 py-0.5 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
-        end
+        End
       </button>
       {state && state.ok === false && (
-        <span className="text-xs text-red-600">{state.formError}</span>
+        <span className="text-xs text-danger">{state.formError}</span>
       )}
     </form>
   );

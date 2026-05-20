@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { createAccountRate } from "@/lib/actions/account-rate";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
@@ -18,13 +18,19 @@ export function AccountRateCreateForm({
   clientAccountId,
   subCategories,
   slas,
+  onSuccess,
 }: {
   clientAccountId: string;
   subCategories: SubCat[];
   slas: Sla[];
+  onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createAccountRate, null);
   const [category, setCategory] = useState<RateCategory>(RateCategory.DEDICATED);
+
+  useEffect(() => {
+    if (state && state.ok) onSuccess?.();
+  }, [state, onSuccess]);
 
   const subCatsForCategory = useMemo(
     () => subCategories.filter((s) => s.rateCategory === category),

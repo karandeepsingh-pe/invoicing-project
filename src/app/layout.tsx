@@ -1,6 +1,20 @@
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { env } from "@/lib/env";
+import { ThemeProvider } from "@/components/theme-provider";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
@@ -13,9 +27,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-white text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-50">
-        {children}
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
+      <body className="min-h-screen bg-bg font-sans text-fg antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

@@ -2,11 +2,190 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light dark;
+@layer base {
+  :root {
+    --bg: 248 250 252;            /* slate-50 base */
+    --surface: 255 255 255;
+    --surface-2: 247 248 250;
+    --fg: 15 23 42;
+    --fg-muted: 71 85 105;
+    --fg-subtle: 100 116 139;
+    --border: 226 232 240;
+    --border-strong: 203 213 225;
+    --accent: 79 70 229;
+    --accent-hover: 67 56 202;
+    --accent-fg: 255 255 255;
+    --danger: 185 28 28;
+    --danger-bg: 254 242 242;
+    --success: 21 128 61;
+    --success-bg: 240 253 244;
+
+    /* Glass tokens */
+    --glass-bg: 255 255 255;
+    --glass-bg-alpha: 0.62;
+    --glass-bg-2-alpha: 0.45;
+    --glass-border: 255 255 255;
+    --glass-border-alpha: 0.55;
+    --glass-shadow: 0 1px 1px 0 rgb(0 0 0 / 0.03), 0 8px 30px -10px rgb(15 23 42 / 0.10);
+    --glass-shadow-lg: 0 1px 1px 0 rgb(0 0 0 / 0.04), 0 18px 50px -16px rgb(15 23 42 / 0.18);
+
+    /* Ambient orbs */
+    --orb-1: 139 92 246;          /* violet-500 */
+    --orb-2: 56 189 248;          /* sky-400 */
+    --orb-3: 244 114 182;         /* pink-400 */
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --bg: 9 9 11;
+    --surface: 18 18 21;
+    --surface-2: 32 32 36;
+    --fg: 244 244 245;
+    --fg-muted: 161 161 170;
+    --fg-subtle: 113 113 122;
+    --border: 39 39 42;
+    --border-strong: 63 63 70;
+    --accent: 129 140 248;
+    --accent-hover: 165 180 252;
+    --accent-fg: 17 24 39;
+    --danger: 248 113 113;
+    --danger-bg: 69 10 10;
+    --success: 134 239 172;
+    --success-bg: 5 46 22;
+
+    --glass-bg: 24 24 27;
+    --glass-bg-alpha: 0.55;
+    --glass-bg-2-alpha: 0.40;
+    --glass-border: 255 255 255;
+    --glass-border-alpha: 0.08;
+    --glass-shadow: 0 1px 1px 0 rgb(0 0 0 / 0.4), 0 12px 40px -12px rgb(0 0 0 / 0.5);
+    --glass-shadow-lg: 0 2px 2px 0 rgb(0 0 0 / 0.45), 0 24px 60px -18px rgb(0 0 0 / 0.6);
+
+    --orb-1: 99 102 241;
+    --orb-2: 14 165 233;
+    --orb-3: 236 72 153;
+
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    color: rgb(var(--fg));
+    font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background:
+      radial-gradient(at 12% 10%, rgb(var(--orb-1) / 0.20), transparent 45%),
+      radial-gradient(at 88% 18%, rgb(var(--orb-2) / 0.18), transparent 48%),
+      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%),
+      linear-gradient(180deg, rgb(var(--bg)), rgb(var(--bg)));
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  .dark body {
+    background:
+      radial-gradient(at 12% 10%, rgb(var(--orb-1) / 0.22), transparent 45%),
+      radial-gradient(at 88% 18%, rgb(var(--orb-2) / 0.20), transparent 48%),
+      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%),
+      linear-gradient(180deg, rgb(var(--bg)), rgb(var(--bg)));
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.025em;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-feature-settings: "tnum", "zero";
+  }
 }
 
-html,
-body {
-  height: 100%;
+@layer components {
+  /* Primary translucent card */
+  .glass {
+    background-color: rgb(var(--glass-bg) / var(--glass-bg-alpha));
+    border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+  .glass:hover {
+    box-shadow: var(--glass-shadow-lg);
+  }
+  .dark .glass {
+    border-color: rgb(var(--glass-border) / var(--glass-border-alpha));
+  }
+
+  /* Subtler glass (sub-sections, inner panels) */
+  .glass-soft {
+    background-color: rgb(var(--glass-bg) / var(--glass-bg-2-alpha));
+    border: 1px solid rgb(var(--glass-border) / 0.30);
+    -webkit-backdrop-filter: blur(14px) saturate(135%);
+    backdrop-filter: blur(14px) saturate(135%);
+  }
+  .dark .glass-soft {
+    border-color: rgb(var(--glass-border) / 0.06);
+  }
+
+  /* Strong glass for sidebar / hero panels */
+  .glass-strong {
+    background-color: rgb(var(--glass-bg) / 0.75);
+    border: 1px solid rgb(var(--glass-border) / 0.55);
+    box-shadow: var(--glass-shadow-lg);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+  }
+  .dark .glass-strong {
+    background-color: rgb(var(--glass-bg) / 0.65);
+    border-color: rgb(var(--glass-border) / 0.10);
+  }
+
+  /* Headed table area where we want a slightly more opaque tint */
+  .glass-header {
+    background-color: rgb(var(--glass-bg) / 0.55);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+  .dark .glass-header {
+    background-color: rgb(var(--glass-bg) / 0.45);
+  }
+
+  /* Input field treatment */
+  .glass-input {
+    background-color: rgb(var(--glass-bg) / 0.65);
+    border: 1px solid rgb(var(--border-strong));
+    -webkit-backdrop-filter: blur(10px) saturate(130%);
+    backdrop-filter: blur(10px) saturate(130%);
+  }
+  .glass-input:focus {
+    border-color: rgb(var(--accent));
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.20);
+    outline: none;
+  }
+}
+
+@layer utilities {
+  .dark ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-strong));
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--bg));
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
