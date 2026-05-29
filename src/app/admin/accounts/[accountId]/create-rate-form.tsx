@@ -36,7 +36,32 @@ export function AccountRateCreateForm({
     () => subCategories.filter((s) => s.rateCategory === category),
     [category, subCategories],
   );
-  const today = new Date().toISOString().slice(0, 10);
+
+  // Per-category SLA filter so the dropdown only shows codes that actually
+  // apply to that rate dimension.
+  // DEDICATED uses Backfill tier (BACKFILL / NO_BACKFILL).
+  // DISPATCH_SCHED uses response SLAs (NBD / SBD / 2BD / 3BD / 9X5X4 / 24X7X4).
+  // PROJECT_TM uses SCHEDULE / NA.
+  const slasForCategory = useMemo(() => {
+    const dedicatedTiers = new Set(["BACKFILL", "NO_BACKFILL"]);
+    const dispatchCodes = new Set([
+      "NBD",
+      "SBD",
+      "2BD",
+      "3BD",
+      "9X5X4",
+      "24X7X4",
+      "SCHEDULE",
+    ]);
+    const projectCodes = new Set(["SCHEDULE", "NA"]);
+    if (category === RateCategory.DEDICATED) {
+      return slas.filter((s) => dedicatedTiers.has(s.code));
+    }
+    if (category === RateCategory.DISPATCH_SCHED) {
+      return slas.filter((s) => dispatchCodes.has(s.code));
+    }
+    return slas.filter((s) => projectCodes.has(s.code));
+  }, [category, slas]);
 
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
@@ -80,7 +105,7 @@ export function AccountRateCreateForm({
       </SelectField>
 
       <SelectField label="SLA" name="slaId" required errors={fieldErrors?.slaId}>
-        {slas.map((s) => (
+        {slasForCategory.map((s) => (
           <option key={s.id} value={s.id}>
             {s.code} — {s.label}
           </option>
@@ -95,23 +120,6 @@ export function AccountRateCreateForm({
         min="0"
         errors={fieldErrors?.rateAmount}
         hint="Leave blank to fill in later"
-      />
-
-      <TextField
-        label="Effective from"
-        name="effectiveFrom"
-        type="date"
-        required
-        defaultValue={today}
-        errors={fieldErrors?.effectiveFrom}
-      />
-
-      <TextField
-        label="Effective to"
-        name="effectiveTo"
-        type="date"
-        errors={fieldErrors?.effectiveTo}
-        hint="Open-ended if blank"
       />
 
       <TextField

@@ -23,8 +23,8 @@ export default async function OrgDetailPage({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <Link href="/admin/orgs" className="text-xs font-medium text-fg-subtle hover:text-fg">
-          ← Orgs
+        <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
+          ← Partner Management
         </Link>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">{org.name}</h1>
         <p className="text-sm text-fg-muted">

@@ -1,14 +1,20 @@
 "use client";
 
 import { AddButton, Dialog } from "@/components/admin/dialog";
-import { TechnicianCreateForm, type AccountOption } from "./create-form";
+import {
+  TechnicianCreateForm,
+  type AccountOption,
+  type ExistingTech,
+} from "./create-form";
 
 export function TechnicianCreateDialog({
   orgs,
   accounts = [],
+  existingTechs = [],
 }: {
   orgs: { id: string; name: string }[];
   accounts?: AccountOption[];
+  existingTechs?: ExistingTech[];
 }) {
   return (
     <Dialog
@@ -23,7 +29,12 @@ export function TechnicianCreateDialog({
             Create an org first so the technician has an employer.
           </p>
         ) : (
-          <TechnicianCreateForm orgs={orgs} accounts={accounts} onSuccess={close} />
+          <TechnicianCreateForm
+            orgs={orgs}
+            accounts={accounts}
+            existingTechs={existingTechs}
+            onSuccess={close}
+          />
         )
       }
     </Dialog>

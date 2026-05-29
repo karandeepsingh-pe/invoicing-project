@@ -36,6 +36,10 @@ export default async function AccountsPage() {
     miscCount: a._count.miscFees,
     assignmentCount: a._count.assignments,
     invoiceRunCount: a._count.invoiceRuns,
+    clientPocName: a.clientPocName,
+    clientSpocEmail: a.clientSpocEmail,
+    projectDescription: a.projectDescription,
+    defaultHours: a.defaultHours,
   }));
 
   return (

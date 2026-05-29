@@ -18,6 +18,7 @@ export async function createAssignment(
     technicianId: formData.get("technicianId"),
     clientAccountId: formData.get("clientAccountId"),
     rateCategory: formData.get("rateCategory"),
+    slaTier: formData.get("slaTier") || undefined,
     startDate: formData.get("startDate"),
     endDate: formData.get("endDate") || undefined,
   });
@@ -30,7 +31,14 @@ export async function createAssignment(
 
   const tech = await prisma.technician.findUnique({
     where: { id: parsed.data.technicianId },
-    select: { id: true, band: true },
+    select: {
+      id: true,
+      band: true,
+      isRebadged: true,
+      isAvailableForDedicated: true,
+      isAvailableForProject: true,
+      isAvailableForDispatch: true,
+    },
   });
   if (!tech) return { ok: false, formError: "Technician not found" };
 
@@ -56,6 +64,12 @@ export async function createAssignment(
     rateCategory: parsed.data.rateCategory,
     startDate,
     endDate,
+    technicianFlags: {
+      isAvailableForDedicated: tech.isAvailableForDedicated,
+      isAvailableForProject: tech.isAvailableForProject,
+      isAvailableForDispatch: tech.isAvailableForDispatch,
+    },
+    technicianIsRebadged: tech.isRebadged,
     accountRates,
     existingTechnicianAssignments: existingTechAssignments,
   });
@@ -69,12 +83,14 @@ export async function createAssignment(
         technicianId: parsed.data.technicianId,
         clientAccountId: parsed.data.clientAccountId,
         rateCategory: parsed.data.rateCategory,
+        slaTier: parsed.data.slaTier,
         startDate,
         endDate,
       },
     });
     revalidatePath(`/admin/technicians/${parsed.data.technicianId}`);
     revalidatePath(`/admin/accounts/${parsed.data.clientAccountId}`);
+    revalidatePath("/admin/management");
     return { ok: true, id: assignment.id };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -100,5 +116,39 @@ export async function endAssignment(_prev: ActionResult, formData: FormData): Pr
   });
   revalidatePath(`/admin/technicians/${a.technicianId}`);
   revalidatePath(`/admin/accounts/${a.clientAccountId}`);
+  revalidatePath("/admin/management");
   return { ok: true };
+}
+
+export async function deleteAssignment(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, formError: "Missing assignment id." };
+
+  const a = await prisma.assignment.findUnique({
+    where: { id },
+    // Only LIVE (non-soft-deleted) entries block a hard delete — soft-deleted
+    // rows are cascade-purged when the assignment is removed.
+    include: { _count: { select: { timesheetEntries: { where: { deletedAt: null } } } } },
+  });
+  if (!a) return { ok: false, formError: "Assignment not found." };
+
+  if (a._count.timesheetEntries > 0) {
+    return {
+      ok: false,
+      formError:
+        `Cannot delete — this assignment has ${a._count.timesheetEntries} live timesheet ` +
+        `entr${a._count.timesheetEntries === 1 ? "y" : "ies"}. ` +
+        `Soft-delete the month from the timesheet grid first, or end the assignment instead.`,
+    };
+  }
+
+  await prisma.assignment.delete({ where: { id } });
+  revalidatePath(`/admin/technicians/${a.technicianId}`);
+  revalidatePath(`/admin/accounts/${a.clientAccountId}`);
+  revalidatePath("/admin/management");
+  return { ok: true, message: "Assignment deleted." };
 }

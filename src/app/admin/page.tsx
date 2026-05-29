@@ -11,11 +11,11 @@ export default async function AdminDashboard() {
   ]);
 
   const cards = [
-    { label: "Orgs", value: orgCount, href: "/admin/orgs", hint: "Vendor partners" },
-    { label: "Client accounts", value: accountCount, href: "/admin/commercials", hint: "Billing units" },
-    { label: "Technicians", value: techCount, href: "/admin/technicians", hint: "Workforce" },
-    { label: "Assignments", value: assignmentCount, href: "/admin/technicians", hint: "Total ever created" },
-    { label: "Active dedicated", value: activeDedicatedCount, href: "/admin/technicians", hint: "FTE engagements" },
+    { label: "Orgs", value: orgCount, href: "/admin/management", hint: "Vendor partners" },
+    { label: "Client accounts", value: accountCount, href: "/admin/management", hint: "Billing units" },
+    { label: "Technicians", value: techCount, href: "/admin/management", hint: "Workforce" },
+    { label: "Assignments", value: assignmentCount, href: "/admin/management", hint: "Total ever created" },
+    { label: "Active dedicated", value: activeDedicatedCount, href: "/admin/management", hint: "FTE engagements" },
   ];
 
   return (
@@ -24,8 +24,8 @@ export default async function AdminDashboard() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Dashboard</span>
         <h1 className="text-4xl font-semibold tracking-tighter2">Welcome back</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Configure orgs, accounts, rate cards, technicians, and assignments. Generate invoice
-          runs from the Commercials tab once rate sheets are filled in.
+          Configure orgs, accounts, rate cards, technicians, and assignments from Partner
+          Management. Everything propagates across the app from that single tab.
         </p>
       </header>
 

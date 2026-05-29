@@ -1,36 +1,46 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { deleteClientAccount } from "@/lib/actions/client-account";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function ClientAccountDeleteButton({ id, name }: { id: string; name: string }) {
-  const [state, action, pending] = useActionState(deleteClientAccount, null);
-  const error = state && state.ok === false ? state.formError : undefined;
+  const [state, action] = useActionState(deleteClientAccount, null);
+  const [pending, startTransition] = useTransition();
+
+  useActionToast(state, {
+    success: { title: `Deleted account "${name}"` },
+    error: { fallbackTitle: `Cannot delete "${name}"` },
+  });
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <form
-        action={action}
-        onSubmit={(e) => {
-          if (!confirm(`Delete account "${name}"? This cannot be undone.`)) {
-            e.preventDefault();
-          }
-        }}
-      >
-        <input type="hidden" name="id" value={id} />
+    <ConfirmDialog
+      trigger={
         <button
-          type="submit"
+          type="button"
           disabled={pending}
-          className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-bg disabled:opacity-50"
+          className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50"
         >
           {pending ? "Deleting…" : "Delete"}
         </button>
-      </form>
-      {error && (
-        <span className="max-w-[18rem] text-right text-[11px] leading-tight text-danger">
-          {error}
+      }
+      title={`Delete account "${name}"?`}
+      body={
+        <span>
+          This permanently removes the account along with its rate rows, misc fees, and
+          SDM access entries. Blocked if it still has assignments or invoice runs.
         </span>
-      )}
-    </div>
+      }
+      destructive
+      confirmLabel="Delete"
+      onConfirm={() => {
+        startTransition(() => {
+          const fd = new FormData();
+          fd.append("id", id);
+          action(fd);
+        });
+      }}
+    />
   );
 }

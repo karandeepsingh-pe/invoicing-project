@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { createClientAccount } from "@/lib/actions/client-account";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function ClientAccountCreateAnywhereForm({
   orgs,
@@ -17,6 +18,11 @@ export function ClientAccountCreateAnywhereForm({
   const selectedOrg = orgs.find((o) => o.id === orgId);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useActionToast(state, {
+    success: { title: "Account created" },
+    error: { fallbackTitle: "Failed to create account" },
+  });
 
   useEffect(() => {
     if (state && state.ok) onSuccess?.();
@@ -55,6 +61,35 @@ export function ClientAccountCreateAnywhereForm({
         placeholder={selectedOrg?.defaultCurrency ?? ""}
         hint={`Blank inherits org default${selectedOrg ? ` (${selectedOrg.defaultCurrency})` : ""}.`}
         errors={fieldErrors?.currency}
+      />
+      <TextField
+        label="Client POC name"
+        name="clientPocName"
+        placeholder="e.g. Eeshan Chambial"
+        errors={fieldErrors?.clientPocName}
+      />
+      <TextField
+        label="Client SPOC email"
+        name="clientSpocEmail"
+        type="email"
+        placeholder="poc@client.com"
+        errors={fieldErrors?.clientSpocEmail}
+      />
+      <TextField
+        label="Project description"
+        name="projectDescription"
+        placeholder="FTE - Dedicated Support"
+        errors={fieldErrors?.projectDescription}
+      />
+      <TextField
+        label="Default Hours"
+        name="defaultHours"
+        type="number"
+        min={1}
+        max={24}
+        defaultValue={8}
+        errors={fieldErrors?.defaultHours}
+        hint="Per-day full-shift hours."
       />
       <div className="md:col-span-3">
         <SubmitButton>Create account</SubmitButton>

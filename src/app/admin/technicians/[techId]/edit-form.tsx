@@ -1,9 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { RateCategory } from "@prisma/client";
+import { AssignmentSlaTier, RateCategory } from "@prisma/client";
 import { updateTechnician } from "@/lib/actions/technician";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { LocationFields } from "@/components/admin/location-fields";
+import { AvailabilityFlagsField } from "@/components/admin/availability-flags-field";
+import { RebadgedFields } from "@/components/admin/rebadged-fields";
 
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
@@ -15,16 +18,33 @@ export type TechEditFormProps = {
   id: string;
   firstName: string;
   lastName: string;
+  employeeId: string | null;
+  phone: string | null;
+  email: string | null;
   primaryCategory: RateCategory;
   band: number;
+  defaultSlaTier: AssignmentSlaTier;
   active: boolean;
+  isAvailableForDedicated: boolean;
+  isAvailableForProject: boolean;
+  isAvailableForDispatch: boolean;
+  isRebadged: boolean;
+  annualSalary: string | null;
+  rebadgedOtRate: string | null;
+  rebadgedWeekendRate: string | null;
   employerOrgId: string;
   orgs: { id: string; name: string }[];
+  postalCodeId: string | null;
+  zipcode: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
 };
 
 export function TechnicianEditForm(props: TechEditFormProps) {
   const [state, action] = useActionState(updateTechnician, null);
   const [open, setOpen] = useState(false);
+  const [primaryCategory, setPrimaryCategory] = useState<RateCategory>(props.primaryCategory);
 
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
@@ -72,6 +92,28 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           defaultValue={props.lastName}
           errors={fieldErrors?.lastName}
         />
+        <TextField
+          label="Employee ID"
+          name="employeeId"
+          defaultValue={props.employeeId ?? ""}
+          errors={fieldErrors?.employeeId}
+          hint="Optional. Unique per employer org."
+        />
+        <TextField
+          label="Phone"
+          name="phone"
+          defaultValue={props.phone ?? ""}
+          errors={fieldErrors?.phone}
+          hint="Contact number."
+        />
+        <TextField
+          label="Email"
+          name="email"
+          type="email"
+          defaultValue={props.email ?? ""}
+          errors={fieldErrors?.email}
+          hint="Contact email."
+        />
         <SelectField
           label="Employer org"
           name="employerOrgId"
@@ -90,7 +132,8 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           label="Primary category"
           name="primaryCategory"
           required
-          defaultValue={props.primaryCategory}
+          value={primaryCategory}
+          onChange={(e) => setPrimaryCategory(e.target.value as RateCategory)}
           errors={fieldErrors?.primaryCategory}
           hint="Default category when creating new assignments."
         >
@@ -114,6 +157,22 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             </option>
           ))}
         </SelectField>
+        {primaryCategory === RateCategory.DEDICATED && (
+          <SelectField
+            label="Backfill tier"
+            name="defaultSlaTier"
+            required
+            defaultValue={props.defaultSlaTier === "NONE" ? "" : props.defaultSlaTier}
+            errors={fieldErrors?.defaultSlaTier}
+            hint="Dedicated rates differ with vs without backfill."
+          >
+            <option value="" disabled>
+              Select…
+            </option>
+            <option value="BACKFILL">Backfill (replacement guaranteed)</option>
+            <option value="NO_BACKFILL">No Backfill</option>
+          </SelectField>
+        )}
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-fg-muted">Active</span>
           <label className="inline-flex items-center gap-2 rounded-md border border-border-strong bg-surface px-3 py-2 text-sm">
@@ -128,6 +187,37 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           <span className="text-xs text-fg-subtle">Inactive techs are hidden from default lists.</span>
         </label>
       </div>
+
+      <AvailabilityFlagsField
+        defaults={{
+          isAvailableForDedicated: props.isAvailableForDedicated,
+          isAvailableForProject: props.isAvailableForProject,
+          isAvailableForDispatch: props.isAvailableForDispatch,
+        }}
+      />
+
+      <RebadgedFields
+        defaults={{
+          isRebadged: props.isRebadged,
+          annualSalary: props.annualSalary,
+          rebadgedOtRate: props.rebadgedOtRate,
+          rebadgedWeekendRate: props.rebadgedWeekendRate,
+        }}
+      />
+
+      <LocationFields
+        initialZipcode={props.zipcode ?? ""}
+        initialCity={props.city ?? ""}
+        initialState={props.state ?? ""}
+        initialCountry={props.country ?? ""}
+        initialPostalCodeId={props.postalCodeId}
+        fieldErrors={{
+          zipcode: fieldErrors?.zipcode,
+          locationCity: fieldErrors?.locationCity,
+          locationState: fieldErrors?.locationState,
+          locationCountry: fieldErrors?.locationCountry,
+        }}
+      />
 
       <div className="flex items-center gap-3">
         <SubmitButton>Save changes</SubmitButton>

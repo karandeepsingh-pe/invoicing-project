@@ -3,11 +3,17 @@
 import { useActionState, useEffect } from "react";
 import { createSla } from "@/lib/actions/sla";
 import { FormError, SubmitButton, TextField } from "@/components/admin/field";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function SlaCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const [state, action] = useActionState(createSla, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useActionToast(state, {
+    success: { title: "SLA added" },
+    error: { fallbackTitle: "Failed to add SLA" },
+  });
 
   useEffect(() => {
     if (state && state.ok) onSuccess?.();

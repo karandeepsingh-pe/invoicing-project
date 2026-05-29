@@ -17,6 +17,7 @@ export default async function TechniciansPage() {
     prisma.technician.findMany({
       include: {
         employerOrg: true,
+        postalCode: { select: { zipcode: true, city: true, state: true, country: true } },
         _count: { select: { assignments: true } },
         assignments: {
           where: { endDate: null },
@@ -108,6 +109,7 @@ export default async function TechniciansPage() {
       id: t.id,
       firstName: t.firstName,
       lastName: t.lastName,
+      employeeId: t.employeeId,
       primaryCategory: t.primaryCategory,
       band: t.band,
       employerOrgName: t.employerOrg.name,
@@ -115,6 +117,9 @@ export default async function TechniciansPage() {
       totalAssignments: t._count.assignments,
       activeAssignmentCount: t.assignments.length,
       rateGroups: [...activeGroups, ...potentialGroups],
+      location: t.postalCode
+        ? `${t.postalCode.city}, ${t.postalCode.state}, ${t.postalCode.country} · ${t.postalCode.zipcode}`
+        : null,
     };
   });
 
@@ -131,6 +136,13 @@ export default async function TechniciansPage() {
               accounts={accounts.map((a) => ({
                 id: a.id,
                 label: `${a.org.name} / ${a.name}`,
+              }))}
+              existingTechs={techs.map((t) => ({
+                firstName: t.firstName,
+                lastName: t.lastName,
+                employerOrgId: t.employerOrgId,
+                employerOrgName: t.employerOrg.name,
+                employeeId: t.employeeId,
               }))}
             />
           </div>

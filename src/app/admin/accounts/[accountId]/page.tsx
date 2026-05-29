@@ -2,10 +2,27 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MiscFeeKind, RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { isActiveOn } from "@/lib/domain/account-rate-resolver";
 import { AccountRateCreateDialog, MiscFeeCreateDialog } from "./create-dialogs";
 import { AccountRateRowActions } from "./rate-row-actions";
 import { MiscFeeDeleteButton } from "./misc-fee-row-actions";
+import { AccountAssignmentCreateDialog } from "./create-assignment-dialog";
+import { AccountAddTechnicianDialog } from "./add-technician-dialog";
+import type { TechOption } from "./create-assignment-form";
+import { DeleteAssignmentButton } from "../../technicians/[techId]/delete-assignment-button";
+import { EndAssignmentButton } from "../../technicians/[techId]/end-assignment-button";
+import { InvoiceRunDeleteButton } from "./invoice-run-actions";
+
+const invoiceFormatLabel: Record<string, string> = {
+  FSO: "FSO",
+  PRE_INVOICE: "Pre-Invoice",
+};
+
+function monthShort(y: number, m: number): string {
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  });
+}
 
 const categoryOrder: RateCategory[] = [
   RateCategory.DEDICATED,
@@ -46,7 +63,7 @@ export default async function AccountDetailPage({
 }) {
   const { accountId } = await params;
 
-  const [account, subCategories, slas] = await Promise.all([
+  const [account, subCategories, slas, allTechs, orgs] = await Promise.all([
     prisma.clientAccount.findUnique({
       where: { id: accountId },
       include: {
@@ -66,15 +83,40 @@ export default async function AccountDetailPage({
         },
         miscFees: { orderBy: [{ kind: "asc" }, { createdAt: "desc" }] },
         assignments: { include: { technician: true }, orderBy: { startDate: "desc" } },
+        invoiceRuns: {
+          orderBy: { generatedAt: "desc" },
+          include: { generatedBy: { select: { email: true, name: true } } },
+        },
       },
     }),
     prisma.rateSubCategory.findMany({ orderBy: [{ rateCategory: "asc" }, { sortOrder: "asc" }] }),
     prisma.sla.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.technician.findMany({
+      where: { active: true },
+      include: {
+        employerOrg: { select: { name: true } },
+        // Active dedication (if any) locks the tech out of new picks.
+        assignments: {
+          where: { rateCategory: "DEDICATED", endDate: null },
+          select: { clientAccountId: true },
+        },
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   if (!account) notFound();
 
   const currency = account.currency ?? account.org.defaultCurrency;
-  const today = new Date();
+
+  // For the in-account "Add technician" dialog: dup-name hint + employer picker.
+  const existingTechs = allTechs.map((t) => ({
+    firstName: t.firstName,
+    lastName: t.lastName,
+    employerOrgId: t.employerOrgId,
+    employerOrgName: t.employerOrg.name,
+    employeeId: t.employeeId,
+  }));
 
   const ratesByCategory = new Map<RateCategory, typeof account.accountRates>();
   for (const c of categoryOrder) ratesByCategory.set(c, []);
@@ -86,10 +128,10 @@ export default async function AccountDetailPage({
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <Link
-          href={`/admin/orgs/${account.org.id}` as never}
+          href="/admin/management"
           className="text-xs font-medium text-fg-subtle hover:text-fg"
         >
-          ← {account.org.name}
+          ← Partner Management
         </Link>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">{account.name}</h1>
         <p className="text-sm text-fg-muted">
@@ -136,46 +178,27 @@ export default async function AccountDetailPage({
                     <th className="px-4 py-2 text-left font-medium">Band</th>
                     <th className="px-4 py-2 text-left font-medium">SLA</th>
                     <th className="px-4 py-2 text-right font-medium">Rate</th>
-                    <th className="px-4 py-2 text-left font-medium">Effective from</th>
-                    <th className="px-4 py-2 text-left font-medium">Effective to</th>
-                    <th className="px-4 py-2 text-left font-medium">Status</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
-                    const active = isActiveOn(r, today);
-                    return (
-                      <tr
-                        key={r.id}
-                        className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
-                      >
-                        <td className="px-4 py-2.5">{r.rateSubCategory.label}</td>
-                        <td className="px-4 py-2.5 text-fg-muted">Band {r.band}</td>
-                        <td className="px-4 py-2.5 text-fg-muted">{r.sla.code}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{fmtMoney(r.rateAmount, currency)}</td>
-                        <td className="px-4 py-2.5 text-fg-muted">{fmtDate(r.effectiveFrom)}</td>
-                        <td className="px-4 py-2.5 text-fg-muted">{fmtDate(r.effectiveTo)}</td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={
-                              active
-                                ? "inline-flex items-center rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-medium text-success"
-                                : "inline-flex items-center rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-fg-subtle"
-                            }
-                          >
-                            {active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <AccountRateRowActions id={r.id} currentAmount={r.rateAmount?.toString() ?? ""} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {rows.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
+                    >
+                      <td className="px-4 py-2.5">{r.rateSubCategory.label}</td>
+                      <td className="px-4 py-2.5 text-fg-muted">Band {r.band}</td>
+                      <td className="px-4 py-2.5 text-fg-muted">{r.sla.code}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{fmtMoney(r.rateAmount, currency)}</td>
+                      <td className="px-4 py-2.5 text-right">
+                        <AccountRateRowActions id={r.id} currentAmount={r.rateAmount?.toString() ?? ""} />
+                      </td>
+                    </tr>
+                  ))}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-3 text-sm text-fg-subtle">
+                      <td colSpan={5} className="px-4 py-3 text-sm text-fg-subtle">
                         No rate rows yet.
                       </td>
                     </tr>
@@ -212,7 +235,7 @@ export default async function AccountDetailPage({
                   <td className="px-4 py-2.5 text-right tabular-nums">{fmtMoney(f.amount, currency)}</td>
                   <td className="px-4 py-2.5 text-fg-subtle">{f.notes ?? ""}</td>
                   <td className="px-4 py-2.5 text-right">
-                    <MiscFeeDeleteButton id={f.id} />
+                    <MiscFeeDeleteButton id={f.id} label={f.label} />
                   </td>
                 </tr>
               ))}
@@ -229,7 +252,38 @@ export default async function AccountDetailPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Assignments</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Assignments</h2>
+          <div className="flex items-center gap-3">
+          <AccountAddTechnicianDialog
+            accountId={account.id}
+            accountName={`${account.org.name} / ${account.name}`}
+            defaultEmployerOrgId={account.org.id}
+            orgs={orgs}
+            existingTechs={existingTechs}
+          />
+          <AccountAssignmentCreateDialog
+            clientAccountId={account.id}
+            accountLabel={`${account.org.name} / ${account.name}`}
+            technicians={allTechs.map<TechOption>((t) => ({
+              id: t.id,
+              firstName: t.firstName,
+              lastName: t.lastName,
+              employeeId: t.employeeId,
+              employerOrgName: t.employerOrg.name,
+              primaryAccountName: null,
+              band: t.band,
+              primaryCategory: t.primaryCategory,
+              flags: {
+                isAvailableForDedicated: t.isAvailableForDedicated,
+                isAvailableForProject: t.isAvailableForProject,
+                isAvailableForDispatch: t.isAvailableForDispatch,
+              },
+              dedicatedToAccountId: t.assignments[0]?.clientAccountId ?? null,
+            }))}
+          />
+          </div>
+        </div>
         <div className="glass overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
@@ -239,6 +293,7 @@ export default async function AccountDetailPage({
                 <th className="px-4 py-2.5 text-left font-medium">Category</th>
                 <th className="px-4 py-2.5 text-left font-medium">Start</th>
                 <th className="px-4 py-2.5 text-left font-medium">End</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -253,12 +308,70 @@ export default async function AccountDetailPage({
                   <td className="px-4 py-2.5 text-fg-muted">{categoryLabel[a.rateCategory]}</td>
                   <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.startDate)}</td>
                   <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.endDate)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      {a.endDate === null && <EndAssignmentButton id={a.id} />}
+                      <DeleteAssignmentButton
+                        id={a.id}
+                        accountLabel={`${account.org.name} / ${account.name}`}
+                      />
+                    </div>
+                  </td>
                 </tr>
               ))}
               {account.assignments.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-4 text-sm text-fg-subtle">
+                  <td colSpan={6} className="px-4 py-4 text-sm text-fg-subtle">
                     No assignments to this account yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Invoice runs</h2>
+          <span className="text-xs text-fg-subtle">
+            {account.invoiceRuns.length} run{account.invoiceRuns.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <p className="-mt-1 text-xs text-fg-subtle">
+          Audit record written each time a pre-invoice is generated. Delete runs here to
+          free the account for deletion.
+        </p>
+        <div className="glass overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-medium">Period</th>
+                <th className="px-4 py-2.5 text-left font-medium">Format</th>
+                <th className="px-4 py-2.5 text-left font-medium">Generated</th>
+                <th className="px-4 py-2.5 text-left font-medium">By</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {account.invoiceRuns.map((r) => (
+                <tr key={r.id} className="border-t border-border transition-colors hover:bg-surface-2">
+                  <td className="px-4 py-2.5">{monthShort(r.periodYear, r.periodMonth)} {r.periodYear}</td>
+                  <td className="px-4 py-2.5 text-fg-muted">{invoiceFormatLabel[r.format] ?? r.format}</td>
+                  <td className="px-4 py-2.5 text-fg-muted">{fmtDate(r.generatedAt)}</td>
+                  <td className="px-4 py-2.5 text-fg-subtle">{r.generatedBy.email}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <InvoiceRunDeleteButton
+                      id={r.id}
+                      label={`${monthShort(r.periodYear, r.periodMonth)} ${r.periodYear}`}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {account.invoiceRuns.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-3 text-sm text-fg-subtle">
+                    No invoice runs yet.
                   </td>
                 </tr>
               )}

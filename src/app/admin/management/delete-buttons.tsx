@@ -1,60 +1,82 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
+import type { ReactNode } from "react";
 import { deleteOrg } from "@/lib/actions/org";
 import { deleteClientAccount } from "@/lib/actions/client-account";
 import { deleteTechnician } from "@/lib/actions/technician";
-
-type DeleteFormProps = {
-  id: string;
-  label: string;
-  noun: string;
-};
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
+import type { ActionResult } from "@/lib/actions/result";
 
 const baseButton =
-  "inline-flex items-center rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-bg disabled:opacity-50";
+  "inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50";
 
-function ConfirmDeleteForm({
+function GuardedDelete({
   id,
-  label,
   noun,
+  label,
+  body,
   action,
-}: DeleteFormProps & {
-  action: (prev: import("@/lib/actions/result").ActionResult, fd: FormData) => Promise<import("@/lib/actions/result").ActionResult>;
+}: {
+  id: string;
+  noun: string;
+  label: string;
+  body: ReactNode;
+  action: (prev: ActionResult, fd: FormData) => Promise<ActionResult>;
 }) {
-  const [state, dispatch, pending] = useActionState(action, null);
-  const error = state && state.ok === false ? state.formError : undefined;
+  const [state, dispatch] = useActionState(action, null);
+  const [pending, startTransition] = useTransition();
+
+  useActionToast(state, {
+    success: { title: `Deleted ${noun} "${label}"` },
+    error: { fallbackTitle: `Cannot delete ${noun} "${label}"` },
+  });
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <form
-        action={dispatch}
-        onSubmit={(e) => {
-          if (!confirm(`Delete ${noun} "${label}"? This cannot be undone.`)) {
-            e.preventDefault();
-          }
-        }}
-      >
-        <input type="hidden" name="id" value={id} />
-        <button type="submit" disabled={pending} className={baseButton}>
+    <ConfirmDialog
+      trigger={
+        <button type="button" disabled={pending} className={baseButton}>
           {pending ? "Deleting…" : "Delete"}
         </button>
-      </form>
-      {error && (
-        <span className="max-w-[18rem] text-right text-[11px] leading-tight text-danger">
-          {error}
-        </span>
-      )}
-    </div>
+      }
+      title={`Delete ${noun} "${label}"?`}
+      body={body}
+      destructive
+      confirmLabel="Delete"
+      onConfirm={() => {
+        startTransition(() => {
+          const fd = new FormData();
+          fd.append("id", id);
+          dispatch(fd);
+        });
+      }}
+    />
   );
 }
 
 export function DeleteOrgButton({ id, name }: { id: string; name: string }) {
-  return <ConfirmDeleteForm id={id} label={name} noun="org" action={deleteOrg} />;
+  return (
+    <GuardedDelete
+      id={id}
+      noun="org"
+      label={name}
+      body="Blocked if it still has any client accounts or technicians."
+      action={deleteOrg}
+    />
+  );
 }
 
 export function DeleteAccountButton({ id, name }: { id: string; name: string }) {
-  return <ConfirmDeleteForm id={id} label={name} noun="client account" action={deleteClientAccount} />;
+  return (
+    <GuardedDelete
+      id={id}
+      noun="account"
+      label={name}
+      body="Cascades rate rows, misc fees, and SDM access. Blocked if it has assignments or invoice runs."
+      action={deleteClientAccount}
+    />
+  );
 }
 
 export function DeleteTechnicianButton({
@@ -67,10 +89,11 @@ export function DeleteTechnicianButton({
   lastName: string;
 }) {
   return (
-    <ConfirmDeleteForm
+    <GuardedDelete
       id={id}
-      label={`${firstName} ${lastName}`}
       noun="technician"
+      label={`${firstName} ${lastName}`}
+      body="Blocked if the technician still has any assignments. End them first."
       action={deleteTechnician}
     />
   );

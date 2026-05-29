@@ -1,19 +1,41 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { deleteMiscFee } from "@/lib/actions/misc-fee";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
-export function MiscFeeDeleteButton({ id }: { id: string }) {
-  const [, action] = useActionState(deleteMiscFee, null);
+export function MiscFeeDeleteButton({ id, label }: { id: string; label?: string }) {
+  const [state, action] = useActionState(deleteMiscFee, null);
+  const [pending, startTransition] = useTransition();
+
+  useActionToast(state, {
+    success: { title: label ? `Deleted misc fee "${label}"` : "Misc fee deleted" },
+    error: { fallbackTitle: "Cannot delete misc fee" },
+  });
+
   return (
-    <form action={action}>
-      <input type="hidden" name="id" value={id} />
-      <button
-        type="submit"
-        className="text-xs font-medium text-danger underline-offset-2 hover:underline"
-      >
-        Delete
-      </button>
-    </form>
+    <ConfirmDialog
+      trigger={
+        <button
+          type="button"
+          disabled={pending}
+          className="text-xs font-medium text-danger underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          Delete
+        </button>
+      }
+      title={label ? `Delete misc fee "${label}"?` : "Delete misc fee?"}
+      body="Removes this fee row from the account."
+      destructive
+      confirmLabel="Delete"
+      onConfirm={() => {
+        startTransition(() => {
+          const fd = new FormData();
+          fd.append("id", id);
+          action(fd);
+        });
+      }}
+    />
   );
 }
