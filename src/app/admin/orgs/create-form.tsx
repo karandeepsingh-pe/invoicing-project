@@ -4,11 +4,17 @@ import { useActionState, useEffect } from "react";
 import { OutputTemplate } from "@prisma/client";
 import { createOrg } from "@/lib/actions/org";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const [state, action] = useActionState(createOrg, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useActionToast(state, {
+    success: { title: "Org created" },
+    error: { fallbackTitle: "Failed to create org" },
+  });
 
   useEffect(() => {
     if (state && state.ok) onSuccess?.();

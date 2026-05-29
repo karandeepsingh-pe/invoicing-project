@@ -9,11 +9,19 @@ export function ClientAccountEditForm({
   name,
   currency,
   orgDefaultCurrency,
+  clientPocName,
+  clientSpocEmail,
+  projectDescription,
+  defaultHours,
 }: {
   id: string;
   name: string;
   currency: string | null;
   orgDefaultCurrency: string;
+  clientPocName: string | null;
+  clientSpocEmail: string | null;
+  projectDescription: string | null;
+  defaultHours: number;
 }) {
   const [state, action] = useActionState(updateClientAccount, null);
   const [open, setOpen] = useState(false);
@@ -59,6 +67,38 @@ export function ClientAccountEditForm({
         placeholder={orgDefaultCurrency}
         hint={`Leave blank to inherit org default (${orgDefaultCurrency}).`}
         errors={fieldErrors?.currency}
+      />
+      <TextField
+        label="Client POC name"
+        name="clientPocName"
+        defaultValue={clientPocName ?? ""}
+        placeholder="e.g. Eeshan Chambial"
+        errors={fieldErrors?.clientPocName}
+      />
+      <TextField
+        label="Client SPOC email"
+        name="clientSpocEmail"
+        type="email"
+        defaultValue={clientSpocEmail ?? ""}
+        placeholder="poc@client.com"
+        errors={fieldErrors?.clientSpocEmail}
+      />
+      <TextField
+        label="Project description"
+        name="projectDescription"
+        defaultValue={projectDescription ?? ""}
+        placeholder="FTE - Dedicated Support"
+        errors={fieldErrors?.projectDescription}
+      />
+      <TextField
+        label="Default Hours"
+        name="defaultHours"
+        type="number"
+        min={1}
+        max={24}
+        defaultValue={defaultHours}
+        errors={fieldErrors?.defaultHours}
+        hint="Per-day full-shift hours. Drives FTE pre-fill + OT split."
       />
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>

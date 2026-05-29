@@ -33,6 +33,9 @@ const slaSeeds: { code: string; label: string; sortOrder: number }[] = [
   { code: "24X7X4", label: "24x7x4 (24/7 within 4 hours)", sortOrder: 60 },
   { code: "SCHEDULE", label: "Scheduled", sortOrder: 70 },
   { code: "NA", label: "Not applicable", sortOrder: 99 },
+  // Band-SLA / rate-tier codes for DEDICATED rate rows.
+  { code: "BACKFILL", label: "Backfill (replacement guaranteed)", sortOrder: 100 },
+  { code: "NO_BACKFILL", label: "No Backfill", sortOrder: 110 },
 ];
 
 type SubCatSeed = {
@@ -58,13 +61,24 @@ const subCategorySeeds: SubCatSeed[] = [
   { rateCategory: RateCategory.PROJECT_TM, code: "WEEKLY", label: "Weekly Rate", sortOrder: 30 },
   { rateCategory: RateCategory.PROJECT_TM, code: "MONTHLY", label: "Monthly Rate", sortOrder: 40 },
 
-  // DEDICATED — bands 0..4, SLA = NA.
-  { rateCategory: RateCategory.DEDICATED, code: "ANNUAL_BACKFILL", label: "Annual With Backfill", sortOrder: 10 },
+  // DEDICATED — bands 0..4. Tier-neutral codes; the Backfill / No Backfill
+  // distinction rides on AccountRate.slaId (BACKFILL vs NO_BACKFILL Sla code).
+  { rateCategory: RateCategory.DEDICATED, code: "MONTHLY_DAY_RATE", label: "Hourly Rate", sortOrder: 10 },
   { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BACKFILL", label: "Hourly With Backfill", sortOrder: 20 },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BACKFILL_OT", label: "Hourly With Backfill OT", sortOrder: 30, isOvertimeVariant: true },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BACKFILL_WEEKEND", label: "Hourly With Backfill Weekend", sortOrder: 40, isOvertimeVariant: true },
+  { rateCategory: RateCategory.DEDICATED, code: "OT_HOURLY_RATE", label: "OT Hourly Rate", sortOrder: 30, isOvertimeVariant: true },
+  { rateCategory: RateCategory.DEDICATED, code: "WEEKEND_HOURLY_RATE", label: "Weekend Hourly Rate", sortOrder: 40, isOvertimeVariant: true },
   { rateCategory: RateCategory.DEDICATED, code: "REBADGED", label: "Rebadged", sortOrder: 50 },
   { rateCategory: RateCategory.DEDICATED, code: "REBADGED_HOURLY", label: "Rebadged Hourly", sortOrder: 60 },
+];
+
+const visitTypeSeeds: { code: string; label: string; sortOrder: number }[] = [
+  { code: "INSTALL", label: "Install", sortOrder: 10 },
+  { code: "REPAIR", label: "Repair", sortOrder: 20 },
+  { code: "AUDIT", label: "Audit", sortOrder: 30 },
+  { code: "SURVEY", label: "Survey", sortOrder: 40 },
+  { code: "MAINTENANCE", label: "Maintenance", sortOrder: 50 },
+  { code: "DECOMMISSION", label: "Decommission", sortOrder: 60 },
+  { code: "OTHER", label: "Other", sortOrder: 99 },
 ];
 
 async function main() {
@@ -110,6 +124,14 @@ async function main() {
     });
   }
 
+  for (const vt of visitTypeSeeds) {
+    await prisma.dispatchVisitType.upsert({
+      where: { code: vt.code },
+      update: { label: vt.label, sortOrder: vt.sortOrder },
+      create: vt,
+    });
+  }
+
   await prisma.user.upsert({
     where: { email: "admin@ovationwps.com" },
     update: { role: UserRole.ADMIN },
@@ -125,6 +147,7 @@ async function main() {
     clientAccounts: await prisma.clientAccount.count(),
     slas: await prisma.sla.count(),
     rateSubCategories: await prisma.rateSubCategory.count(),
+    dispatchVisitTypes: await prisma.dispatchVisitType.count(),
     users: await prisma.user.count(),
   };
   console.log("Seed complete:", counts);

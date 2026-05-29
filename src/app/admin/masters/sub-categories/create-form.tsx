@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { RateCategory } from "@prisma/client";
 import { createRateSubCategory } from "@/lib/actions/rate-sub-category";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
@@ -15,6 +16,11 @@ export function SubCategoryCreateForm({ onSuccess }: { onSuccess?: () => void } 
   const [state, action] = useActionState(createRateSubCategory, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
+
+  useActionToast(state, {
+    success: { title: "Sub-category added" },
+    error: { fallbackTitle: "Failed to add sub-category" },
+  });
 
   useEffect(() => {
     if (state && state.ok) onSuccess?.();

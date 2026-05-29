@@ -47,6 +47,34 @@ enum MiscFeeKind {
   OTHER
 }
 
+// Status codes for a TimesheetEntry day cell. When set, hours is 0 and the
+// day is not counted as worked. PH dates additionally reduce account-wide
+// Business Days for the pre-invoice calculation.
+enum TimesheetDayStatus {
+  PH
+  AB
+  NA
+}
+
+// Band-SLA / rate-tier for an Assignment. Drives which AccountRate row is
+// picked at invoice time (BACKFILL vs NO_BACKFILL tier). NONE is the default
+// for Dispatch / Project assignments where this dimension doesn't apply.
+enum AssignmentSlaTier {
+  BACKFILL
+  NO_BACKFILL
+  NONE
+}
+
+// Append-only audit trail for booking/soft-delete actions during the testing
+// phase. OVERLAP_OVERRIDE: a time-slot conflict was knowingly overridden.
+// DELETE_AFTER_INVOICE: a day already in a generated InvoiceRun was soft-deleted.
+// SOFT_DELETE: any cell/row/month soft-delete.
+enum AuditKind {
+  OVERLAP_OVERRIDE
+  DELETE_AFTER_INVOICE
+  SOFT_DELETE
+}
+
 // -------------------------------------------------------------------
 // Domain — Org / ClientAccount preserved
 // -------------------------------------------------------------------
@@ -66,12 +94,16 @@ model Org {
 }
 
 model ClientAccount {
-  id        String   @id @default(cuid())
-  orgId     String
-  name      String
-  currency  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  orgId              String
+  name               String
+  currency           String?
+  clientPocName      String?
+  clientSpocEmail    String?
+  projectDescription String?
+  defaultHours       Int      @default(8)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   org          Org                 @relation(fields: [orgId], references: [id])
   accountRates AccountRate[]
@@ -95,7 +127,8 @@ model Sla {
   label     String
   sortOrder Int    @default(0)
 
-  accountRates AccountRate[]
+  accountRates   AccountRate[]
+  dispatchVisits DispatchVisit[]
 
   @@map("slas")
 }
@@ -167,54 +200,250 @@ model MiscFee {
 model Technician {
   id              String       @id @default(cuid())
   employerOrgId   String
+  employeeId      String?
   firstName       String
   lastName        String
+  phone           String? // contact number (shown on dispatch tracker + day grid)
+  email           String? // contact email (shown on dispatch tracker)
   primaryCategory RateCategory
   band            Int // 0..4, technician's level/seniority
+  // Backfill trait for a Dedicated FTE. Dedicated rates split by backfill tier
+  // (BACKFILL vs NO_BACKFILL AccountRate rows), so this rides on the technician and
+  // seeds the slaTier of any assignment they take. NONE for non-Dedicated techs.
+  defaultSlaTier  AssignmentSlaTier @default(NONE)
   active          Boolean      @default(true)
+  // Pool availability flags. Opt-in (default false): a technician must be flagged
+  // for a category before they appear in that category's new-assignment picker.
+  // Flags are capability descriptors — they are NEVER cleared by starting/ending a
+  // dedication. A tech with an active DEDICATED assignment is excluded from the
+  // project/dispatch pickers regardless of these flags (computed, not stored).
+  isAvailableForDedicated Boolean @default(false)
+  isAvailableForProject   Boolean @default(false)
+  isAvailableForDispatch  Boolean @default(false)
+  // Rebadged engagement: a Dedicated tech billed off their annual salary, not the
+  // account's band rate sheet. hourly = annualSalary / 2080; day rate = hourly ×
+  // account Default Hours. OT / weekend hourly rates are entered manually (no fixed
+  // model yet). When isRebadged, band is shown as "Rebadged" in the UI.
+  isRebadged          Boolean  @default(false)
+  annualSalary        Decimal? @db.Decimal(12, 2)
+  rebadgedOtRate      Decimal? @db.Decimal(12, 4)
+  rebadgedWeekendRate Decimal? @db.Decimal(12, 4)
+  postalCodeId    String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
   employerOrg Org          @relation(fields: [employerOrgId], references: [id])
   assignments Assignment[]
+  postalCode  PostalCode?  @relation(fields: [postalCodeId], references: [id])
 
+  @@unique([employerOrgId, employeeId])
   @@index([employerOrgId, active])
   @@index([primaryCategory, band])
+  @@index([postalCodeId])
   @@map("technicians")
 }
 
+// Postal-code master — drives technician location auto-fill.
+// One row per zipcode; city/state/country live as text columns.
+// Linked from Technician via optional FK; admins can manage rows in
+// /admin/masters/postal-codes or let them be created inline from the
+// technician form when a new zipcode is entered.
+model PostalCode {
+  id        String   @id @default(cuid())
+  zipcode   String   @unique
+  city      String
+  state     String
+  country   String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  technicians    Technician[]
+  dispatchVisits DispatchVisit[]
+
+  @@map("postal_codes")
+}
+
 model Assignment {
-  id              String       @id @default(cuid())
+  id              String            @id @default(cuid())
   technicianId    String
   clientAccountId String
   rateCategory    RateCategory
-  startDate       DateTime     @db.Date
-  endDate         DateTime?    @db.Date
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  slaTier         AssignmentSlaTier @default(NONE)
+  startDate       DateTime          @db.Date
+  endDate         DateTime?         @db.Date
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   technician       Technician       @relation(fields: [technicianId], references: [id])
   clientAccount    ClientAccount    @relation(fields: [clientAccountId], references: [id])
   timesheetEntries TimesheetEntry[]
+  dispatchVisits   DispatchVisit[]
+  coveredEvents    CoverageEvent[]  @relation("coveredEvents")
+  coveringEvents   CoverageEvent[]  @relation("coveringEvents")
 
   @@index([technicianId, startDate])
   @@index([clientAccountId, startDate])
   @@map("assignments")
 }
 
-model TimesheetEntry {
+// Lifecycle status of a dispatch visit. Only COMPLETED visits are billed; the
+// rest (cancelled, etc.) still render on the tracker but at Billed = 0.
+enum DispatchWorkStatus {
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  NO_SHOW
+  PENDING
+}
+
+// Per-visit input for the Dispatch / Schedule Visit invoice flow.
+// Each row represents a single technician site visit billed independently.
+model DispatchVisit {
   id           String   @id @default(cuid())
   assignmentId String
-  date         DateTime @db.Date
-  hours        Decimal  @db.Decimal(6, 2)
+  visitDate    DateTime @db.Date
+  ticketNumber String?
+  hoursOnSite  Decimal  @db.Decimal(6, 2)
+  afterHours   Boolean  @default(false)
+  weekend      Boolean  @default(false)
+  slaId        String
+  notes        String?
+  // Richer per-visit detail. All nullable so historical rows stay valid.
+  // startDateTime/endDateTime feed the shared TechnicianBooking calendar.
+  siteLocation       String?
+  visitTypeId        String?
+  startDateTime      DateTime? @db.Timestamptz(6)
+  endDateTime        DateTime? @db.Timestamptz(6)
+  travelHours        Decimal?  @db.Decimal(6, 2)
+  travelMiles        Decimal?  @db.Decimal(8, 2)
+  partsAmount        Decimal?  @db.Decimal(12, 2)
+  reimbursementNotes String?
+  // Full dispatch tracker fields (client spec). City/State/Zip come from the
+  // PostalCode master (zip auto-fill); siteLocation is the manual street line.
+  requestReceivedDate DateTime?          @db.Date
+  proposedOnsiteDate  DateTime?          @db.Date
+  visitTime           String? // proposed onsite time "HH:mm"
+  siteCode            String?
+  workStatus          DispatchWorkStatus @default(COMPLETED)
+  oooHrs              Decimal?           @db.Decimal(6, 2)
+  postalCodeId        String?
   enteredById  String
+  // Soft-delete stamps (testing-phase). Read paths filter deletedAt:null.
+  deletedAt    DateTime?
+  deletedById  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  assignment Assignment         @relation(fields: [assignmentId], references: [id])
+  sla        Sla                @relation(fields: [slaId], references: [id])
+  visitType  DispatchVisitType? @relation(fields: [visitTypeId], references: [id])
+  postalCode PostalCode?        @relation(fields: [postalCodeId], references: [id])
+  enteredBy  User               @relation(fields: [enteredById], references: [id])
+
+  @@index([assignmentId, visitDate])
+  @@index([postalCodeId])
+  @@map("dispatch_visits")
+}
+
+// Admin-managed master of dispatch visit types (Install / Repair / Audit / …).
+// Descriptive metadata for now; may be promoted to a rate dimension later.
+model DispatchVisitType {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  label     String
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  visits DispatchVisit[]
+
+  @@map("dispatch_visit_types")
+}
+
+// Shared per-technician scheduling calendar for PROJECT + DISPATCH work. One
+// half-open [start,end) window per booked commitment. Time-slot overlap is checked
+// against the technician's non-deleted bookings (soft-warn + logged override). The
+// billing tables (TimesheetEntry / DispatchVisit) remain the source of money truth;
+// a booking links back via the unique dispatchVisitId / timesheetEntryId. IDs are
+// stored as plain columns (no relations) so a booking never blocks deletion of what
+// it references.
+model TechnicianBooking {
+  id               String      @id @default(cuid())
+  technicianId     String
+  assignmentId     String
+  kind             BookingKind
+  startDateTime    DateTime    @db.Timestamptz(6)
+  endDateTime      DateTime    @db.Timestamptz(6)
+  dispatchVisitId  String?     @unique
+  timesheetEntryId String?     @unique
+  isOverride       Boolean     @default(false)
+  overrideReason   String?
+  enteredById      String
+  deletedAt        DateTime?
+  deletedById      String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([technicianId, startDateTime, endDateTime])
+  @@map("technician_bookings")
+}
+
+enum BookingKind {
+  PROJECT
+  DISPATCH
+}
+
+// Coverage event for the Dedicated FTE flow. Logs who covered a BACKFILL-tier
+// technician's absence on a specific date. The covering technician's invoice
+// line picks up the days; the covered technician's line loses them. Billed at
+// the COVERED technician's Day Rate.
+model CoverageEvent {
+  id                   String   @id @default(cuid())
+  coveredAssignmentId  String
+  coveringAssignmentId String
+  date                 DateTime @db.Date
+  hours                Decimal  @db.Decimal(6, 2)
+  notes                String?
+  enteredById          String
+  // Soft-delete stamps (cascade target when the covered day is soft-deleted).
+  deletedAt            DateTime?
+  deletedById          String?
+  createdAt            DateTime @default(now())
+
+  coveredAssignment  Assignment @relation("coveredEvents", fields: [coveredAssignmentId], references: [id])
+  coveringAssignment Assignment @relation("coveringEvents", fields: [coveringAssignmentId], references: [id])
+  enteredBy          User       @relation(fields: [enteredById], references: [id])
+
+  // (coveredAssignmentId, date) uniqueness is a SQL-managed PARTIAL unique index
+  // "coverage_events_coveredAssignmentId_date_active" WHERE deletedAt IS NULL, so a
+  // coverage event can be re-logged after a soft-delete. Plain index below keeps
+  // covered-assignment lookups fast now that the unique is gone.
+  @@index([coveredAssignmentId, date])
+  @@index([coveringAssignmentId, date])
+  @@map("coverage_events")
+}
+
+model TimesheetEntry {
+  id           String              @id @default(cuid())
+  assignmentId String
+  date         DateTime            @db.Date
+  hours        Decimal             @db.Decimal(6, 2)
+  status       TimesheetDayStatus?
+  enteredById  String
+  // Soft-delete stamps (testing-phase). deletedById is a plain user-id audit
+  // stamp, intentionally not a FK relation. All read paths filter deletedAt:null.
+  deletedAt    DateTime?
+  deletedById  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   enteredBy  User       @relation(fields: [enteredById], references: [id])
 
-  @@unique([assignmentId, date])
+  // (assignmentId, date) uniqueness is enforced by a SQL-managed PARTIAL unique
+  // index — "timesheet_entries_assignmentId_date_active" WHERE deletedAt IS NULL
+  // — so a day can be re-entered after a soft-delete. See the soft_delete_foundation
+  // migration. Prisma cannot express partial indexes, so it is not declared here.
   @@index([date])
   @@map("timesheet_entries")
 }
@@ -236,6 +465,22 @@ model InvoiceRun {
   @@map("invoice_runs")
 }
 
+// Append-only audit log (no relations — ids stored as plain strings so an audit
+// row never blocks deletion of the thing it describes). `detail` carries a JSON
+// snapshot of the action (counts, conflict windows, period, etc.).
+model BookingAuditEvent {
+  id           String    @id @default(cuid())
+  technicianId String?
+  assignmentId String?
+  kind         AuditKind
+  detail       Json
+  actorId      String
+  createdAt    DateTime  @default(now())
+
+  @@index([kind, createdAt])
+  @@map("booking_audit_events")
+}
+
 // -------------------------------------------------------------------
 // Identity + scoping
 // -------------------------------------------------------------------
@@ -255,6 +500,8 @@ model User {
   userAccountAccess UserAccountAccess[]
   invoiceRuns       InvoiceRun[]
   timesheetEntries  TimesheetEntry[]
+  dispatchVisits    DispatchVisit[]
+  coverageEvents    CoverageEvent[]
 
   @@map("users")
 }

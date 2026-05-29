@@ -12,12 +12,19 @@ const projectTmBand2 = {
 };
 
 describe("validateAssignment", () => {
+  const allFlags = {
+    isAvailableForDedicated: true,
+    isAvailableForProject: true,
+    isAvailableForDispatch: true,
+  };
+
   const baseInputs = {
     technicianId: "tech_1",
     technicianBand: 2,
     rateCategory: RateCategory.PROJECT_TM,
     startDate: D("2026-06-01"),
     endDate: null,
+    technicianFlags: allFlags,
     accountRates: [projectTmBand2],
     existingTechnicianAssignments: [],
   };
@@ -102,5 +109,41 @@ describe("validateAssignment", () => {
       ],
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("blocks when the technician is not flagged for the category (NOT_IN_POOL)", () => {
+    const result = validateAssignment({
+      ...baseInputs,
+      technicianFlags: { ...allFlags, isAvailableForProject: false },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("NOT_IN_POOL");
+  });
+
+  it("locks out project/dispatch while an active DEDICATED exists (DEDICATED_LOCKS_OUT)", () => {
+    const result = validateAssignment({
+      ...baseInputs,
+      rateCategory: RateCategory.PROJECT_TM,
+      existingTechnicianAssignments: [
+        { id: "a1", rateCategory: RateCategory.DEDICATED, endDate: null },
+      ],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("DEDICATED_LOCKS_OUT");
+  });
+
+  it("still allows a NEW DEDICATED to surface DEDICATED_ALREADY_ASSIGNED (not locked out)", () => {
+    const result = validateAssignment({
+      ...baseInputs,
+      rateCategory: RateCategory.DEDICATED,
+      accountRates: [
+        { ...projectTmBand2, rateSubCategory: { rateCategory: RateCategory.DEDICATED } },
+      ],
+      existingTechnicianAssignments: [
+        { id: "a1", rateCategory: RateCategory.DEDICATED, endDate: null },
+      ],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("DEDICATED_ALREADY_ASSIGNED");
   });
 });

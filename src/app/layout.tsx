@@ -3,6 +3,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { env } from "@/lib/env";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ToastProvider } from "@/components/admin/toast-provider";
+import { Toaster } from "@/components/admin/toaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +31,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body className="min-h-screen bg-bg font-sans text-fg antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+            <Toaster />
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

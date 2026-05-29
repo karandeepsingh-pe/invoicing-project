@@ -18,6 +18,10 @@ export type AccountCard = {
   miscCount: number;
   assignmentCount: number;
   invoiceRunCount: number;
+  clientPocName: string | null;
+  clientSpocEmail: string | null;
+  projectDescription: string | null;
+  defaultHours: number;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -108,6 +112,10 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 name={a.name}
                 currency={a.currency}
                 orgDefaultCurrency={a.orgDefaultCurrency}
+                clientPocName={a.clientPocName}
+                clientSpocEmail={a.clientSpocEmail}
+                projectDescription={a.projectDescription}
+                defaultHours={a.defaultHours}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

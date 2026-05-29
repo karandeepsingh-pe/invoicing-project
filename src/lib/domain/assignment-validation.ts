@@ -1,10 +1,19 @@
 import type { Assignment } from "@prisma/client";
 import { RateCategory } from "@prisma/client";
 import { ratesForTechnician, type RateWithSubCat } from "./account-rate-resolver";
+import { flagForCategory, type TechnicianFlags } from "./technician-pools";
 
 export type AssignmentValidationResult =
   | { ok: true }
-  | { ok: false; reason: "NO_RATE_CARD" | "DEDICATED_ALREADY_ASSIGNED"; message: string };
+  | {
+      ok: false;
+      reason:
+        | "NO_RATE_CARD"
+        | "DEDICATED_ALREADY_ASSIGNED"
+        | "NOT_IN_POOL"
+        | "DEDICATED_LOCKS_OUT";
+      message: string;
+    };
 
 export type AssignmentValidationInput = {
   technicianId: string;
@@ -12,18 +21,58 @@ export type AssignmentValidationInput = {
   rateCategory: RateCategory;
   startDate: Date;
   endDate: Date | null;
+  technicianFlags: TechnicianFlags;
+  technicianIsRebadged?: boolean;
   accountRates: RateWithSubCat[];
   existingTechnicianAssignments: Pick<Assignment, "id" | "rateCategory" | "endDate">[];
 };
 
+const categoryName: Record<RateCategory, string> = {
+  DEDICATED: "Dedicated FTE",
+  PROJECT_TM: "Project / T&M",
+  DISPATCH_SCHED: "Dispatch",
+};
+
 export function validateAssignment(input: AssignmentValidationInput): AssignmentValidationResult {
+  const hasActiveDedication = input.existingTechnicianAssignments.some(
+    (a) => a.rateCategory === RateCategory.DEDICATED && a.endDate === null,
+  );
+
+  // Pool: the technician must be flagged available for this category.
+  if (!flagForCategory(input.technicianFlags, input.rateCategory)) {
+    return {
+      ok: false,
+      reason: "NOT_IN_POOL",
+      message:
+        `Technician is not in the ${categoryName[input.rateCategory]} pool. ` +
+        `Turn on their "available for ${categoryName[input.rateCategory]}" flag first.`,
+    };
+  }
+
+  // Dedication lock-out: an active dedication bars any NEW project/dispatch work
+  // (a second dedication is caught by DEDICATED_ALREADY_ASSIGNED below).
+  if (hasActiveDedication && input.rateCategory !== RateCategory.DEDICATED) {
+    return {
+      ok: false,
+      reason: "DEDICATED_LOCKS_OUT",
+      message:
+        "Technician has an active DEDICATED assignment and is locked out of project/dispatch " +
+        "work until that dedication ends.",
+    };
+  }
+
+  // Rebadged Dedicated techs bill off their salary, not the account rate sheet —
+  // they don't need a rate-card row to be assignable.
+  const rebadgedDedicated =
+    Boolean(input.technicianIsRebadged) && input.rateCategory === RateCategory.DEDICATED;
+
   const applicable = ratesForTechnician(
     input.accountRates,
     input.rateCategory,
     input.technicianBand,
     input.startDate,
   );
-  if (applicable.length === 0) {
+  if (!rebadgedDedicated && applicable.length === 0) {
     return {
       ok: false,
       reason: "NO_RATE_CARD",

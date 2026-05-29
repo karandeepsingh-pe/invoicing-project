@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { SearchBar } from "@/components/admin/search-bar";
+import { buildTechDisplayMap, type TechDisplay } from "@/lib/display/technician-label";
 
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
@@ -34,6 +35,7 @@ export type TechCard = {
   id: string;
   firstName: string;
   lastName: string;
+  employeeId: string | null;
   primaryCategory: RateCategory;
   band: number;
   employerOrgName: string;
@@ -41,6 +43,7 @@ export type TechCard = {
   totalAssignments: number;
   activeAssignmentCount: number;
   rateGroups: RateGroup[];
+  location: string | null;
 };
 
 export function TechniciansGrid({ techs }: { techs: TechCard[] }) {
@@ -48,12 +51,29 @@ export function TechniciansGrid({ techs }: { techs: TechCard[] }) {
   const [includeInactive, setIncludeInactive] = useState(false);
   const q = query.trim().toLowerCase();
 
+  const displayMap = useMemo(
+    () =>
+      buildTechDisplayMap(
+        techs.map((t) => ({
+          id: t.id,
+          firstName: t.firstName,
+          lastName: t.lastName,
+          employeeId: t.employeeId,
+          employerOrgName: t.employerOrgName,
+          primaryAccountName:
+            t.rateGroups.find((g) => g.kind === "active")?.accountName ?? null,
+        })),
+      ),
+    [techs],
+  );
+
   const filtered = useMemo(() => {
     return techs.filter((t) => {
       if (!includeInactive && !t.active) return false;
       if (!q) return true;
       const haystack = [
         `${t.firstName} ${t.lastName}`,
+        t.employeeId ?? "",
         t.employerOrgName,
         categoryLabel[t.primaryCategory],
       ]
@@ -85,7 +105,7 @@ export function TechniciansGrid({ techs }: { techs: TechCard[] }) {
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-2">
         {filtered.map((t) => (
-          <TechCardView key={t.id} tech={t} />
+          <TechCardView key={t.id} tech={t} display={displayMap.get(t.id)} />
         ))}
         {filtered.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-fg-muted">
@@ -97,7 +117,7 @@ export function TechniciansGrid({ techs }: { techs: TechCard[] }) {
   );
 }
 
-function TechCardView({ tech }: { tech: TechCard }) {
+function TechCardView({ tech, display }: { tech: TechCard; display?: TechDisplay }) {
   const totalRateRows = tech.rateGroups.reduce((n, g) => n + g.rows.length, 0);
 
   return (
@@ -110,6 +130,11 @@ function TechCardView({ tech }: { tech: TechCard }) {
           <div className="flex flex-col leading-tight">
             <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
               {tech.firstName} {tech.lastName}
+              {display?.suffix && (
+                <span className="ml-1.5 align-middle text-xs font-medium text-fg-subtle">
+                  {display.suffix}
+                </span>
+              )}
               {!tech.active && (
                 <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-wider text-fg-subtle">
                   Inactive
@@ -117,6 +142,9 @@ function TechCardView({ tech }: { tech: TechCard }) {
               )}
             </span>
             <span className="mt-0.5 text-xs text-fg-subtle">{tech.employerOrgName}</span>
+            {tech.location && (
+              <span className="mt-0.5 text-[11px] text-fg-subtle">{tech.location}</span>
+            )}
           </div>
         </Link>
         <div className="flex flex-col items-end gap-1">

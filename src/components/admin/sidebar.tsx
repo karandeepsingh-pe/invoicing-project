@@ -11,11 +11,9 @@ type Section = FlatLink | Group;
 
 const sections: Section[] = [
   { kind: "link", href: "/admin", label: "Dashboard" },
-  { kind: "link", href: "/admin/management", label: "Management" },
-  { kind: "link", href: "/admin/orgs", label: "Orgs" },
-  { kind: "link", href: "/admin/accounts", label: "Accounts" },
-  { kind: "link", href: "/admin/commercials", label: "Commercials" },
-  { kind: "link", href: "/admin/technicians", label: "Technicians" },
+  { kind: "link", href: "/admin/management", label: "Partner Management" },
+  { kind: "link", href: "/admin/timesheets", label: "Timesheets" },
+  { kind: "link", href: "/admin/invoices", label: "Invoices" },
   {
     kind: "group",
     id: "masters",
@@ -23,7 +21,9 @@ const sections: Section[] = [
     children: [
       { kind: "link", href: "/admin/masters/slas", label: "SLAs" },
       { kind: "link", href: "/admin/masters/sub-categories", label: "Sub-categories" },
+      { kind: "link", href: "/admin/masters/visit-types", label: "Visit types" },
       { kind: "link", href: "/admin/masters/bands", label: "Bands" },
+      { kind: "link", href: "/admin/masters/postal-codes", label: "Postal codes" },
     ],
   },
 ];

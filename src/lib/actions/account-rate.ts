@@ -10,6 +10,12 @@ import {
 } from "@/lib/schemas/account-rate";
 import type { ActionResult } from "./result";
 
+// Rates are not time-versioned in the UI — every row is "always active". A fixed
+// far-past effectiveFrom + null effectiveTo makes the resolver always pick it, and
+// makes the (account, sub-category, band, SLA, effectiveFrom) unique key behave as
+// one row per combo. Edit the amount in place to change a rate.
+const ALWAYS_ACTIVE_FROM = new Date("2000-01-01T00:00:00.000Z");
+
 export async function createAccountRate(
   _prev: ActionResult,
   formData: FormData,
@@ -22,8 +28,6 @@ export async function createAccountRate(
     band: formData.get("band"),
     slaId: formData.get("slaId"),
     rateAmount: formData.get("rateAmount") || undefined,
-    effectiveFrom: formData.get("effectiveFrom"),
-    effectiveTo: formData.get("effectiveTo") || undefined,
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {
@@ -38,8 +42,8 @@ export async function createAccountRate(
         band: parsed.data.band,
         slaId: parsed.data.slaId,
         rateAmount: parsed.data.rateAmount ?? null,
-        effectiveFrom: new Date(parsed.data.effectiveFrom),
-        effectiveTo: parsed.data.effectiveTo ? new Date(parsed.data.effectiveTo) : null,
+        effectiveFrom: ALWAYS_ACTIVE_FROM,
+        effectiveTo: null,
         notes: parsed.data.notes ?? null,
       },
     });
@@ -50,7 +54,7 @@ export async function createAccountRate(
       return {
         ok: false,
         formError:
-          "A rate row with the same sub-category / band / SLA / effective-from already exists.",
+          "A rate row for this sub-category / band / SLA already exists — edit its amount instead.",
       };
     }
     throw err;

@@ -19,6 +19,8 @@
     --danger-bg: 254 242 242;
     --success: 21 128 61;
     --success-bg: 240 253 244;
+    --warning: 180 83 9;          /* amber-700 */
+    --warning-bg: 255 251 235;    /* amber-50 */
 
     /* Glass tokens */
     --glass-bg: 255 255 255;
@@ -53,6 +55,8 @@
     --danger-bg: 69 10 10;
     --success: 134 239 172;
     --success-bg: 5 46 22;
+    --warning: 251 191 36;        /* amber-400 */
+    --warning-bg: 60 36 4;        /* deep amber */
 
     --glass-bg: 24 24 27;
     --glass-bg-alpha: 0.55;

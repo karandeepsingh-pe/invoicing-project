@@ -6,6 +6,7 @@ import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { type AccountOption } from "./create-assignment-form";
 import { AssignmentCreateDialog } from "./create-assignment-dialog";
 import { EndAssignmentButton } from "./end-assignment-button";
+import { DeleteAssignmentButton } from "./delete-assignment-button";
 import { TechnicianEditForm } from "./edit-form";
 
 const categoryLabel: Record<RateCategory, string> = {
@@ -33,6 +34,7 @@ export default async function TechnicianDetailPage({
     where: { id: techId },
     include: {
       employerOrg: true,
+      postalCode: true,
       assignments: {
         include: {
           clientAccount: {
@@ -90,13 +92,18 @@ export default async function TechnicianDetailPage({
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <Link href="/admin/technicians" className="text-xs font-medium text-fg-subtle hover:text-fg">
-          ← Technicians
+        <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
+          ← Partner Management
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
             <h1 className="text-4xl font-semibold tracking-tighter2">
               {tech.firstName} {tech.lastName}
+              {tech.employeeId && (
+                <span className="ml-3 align-middle text-sm font-medium text-fg-subtle">
+                  #{tech.employeeId}
+                </span>
+              )}
               {!tech.active && (
                 <span className="ml-3 align-middle text-xs font-medium uppercase tracking-wider text-fg-subtle">
                   Inactive
@@ -105,20 +112,69 @@ export default async function TechnicianDetailPage({
             </h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
               <CategoryPill category={tech.primaryCategory} />
-              <BandPill band={tech.band} />
+              {tech.isRebadged ? (
+                <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  Rebadged
+                  {tech.annualSalary ? ` · $${Number(tech.annualSalary).toLocaleString()}/yr` : ""}
+                </span>
+              ) : (
+                <BandPill band={tech.band} />
+              )}
+              {tech.primaryCategory === RateCategory.DEDICATED && tech.defaultSlaTier !== "NONE" && (
+                <span className="inline-flex items-center rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-fg-muted">
+                  {tech.defaultSlaTier === "BACKFILL" ? "Backfill" : "No Backfill"}
+                </span>
+              )}
               <span className="text-fg-subtle">·</span>
               <span>employed by <span className="font-medium text-fg">{tech.employerOrg.name}</span></span>
+              {tech.phone && (
+                <>
+                  <span className="text-fg-subtle">·</span>
+                  <span>{tech.phone}</span>
+                </>
+              )}
+              {tech.email && (
+                <>
+                  <span className="text-fg-subtle">·</span>
+                  <span>{tech.email}</span>
+                </>
+              )}
+              {tech.postalCode && (
+                <>
+                  <span className="text-fg-subtle">·</span>
+                  <span>
+                    {tech.postalCode.city}, {tech.postalCode.state}, {tech.postalCode.country}
+                    <span className="ml-1 text-fg-subtle">· {tech.postalCode.zipcode}</span>
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <TechnicianEditForm
             id={tech.id}
             firstName={tech.firstName}
             lastName={tech.lastName}
+            employeeId={tech.employeeId}
+            phone={tech.phone}
+            email={tech.email}
             primaryCategory={tech.primaryCategory}
             band={tech.band}
+            defaultSlaTier={tech.defaultSlaTier}
             active={tech.active}
+            isAvailableForDedicated={tech.isAvailableForDedicated}
+            isAvailableForProject={tech.isAvailableForProject}
+            isAvailableForDispatch={tech.isAvailableForDispatch}
+            isRebadged={tech.isRebadged}
+            annualSalary={tech.annualSalary?.toString() ?? null}
+            rebadgedOtRate={tech.rebadgedOtRate?.toString() ?? null}
+            rebadgedWeekendRate={tech.rebadgedWeekendRate?.toString() ?? null}
             employerOrgId={tech.employerOrgId}
             orgs={orgs}
+            postalCodeId={tech.postalCodeId}
+            zipcode={tech.postalCode?.zipcode ?? null}
+            city={tech.postalCode?.city ?? null}
+            state={tech.postalCode?.state ?? null}
+            country={tech.postalCode?.country ?? null}
           />
         </div>
         {activeDedicated && (
@@ -140,7 +196,14 @@ export default async function TechnicianDetailPage({
               technicianId={tech.id}
               technicianBand={tech.band}
               primaryCategory={tech.primaryCategory}
+              defaultSlaTier={tech.defaultSlaTier}
               accounts={accountOptions}
+              flags={{
+                isAvailableForDedicated: tech.isAvailableForDedicated,
+                isAvailableForProject: tech.isAvailableForProject,
+                isAvailableForDispatch: tech.isAvailableForDispatch,
+              }}
+              hasActiveDedication={Boolean(activeDedicated)}
             />
           </div>
         </div>
@@ -167,7 +230,13 @@ export default async function TechnicianDetailPage({
                   <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.startDate)}</td>
                   <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.endDate)}</td>
                   <td className="px-4 py-2.5 text-right">
-                    {a.endDate === null && <EndAssignmentButton id={a.id} />}
+                    <div className="flex items-center justify-end gap-3">
+                      {a.endDate === null && <EndAssignmentButton id={a.id} />}
+                      <DeleteAssignmentButton
+                        id={a.id}
+                        accountLabel={`${a.clientAccount.org.name} / ${a.clientAccount.name}`}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -239,8 +308,6 @@ export default async function TechnicianDetailPage({
                           <th className="px-4 py-2 text-left font-medium">Sub-category</th>
                           <th className="px-4 py-2 text-left font-medium">SLA</th>
                           <th className="px-4 py-2 text-right font-medium">Rate</th>
-                          <th className="px-4 py-2 text-left font-medium">Effective from</th>
-                          <th className="px-4 py-2 text-left font-medium">Effective to</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -251,8 +318,6 @@ export default async function TechnicianDetailPage({
                             <td className="px-4 py-2.5 text-right tabular-nums">
                               {fmtMoney(r.rateAmount, currency)}
                             </td>
-                            <td className="px-4 py-2.5 text-fg-muted">{fmtDate(r.effectiveFrom)}</td>
-                            <td className="px-4 py-2.5 text-fg-muted">{fmtDate(r.effectiveTo)}</td>
                           </tr>
                         ))}
                       </tbody>

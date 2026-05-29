@@ -8,8 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 type DialogChildrenProps = { close: () => void };
+type DialogSize = "sm" | "md" | "lg" | "xl";
 
 export function Dialog({
   trigger,
@@ -22,9 +24,10 @@ export function Dialog({
   title: string;
   description?: string;
   children: (api: DialogChildrenProps) => ReactNode;
-  size?: "md" | "lg" | "xl";
+  size?: DialogSize;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const headingId = useId();
   const descId = useId();
@@ -32,12 +35,15 @@ export function Dialog({
   const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close();
     }
     document.addEventListener("keydown", onKey);
-    // Lock background scroll while open.
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -51,54 +57,60 @@ export function Dialog({
       ? "max-w-3xl"
       : size === "lg"
         ? "max-w-2xl"
-        : "max-w-lg";
+        : size === "sm"
+          ? "max-w-sm"
+          : "max-w-lg";
+
+  const paddingClass = size === "sm" ? "p-5" : "p-6";
+  const headerMb = size === "sm" ? "mb-3" : "mb-4";
+
+  const overlay = open ? (
+    <div
+      ref={overlayRef}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) close();
+      }}
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby={headingId}
+      aria-describedby={description ? descId : undefined}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-fg/40 px-4 py-8 backdrop-blur-sm"
+    >
+      <div
+        className={`glass-strong w-full ${widthClass} rounded-2xl ${paddingClass} shadow-2xl animate-fade-in`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className={`${headerMb} flex items-start justify-between gap-4`}>
+          <div className="flex flex-col gap-1">
+            <h2 id={headingId} className="text-base font-semibold tracking-tightish">
+              {title}
+            </h2>
+            {description && (
+              <p id={descId} className="text-xs text-fg-subtle">
+                {description}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close"
+            className="-mr-1 -mt-1 rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface/60 hover:text-fg"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </header>
+        <div>{children({ close })}</div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
       <span onClick={() => setOpen(true)} className="inline-flex">
         {trigger}
       </span>
-
-      {open && (
-        <div
-          ref={overlayRef}
-          onClick={(e) => {
-            if (e.target === overlayRef.current) close();
-          }}
-          aria-modal="true"
-          role="dialog"
-          aria-labelledby={headingId}
-          aria-describedby={description ? descId : undefined}
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-fg/30 px-4 py-12 backdrop-blur-sm"
-        >
-          <div
-            className={`glass-strong w-full ${widthClass} rounded-2xl p-6 animate-fade-in`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="mb-4 flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <h2 id={headingId} className="text-lg font-semibold tracking-tightish">
-                  {title}
-                </h2>
-                {description && (
-                  <p id={descId} className="text-xs text-fg-subtle">
-                    {description}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={close}
-                aria-label="Close"
-                className="rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface/60 hover:text-fg"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </header>
-            <div>{children({ close })}</div>
-          </div>
-        </div>
-      )}
+      {mounted && overlay ? createPortal(overlay, document.body) : null}
     </>
   );
 }

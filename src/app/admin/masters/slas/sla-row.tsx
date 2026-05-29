@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { deleteSla, updateSla } from "@/lib/actions/sla";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function SlaRowActions({
   id,
@@ -16,10 +18,17 @@ export function SlaRowActions({
 }) {
   const [editing, setEditing] = useState(false);
   const [updateState, updateAction, updating] = useActionState(updateSla, null);
-  const [deleteState, deleteAction, deleting] = useActionState(deleteSla, null);
+  const [deleteState, deleteAction] = useActionState(deleteSla, null);
+  const [pending, startTransition] = useTransition();
 
-  const updateError = updateState && updateState.ok === false ? updateState.formError : undefined;
-  const deleteError = deleteState && deleteState.ok === false ? deleteState.formError : undefined;
+  useActionToast(updateState, {
+    success: { title: `SLA "${code}" updated` },
+    error: { fallbackTitle: `Failed to update "${code}"` },
+  });
+  useActionToast(deleteState, {
+    success: { title: `Deleted SLA "${code}"` },
+    error: { fallbackTitle: `Cannot delete "${code}"` },
+  });
 
   if (editing) {
     return (
@@ -58,9 +67,6 @@ export function SlaRowActions({
         >
           Cancel
         </button>
-        {updateError && (
-          <span className="ml-2 max-w-xs text-[11px] text-danger">{updateError}</span>
-        )}
       </form>
     );
   }
@@ -74,24 +80,28 @@ export function SlaRowActions({
       >
         Edit
       </button>
-      <form
-        action={deleteAction}
-        onSubmit={(e) => {
-          if (!confirm(`Delete SLA "${code}"? This cannot be undone.`)) e.preventDefault();
+      <ConfirmDialog
+        trigger={
+          <button
+            type="button"
+            disabled={pending}
+            className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50"
+          >
+            {pending ? "Deleting…" : "Delete"}
+          </button>
+        }
+        title={`Delete SLA "${code}"?`}
+        body="Blocked if any account rate row still references this SLA."
+        destructive
+        confirmLabel="Delete"
+        onConfirm={() => {
+          startTransition(() => {
+            const fd = new FormData();
+            fd.append("id", id);
+            deleteAction(fd);
+          });
         }}
-      >
-        <input type="hidden" name="id" value={id} />
-        <button
-          type="submit"
-          disabled={deleting}
-          className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50"
-        >
-          {deleting ? "Deleting…" : "Delete"}
-        </button>
-      </form>
-      {deleteError && (
-        <span className="max-w-xs text-[11px] text-danger">{deleteError}</span>
-      )}
+      />
     </div>
   );
 }

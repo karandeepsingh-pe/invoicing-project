@@ -21,6 +21,8 @@ const config: Config = {
         "danger-bg": "rgb(var(--danger-bg) / <alpha-value>)",
         success: "rgb(var(--success) / <alpha-value>)",
         "success-bg": "rgb(var(--success-bg) / <alpha-value>)",
+        warning: "rgb(var(--warning) / <alpha-value>)",
+        "warning-bg": "rgb(var(--warning-bg) / <alpha-value>)",
       },
       fontFamily: {
         sans: ['var(--font-sans)', "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],

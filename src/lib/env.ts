@@ -10,6 +10,13 @@ const serverSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_SECRET: z.string().optional(),
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.string().optional(),
   DEV_ADMIN_EMAIL: z.string().email().optional(),
+  // Testing-phase gate for the soft-delete affordances (cell/row/month). Off in
+  // prod; flip to "true" while testing. z.coerce.boolean would treat "false" as
+  // true, so parse an explicit enum instead.
+  SOFT_DELETE_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 const clientSchema = z.object({
@@ -25,6 +32,7 @@ const processEnv = {
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:
     process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
   DEV_ADMIN_EMAIL: process.env.DEV_ADMIN_EMAIL,
+  SOFT_DELETE_ENABLED: process.env.SOFT_DELETE_ENABLED,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
 };
 
