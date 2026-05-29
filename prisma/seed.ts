@@ -3,6 +3,7 @@ import {
   OutputTemplate,
   UserRole,
   RateCategory,
+  RateBasis,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -11,11 +12,16 @@ type OrgSeed = {
   name: string;
   outputTemplate: OutputTemplate;
   accounts: string[];
+  // Org policy. Defaults keep current behavior (backfill on, day-rate basis).
+  backfillAllowed?: boolean;
+  rateBasis?: RateBasis;
 };
 
 const orgSeeds: OrgSeed[] = [
-  { name: "HCL", outputTemplate: OutputTemplate.FSO, accounts: ["ZF", "Acadia"] },
-  { name: "Cognizant", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: [] },
+  // HCL example: no backfill, annual rate basis (day rate = annual / 260).
+  { name: "HCL", outputTemplate: OutputTemplate.FSO, accounts: ["ZF", "Acadia"], backfillAllowed: false, rateBasis: RateBasis.ANNUAL },
+  // Cognizant example: backfill available, day-rate basis.
+  { name: "Cognizant", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: [], backfillAllowed: true, rateBasis: RateBasis.DAY_RATE },
   { name: "TCS", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["TCS"] },
   { name: "Wipro", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Wipro"] },
   { name: "Hiscox", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Hiscox"] },
@@ -48,6 +54,8 @@ type SubCatSeed = {
 
 const subCategorySeeds: SubCatSeed[] = [
   // DISPATCH_SCHED — always Band 2 in practice; the rate sheet still lets you pick band.
+  // PER_TICKET is the flat per-visit option; when set it overrides the hourly model.
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "PER_TICKET", label: "Per Ticket (flat)", sortOrder: 5 },
   { rateCategory: RateCategory.DISPATCH_SCHED, code: "FIRST_HOUR", label: "First Hour Rate", sortOrder: 10 },
   { rateCategory: RateCategory.DISPATCH_SCHED, code: "ADDITIONAL_HOUR", label: "Additional Hour Rate", sortOrder: 20 },
   { rateCategory: RateCategory.DISPATCH_SCHED, code: "OUT_OF_OFFICE", label: "Out of Office Hours", sortOrder: 30, isOvertimeVariant: true },
@@ -64,6 +72,8 @@ const subCategorySeeds: SubCatSeed[] = [
   // DEDICATED — bands 0..4. Tier-neutral codes; the Backfill / No Backfill
   // distinction rides on AccountRate.slaId (BACKFILL vs NO_BACKFILL Sla code).
   { rateCategory: RateCategory.DEDICATED, code: "MONTHLY_DAY_RATE", label: "Hourly Rate", sortOrder: 10 },
+  // Annual rate basis: stores the annual figure; day rate = annual / 260.
+  { rateCategory: RateCategory.DEDICATED, code: "ANNUAL_RATE", label: "Annual Rate", sortOrder: 15 },
   { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BACKFILL", label: "Hourly With Backfill", sortOrder: 20 },
   { rateCategory: RateCategory.DEDICATED, code: "OT_HOURLY_RATE", label: "OT Hourly Rate", sortOrder: 30, isOvertimeVariant: true },
   { rateCategory: RateCategory.DEDICATED, code: "WEEKEND_HOURLY_RATE", label: "Weekend Hourly Rate", sortOrder: 40, isOvertimeVariant: true },
@@ -83,10 +93,12 @@ const visitTypeSeeds: { code: string; label: string; sortOrder: number }[] = [
 
 async function main() {
   for (const seed of orgSeeds) {
+    const backfillAllowed = seed.backfillAllowed ?? true;
+    const rateBasis = seed.rateBasis ?? RateBasis.DAY_RATE;
     const org = await prisma.org.upsert({
       where: { name: seed.name },
-      update: { outputTemplate: seed.outputTemplate },
-      create: { name: seed.name, outputTemplate: seed.outputTemplate },
+      update: { outputTemplate: seed.outputTemplate, backfillAllowed, rateBasis },
+      create: { name: seed.name, outputTemplate: seed.outputTemplate, backfillAllowed, rateBasis },
     });
 
     for (const accountName of seed.accounts) {

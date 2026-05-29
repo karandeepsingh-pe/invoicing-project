@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { RateCategory } from "@prisma/client";
+import { RateCategory, type RateBasis } from "@prisma/client";
 import {
   DeleteAccountButton,
   DeleteOrgButton,
   DeleteTechnicianButton,
 } from "./delete-buttons";
 import { AddAccountForOrgDialog } from "./add-account-for-org-dialog";
-import { AddTechForOrgDialog } from "./add-tech-for-org-dialog";
 import { AssignTechToAccountDialog } from "./assign-tech-dialog";
+import { TechnicianCreateDialog } from "@/app/admin/technicians/create-dialog";
 import type { TechOption } from "@/app/admin/accounts/[accountId]/create-assignment-form";
 import type { ExistingTech } from "@/app/admin/technicians/create-form";
 
@@ -37,6 +37,7 @@ export type AccountRow = {
   id: string;
   name: string;
   currency: string;
+  backfillAllowed: boolean;
   rateCount: number;
   miscCount: number;
   assignmentCount: number;
@@ -61,6 +62,8 @@ export type OrgRow = {
   name: string;
   outputTemplate: string;
   defaultCurrency: string;
+  backfillAllowed: boolean;
+  rateBasis: RateBasis;
   accounts: AccountRow[];
   technicians: TechRow[];
 };
@@ -326,6 +329,8 @@ export function ManagementView({
                             orgId={o.id}
                             orgName={o.name}
                             defaultCurrency={o.defaultCurrency}
+                            orgBackfillAllowed={o.backfillAllowed}
+                            orgRateBasis={o.rateBasis}
                           />
                         }
                         empty="No client accounts."
@@ -351,6 +356,7 @@ export function ManagementView({
                                       name={a.name}
                                       currency={a.currency}
                                       assignedTechs={a.assignedTechs}
+                                      showAssigned={false}
                                     />
                                   </td>
                                   <td className="py-2 text-right tabular-nums">{a.rateCount}</td>
@@ -362,6 +368,7 @@ export function ManagementView({
                                       id={a.id}
                                       name={a.name}
                                       accountLabel={`${o.name} / ${a.name}`}
+                                      backfillAllowed={a.backfillAllowed}
                                       technicians={techOptions}
                                     />
                                   </td>
@@ -375,51 +382,41 @@ export function ManagementView({
                         )}
                       </SubSection>
 
-                      <SubSection
-                        title="Technicians employed (org roster)"
-                        addSlot={
-                          <AddTechForOrgDialog
-                            orgId={o.id}
-                            orgName={o.name}
-                            existingTechs={existingTechsFromOrgs(filtered)}
-                          />
-                        }
-                        empty="No technicians employed by this org."
-                      >
-                        <p className="mb-2 text-[11px] text-fg-subtle">
-                          Employs techs only — assign them to a client account with{" "}
-                          <span className="font-medium text-fg-muted">Assign</span> on the left.
-                        </p>
-                        {o.technicians.length > 0 && (
-                          <table className="w-full text-sm">
-                            <thead className="text-[11px] uppercase tracking-wider text-fg-subtle">
-                              <tr className="border-b border-border">
-                                <th className="py-1.5 text-left font-medium">Name</th>
-                                <th className="py-1.5 text-left font-medium">Category</th>
-                                <th className="py-1.5 text-left font-medium">Band</th>
-                                <th className="py-1.5 text-right font-medium">Assign.</th>
-                                <th className="py-1.5"></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {o.technicians.map((t) => (
-                                <tr key={t.id} className="border-b border-border last:border-b-0">
-                                  <td className="py-2">
-                                    <TechNameCell id={t.id} firstName={t.firstName} lastName={t.lastName} location={t.location} />
-                                  </td>
-                                  <td className="py-2 text-fg-muted">{categoryLabel[t.primaryCategory]}</td>
-                                  <td className="py-2 text-fg-muted">{t.isRebadged ? "Rebadged" : `Band ${t.band}`}</td>
-                                  <td className="py-2 text-right tabular-nums">{t.assignmentCount}</td>
-                                  <td className="py-2 pl-2 text-right">
-                                    <DeleteTechnicianButton id={t.id} firstName={t.firstName} lastName={t.lastName} />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                        {o.technicians.length === 0 && (
-                          <p className="py-3 text-xs text-fg-subtle">No technicians employed.</p>
+                      <SubSection title="Assigned technicians">
+                        {o.accounts.length === 0 ? (
+                          <p className="py-3 text-xs text-fg-subtle">No client accounts.</p>
+                        ) : (
+                          <div className="flex flex-col gap-3">
+                            {o.accounts.map((a) => (
+                              <div key={a.id}>
+                                <Link
+                                  href={`/admin/accounts/${a.id}` as never}
+                                  className="text-xs font-medium text-fg hover:text-accent"
+                                >
+                                  {a.name}
+                                </Link>
+                                {a.assignedTechs.length > 0 ? (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {a.assignedTechs.map((t) => (
+                                      <Link
+                                        key={t.id}
+                                        href={`/admin/technicians/${t.id}` as never}
+                                        title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
+                                        className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+                                      >
+                                        <span>{t.name}</span>
+                                        <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
+                                      </Link>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="mt-0.5 text-[11px] text-fg-subtle">
+                                    No technicians assigned
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </SubSection>
                     </div>
@@ -462,6 +459,7 @@ export function ManagementView({
                       id={a.id}
                       name={a.name}
                       accountLabel={`${a.orgName} / ${a.name}`}
+                      backfillAllowed={a.backfillAllowed}
                       technicians={techOptions}
                     />
                   </td>
@@ -481,8 +479,15 @@ export function ManagementView({
 
       {/* ── Technicians tab (flat) ── */}
       {tab === "technicians" && (
-        <div className="glass overflow-hidden rounded-lg">
-          <table className="w-full text-sm">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-end">
+            <TechnicianCreateDialog
+              orgs={orgs.map((o) => ({ id: o.id, name: o.name }))}
+              existingTechs={existingTechsFromOrgs(orgs)}
+            />
+          </div>
+          <div className="glass overflow-hidden rounded-lg">
+            <table className="w-full text-sm">
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Name</th>
@@ -517,6 +522,7 @@ export function ManagementView({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -528,11 +534,13 @@ function AccountNameCell({
   name,
   currency,
   assignedTechs,
+  showAssigned = true,
 }: {
   id: string;
   name: string;
   currency: string;
   assignedTechs: AssignedTech[];
+  showAssigned?: boolean;
 }) {
   return (
     <>
@@ -540,23 +548,24 @@ function AccountNameCell({
         {name}
       </Link>
       <div className="text-[11px] text-fg-subtle">{currency}</div>
-      {assignedTechs.length > 0 ? (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {assignedTechs.map((t) => (
-            <Link
-              key={t.id}
-              href={`/admin/technicians/${t.id}` as never}
-              title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
-              className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
-            >
-              <span>{t.name}</span>
-              <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
-            </Link>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-1 text-[11px] text-fg-subtle">No technicians assigned</div>
-      )}
+      {showAssigned &&
+        (assignedTechs.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {assignedTechs.map((t) => (
+              <Link
+                key={t.id}
+                href={`/admin/technicians/${t.id}` as never}
+                title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
+                className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+              >
+                <span>{t.name}</span>
+                <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-1 text-[11px] text-fg-subtle">No technicians assigned</div>
+        ))}
     </>
   );
 }
@@ -565,11 +574,13 @@ function AccountActions({
   id,
   name,
   accountLabel,
+  backfillAllowed,
   technicians,
 }: {
   id: string;
   name: string;
   accountLabel: string;
+  backfillAllowed: boolean;
   technicians: TechOption[];
 }) {
   return (
@@ -578,6 +589,7 @@ function AccountActions({
         clientAccountId={id}
         accountLabel={accountLabel}
         technicians={technicians}
+        backfillAllowed={backfillAllowed}
       />
       <Link href={`/admin/timesheets/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
         Timesheet
@@ -617,8 +629,8 @@ function SubSection({
   children,
 }: {
   title: string;
-  addSlot: React.ReactNode;
-  empty: string;
+  addSlot?: React.ReactNode;
+  empty?: string;
   children: React.ReactNode;
 }) {
   return (

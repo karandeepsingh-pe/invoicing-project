@@ -40,6 +40,18 @@ describe("parseCellText", () => {
     if (r.kind === "status") expect(r.status).toBe("AB");
   });
 
+  it("PTO -> status", () => {
+    const r = parseCellText("pto");
+    expect(r.kind).toBe("status");
+    if (r.kind === "status") expect(r.status).toBe("PTO");
+  });
+
+  it("HALF_DAY -> status (case-insensitive)", () => {
+    const r = parseCellText("half_day");
+    expect(r.kind).toBe("status");
+    if (r.kind === "status") expect(r.status).toBe("HALF_DAY");
+  });
+
   it("apostrophe -> invalid", () => {
     const r = parseCellText("'");
     expect(r.kind).toBe("invalid");

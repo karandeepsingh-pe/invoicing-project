@@ -7,6 +7,7 @@ import {
   monthRange,
 } from "@/lib/invoice/period";
 import { splitEntries } from "@/lib/invoice/hours-split";
+import { loadFteRows } from "@/lib/invoice/fte-rows";
 import { GenerateForm, type AssignmentPreview } from "./generate-form";
 
 export default async function GeneratePreInvoicePage({
@@ -89,6 +90,10 @@ export default async function GeneratePreInvoicePage({
     };
   });
 
+  // Assignments with worked days but no resolvable rate (would bill $0) — shown
+  // for review before export rather than emitting a silent $0 line.
+  const { unpriced } = await loadFteRows(accountId, range);
+
   const monthName = range.start.toLocaleString("en-US", {
     month: "long",
     timeZone: "UTC",
@@ -139,6 +144,7 @@ export default async function GeneratePreInvoicePage({
           month={month}
           businessDays={businessDays}
           assignments={previews}
+          unpriced={unpriced}
         />
       )}
     </div>

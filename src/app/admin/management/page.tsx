@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import { ManagementView, type OrgRow } from "./management-view";
 import { OrgCreateDialog } from "@/app/admin/orgs/create-dialog";
 import type { TechOption } from "@/app/admin/accounts/[accountId]/create-assignment-form";
@@ -81,10 +82,13 @@ export default async function ManagementPage() {
     name: o.name,
     outputTemplate: o.outputTemplate,
     defaultCurrency: o.defaultCurrency,
+    backfillAllowed: o.backfillAllowed,
+    rateBasis: o.rateBasis,
     accounts: o.clientAccounts.map((a) => ({
       id: a.id,
       name: a.name,
       currency: a.currency ?? o.defaultCurrency,
+      backfillAllowed: resolvePolicy(o, a).backfillAllowed,
       rateCount: a._count.accountRates,
       miscCount: a._count.miscFees,
       assignmentCount: a._count.assignments,

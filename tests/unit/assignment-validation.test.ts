@@ -146,4 +146,38 @@ describe("validateAssignment", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("DEDICATED_ALREADY_ASSIGNED");
   });
+
+  const dedicatedInputs = {
+    ...baseInputs,
+    rateCategory: RateCategory.DEDICATED,
+    accountRates: [
+      { ...projectTmBand2, rateSubCategory: { rateCategory: RateCategory.DEDICATED } },
+    ],
+  };
+
+  it("blocks the BACKFILL tier when policy disallows backfill (BACKFILL_NOT_ALLOWED)", () => {
+    const result = validateAssignment({
+      ...dedicatedInputs,
+      slaTier: "BACKFILL",
+      backfillAllowed: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("BACKFILL_NOT_ALLOWED");
+  });
+
+  it("allows the BACKFILL tier when policy allows backfill", () => {
+    expect(
+      validateAssignment({ ...dedicatedInputs, slaTier: "BACKFILL", backfillAllowed: true }).ok,
+    ).toBe(true);
+  });
+
+  it("allows NO_BACKFILL even when backfill is disallowed", () => {
+    expect(
+      validateAssignment({ ...dedicatedInputs, slaTier: "NO_BACKFILL", backfillAllowed: false }).ok,
+    ).toBe(true);
+  });
+
+  it("treats an undefined backfillAllowed as allowed (back-compat)", () => {
+    expect(validateAssignment({ ...dedicatedInputs, slaTier: "BACKFILL" }).ok).toBe(true);
+  });
 });

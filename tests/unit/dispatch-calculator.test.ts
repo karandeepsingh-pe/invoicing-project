@@ -95,4 +95,41 @@ describe("calculateDispatchVisit", () => {
     );
     expect(result.charge).toBe(95);
   });
+
+  describe("flat per-ticket pricing", () => {
+    const perTicketRates: DispatchRateRow[] = [
+      ...rates,
+      {
+        rateAmount: dec(250),
+        band: 2,
+        rateSubCategory: { code: "PER_TICKET" },
+        sla: { code: "NBD" },
+      },
+    ];
+
+    it("PER_TICKET bills a flat amount regardless of hours", () => {
+      const oneHour = calculateDispatchVisit(baseVisit, perTicketRates);
+      const fiveHours = calculateDispatchVisit(
+        { ...baseVisit, hoursOnSite: dec(5) },
+        perTicketRates,
+      );
+      expect(oneHour.charge).toBe(250);
+      expect(fiveHours.charge).toBe(250);
+      expect(fiveHours.modifiersApplied).toContain("per-ticket");
+    });
+
+    it("PER_TICKET takes precedence over the first/additional-hour model", () => {
+      const result = calculateDispatchVisit(
+        { ...baseVisit, hoursOnSite: dec(3) },
+        perTicketRates,
+      );
+      // Hourly would be 95 + 60*2 = 215; flat per-ticket wins at 250.
+      expect(result.charge).toBe(250);
+    });
+
+    it("falls back to hourly when no PER_TICKET rate exists for the band/SLA", () => {
+      const result = calculateDispatchVisit({ ...baseVisit, hoursOnSite: dec(3) }, rates);
+      expect(result.charge).toBe(95 + 60 * 2);
+    });
+  });
 });

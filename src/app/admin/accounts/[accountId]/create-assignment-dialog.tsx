@@ -10,10 +10,12 @@ export function AccountAssignmentCreateDialog({
   clientAccountId,
   accountLabel,
   technicians,
+  backfillAllowed = true,
 }: {
   clientAccountId: string;
   accountLabel: string;
   technicians: TechOption[];
+  backfillAllowed?: boolean;
 }) {
   return (
     <Dialog
@@ -27,6 +29,7 @@ export function AccountAssignmentCreateDialog({
           clientAccountId={clientAccountId}
           accountLabel={accountLabel}
           technicians={technicians}
+          backfillAllowed={backfillAllowed}
           onSuccess={close}
         />
       )}

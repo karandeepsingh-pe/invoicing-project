@@ -17,6 +17,7 @@ export async function createMiscFee(
     kind: formData.get("kind"),
     label: formData.get("label"),
     amount: formData.get("amount") || undefined,
+    percent: formData.get("percent") || undefined,
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {
@@ -29,6 +30,7 @@ export async function createMiscFee(
       kind: parsed.data.kind,
       label: parsed.data.label,
       amount: parsed.data.amount ?? null,
+      percent: parsed.data.percent ?? null,
       notes: parsed.data.notes ?? null,
     },
   });

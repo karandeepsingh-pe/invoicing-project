@@ -16,6 +16,7 @@ export type AccountOption = {
   id: string;
   label: string;
   currency: string;
+  backfillAllowed: boolean;
   previewByCategory: Record<keyof typeof RateCategory, PreviewRow[]>;
 };
 
@@ -63,6 +64,16 @@ export function AssignmentCreateForm({
     [accountId, accounts],
   );
   const preview = selectedAccount?.previewByCategory[category] ?? [];
+
+  // Org policy can switch off backfill for the selected account. Keep the SLA
+  // tier controlled so picking a no-backfill account drops a stale BACKFILL pick.
+  const accountAllowsBackfill = selectedAccount?.backfillAllowed ?? true;
+  const [slaTier, setSlaTier] = useState<AssignmentSlaTier>(defaultSlaTier);
+  useEffect(() => {
+    if (!accountAllowsBackfill && slaTier === AssignmentSlaTier.BACKFILL) {
+      setSlaTier(AssignmentSlaTier.NO_BACKFILL);
+    }
+  }, [accountAllowsBackfill, slaTier]);
 
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
@@ -139,12 +150,19 @@ export function AssignmentCreateForm({
       <SelectField
         label="Band SLA tier"
         name="slaTier"
-        defaultValue={defaultSlaTier}
+        value={slaTier}
+        onChange={(e) => setSlaTier(e.target.value as AssignmentSlaTier)}
         errors={fieldErrors?.slaTier}
-        hint="Defaults to the technician's backfill trait. BACKFILL / NO_BACKFILL for DEDICATED; NONE for Dispatch / Project."
+        hint={
+          accountAllowsBackfill
+            ? "Defaults to the technician's backfill trait. BACKFILL / NO_BACKFILL for DEDICATED; NONE for Dispatch / Project."
+            : "Org policy: backfill is off for this account, so the BACKFILL tier is unavailable."
+        }
       >
         <option value="NONE">None (Dispatch / Project)</option>
-        <option value="BACKFILL">Backfill (replacement guaranteed)</option>
+        {accountAllowsBackfill && (
+          <option value="BACKFILL">Backfill (replacement guaranteed)</option>
+        )}
         <option value="NO_BACKFILL">No Backfill</option>
       </SelectField>
 

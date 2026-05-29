@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CreateAccountUnderOrgDialog } from "./create-account-dialog";
+import { OrgEditForm } from "./org-edit-form";
 
 export default async function OrgDetailPage({
   params,
@@ -26,16 +27,35 @@ export default async function OrgDetailPage({
         <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
           ← Partner Management
         </Link>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{org.name}</h1>
-        <p className="text-sm text-fg-muted">
-          {org.outputTemplate} · default currency {org.defaultCurrency}
-        </p>
+        <div className="mt-1 flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-3xl font-semibold tracking-tight">{org.name}</h1>
+            <p className="text-sm text-fg-muted">
+              {org.outputTemplate} · default currency {org.defaultCurrency} ·{" "}
+              backfill {org.backfillAllowed ? "allowed" : "not allowed"} ·{" "}
+              dedicated rate basis {org.rateBasis === "ANNUAL" ? "annual" : "day rate"}
+            </p>
+          </div>
+          <OrgEditForm
+            id={org.id}
+            name={org.name}
+            outputTemplate={org.outputTemplate}
+            defaultCurrency={org.defaultCurrency}
+            backfillAllowed={org.backfillAllowed}
+            rateBasis={org.rateBasis}
+          />
+        </div>
       </header>
 
       <section className="glass overflow-hidden">
         <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5">
           <span className="text-sm font-semibold tracking-tight">Client accounts</span>
-          <CreateAccountUnderOrgDialog orgId={org.id} defaultCurrency={org.defaultCurrency} />
+          <CreateAccountUnderOrgDialog
+            orgId={org.id}
+            defaultCurrency={org.defaultCurrency}
+            orgBackfillAllowed={org.backfillAllowed}
+            orgRateBasis={org.rateBasis}
+          />
         </div>
         <table className="w-full text-sm">
           <thead className="text-xs uppercase tracking-wider text-fg-subtle">

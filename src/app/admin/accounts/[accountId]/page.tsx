@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MiscFeeKind, RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import { AccountRateCreateDialog, MiscFeeCreateDialog } from "./create-dialogs";
 import { AccountRateRowActions } from "./rate-row-actions";
 import { MiscFeeDeleteButton } from "./misc-fee-row-actions";
 import { AccountAssignmentCreateDialog } from "./create-assignment-dialog";
-import { AccountAddTechnicianDialog } from "./add-technician-dialog";
 import type { TechOption } from "./create-assignment-form";
 import { DeleteAssignmentButton } from "../../technicians/[techId]/delete-assignment-button";
 import { EndAssignmentButton } from "../../technicians/[techId]/end-assignment-button";
@@ -39,6 +39,7 @@ const categoryLabel: Record<RateCategory, string> = {
 const miscKindLabel: Record<MiscFeeKind, string> = {
   MISCELLANEOUS_PRICES: "Miscellaneous Prices",
   RETAINER_FEES: "Retainer Fees",
+  PROJECT_MANAGEMENT: "Project Management (%)",
   MILEAGE: "Mileage",
   BGV_COST: "BGV Cost",
   PER_DIEM: "Per Diem",
@@ -63,7 +64,7 @@ export default async function AccountDetailPage({
 }) {
   const { accountId } = await params;
 
-  const [account, subCategories, slas, allTechs, orgs] = await Promise.all([
+  const [account, subCategories, slas, allTechs] = await Promise.all([
     prisma.clientAccount.findUnique({
       where: { id: accountId },
       include: {
@@ -103,20 +104,11 @@ export default async function AccountDetailPage({
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
-    prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   if (!account) notFound();
 
   const currency = account.currency ?? account.org.defaultCurrency;
-
-  // For the in-account "Add technician" dialog: dup-name hint + employer picker.
-  const existingTechs = allTechs.map((t) => ({
-    firstName: t.firstName,
-    lastName: t.lastName,
-    employerOrgId: t.employerOrgId,
-    employerOrgName: t.employerOrg.name,
-    employeeId: t.employeeId,
-  }));
+  const { backfillAllowed } = resolvePolicy(account.org, account);
 
   const ratesByCategory = new Map<RateCategory, typeof account.accountRates>();
   for (const c of categoryOrder) ratesByCategory.set(c, []);
@@ -255,16 +247,10 @@ export default async function AccountDetailPage({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Assignments</h2>
           <div className="flex items-center gap-3">
-          <AccountAddTechnicianDialog
-            accountId={account.id}
-            accountName={`${account.org.name} / ${account.name}`}
-            defaultEmployerOrgId={account.org.id}
-            orgs={orgs}
-            existingTechs={existingTechs}
-          />
           <AccountAssignmentCreateDialog
             clientAccountId={account.id}
             accountLabel={`${account.org.name} / ${account.name}`}
+            backfillAllowed={backfillAllowed}
             technicians={allTechs.map<TechOption>((t) => ({
               id: t.id,
               firstName: t.firstName,

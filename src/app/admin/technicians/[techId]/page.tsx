@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
+import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import { type AccountOption } from "./create-assignment-form";
 import { AssignmentCreateDialog } from "./create-assignment-dialog";
 import { EndAssignmentButton } from "./end-assignment-button";
@@ -57,7 +58,7 @@ export default async function TechnicianDetailPage({
 
   const accounts = await prisma.clientAccount.findMany({
     include: {
-      org: { select: { name: true, defaultCurrency: true } },
+      org: { select: { name: true, defaultCurrency: true, backfillAllowed: true, rateBasis: true } },
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
     orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
@@ -79,6 +80,7 @@ export default async function TechnicianDetailPage({
       id: a.id,
       label: `${a.org.name} / ${a.name}`,
       currency: a.currency ?? a.org.defaultCurrency,
+      backfillAllowed: resolvePolicy(a.org, a).backfillAllowed,
       previewByCategory,
     };
   });

@@ -74,6 +74,30 @@ export function calculateDispatchVisit(
   visit: DispatchVisitInput,
   rates: DispatchRateRow[],
 ): DispatchRow {
+  const hours = new Decimal(visit.hoursOnSite.toString());
+
+  // Flat per-ticket pricing (data-driven): when a PER_TICKET rate exists for
+  // this band + SLA, bill it once per visit regardless of hours, bypassing the
+  // first-hour + additional-hour model.
+  const perTicket = pick(rates, visit.technicianBand, visit.slaCode, "PER_TICKET");
+  if (!perTicket.isZero()) {
+    return {
+      visitId: visit.id,
+      visitDate: visit.visitDate,
+      ticketNumber: visit.ticketNumber,
+      technicianName: visit.technicianName,
+      technicianBand: visit.technicianBand,
+      location: visit.location,
+      slaCode: visit.slaCode,
+      hoursOnSite: Number(hours.toFixed(2)),
+      firstHourRate: Number(perTicket.toFixed(2)),
+      additionalHourRate: 0,
+      charge: Number(perTicket.toFixed(2)),
+      modifiersApplied: ["per-ticket"],
+      notes: visit.notes,
+    };
+  }
+
   const baseFirst = pick(rates, visit.technicianBand, visit.slaCode, "FIRST_HOUR");
   const baseAdditional = pick(
     rates,
@@ -111,7 +135,6 @@ export function calculateDispatchVisit(
     }
   }
 
-  const hours = new Decimal(visit.hoursOnSite.toString());
   const extraHours = hours.greaterThan(1)
     ? hours.minus(1)
     : new Decimal(0);

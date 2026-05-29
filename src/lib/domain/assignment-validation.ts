@@ -1,4 +1,4 @@
-import type { Assignment } from "@prisma/client";
+import type { Assignment, AssignmentSlaTier } from "@prisma/client";
 import { RateCategory } from "@prisma/client";
 import { ratesForTechnician, type RateWithSubCat } from "./account-rate-resolver";
 import { flagForCategory, type TechnicianFlags } from "./technician-pools";
@@ -11,7 +11,8 @@ export type AssignmentValidationResult =
         | "NO_RATE_CARD"
         | "DEDICATED_ALREADY_ASSIGNED"
         | "NOT_IN_POOL"
-        | "DEDICATED_LOCKS_OUT";
+        | "DEDICATED_LOCKS_OUT"
+        | "BACKFILL_NOT_ALLOWED";
       message: string;
     };
 
@@ -25,6 +26,10 @@ export type AssignmentValidationInput = {
   technicianIsRebadged?: boolean;
   accountRates: RateWithSubCat[];
   existingTechnicianAssignments: Pick<Assignment, "id" | "rateCategory" | "endDate">[];
+  slaTier?: AssignmentSlaTier;
+  // Resolved org/account policy for the target account. When false, the
+  // BACKFILL tier is not permitted. Undefined is treated as allowed.
+  backfillAllowed?: boolean;
 };
 
 const categoryName: Record<RateCategory, string> = {
@@ -58,6 +63,17 @@ export function validateAssignment(input: AssignmentValidationInput): Assignment
       message:
         "Technician has an active DEDICATED assignment and is locked out of project/dispatch " +
         "work until that dedication ends.",
+    };
+  }
+
+  // Org policy: the BACKFILL tier is only available where backfill is allowed.
+  if (input.slaTier === "BACKFILL" && input.backfillAllowed === false) {
+    return {
+      ok: false,
+      reason: "BACKFILL_NOT_ALLOWED",
+      message:
+        "This account's organization policy does not allow backfill, so the BACKFILL tier " +
+        "cannot be used. Pick No Backfill or None.",
     };
   }
 

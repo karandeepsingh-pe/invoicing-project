@@ -8,6 +8,7 @@ import { FormError, SelectField, SubmitButton, TextField } from "@/components/ad
 const kindLabel: Record<MiscFeeKind, string> = {
   MISCELLANEOUS_PRICES: "Miscellaneous Prices",
   RETAINER_FEES: "Retainer Fees",
+  PROJECT_MANAGEMENT: "Project Management (%)",
   MILEAGE: "Mileage",
   BGV_COST: "BGV Cost",
   PER_DIEM: "Per Diem",
@@ -49,7 +50,17 @@ export function MiscFeeCreateForm({
         step="0.01"
         min="0"
         errors={fieldErrors?.amount}
-        hint="Leave blank for to-be-determined"
+        hint="Flat amount. Leave blank if using percent."
+      />
+      <TextField
+        label="Percent of subtotal"
+        name="percent"
+        type="number"
+        step="0.0001"
+        min="0"
+        max="100"
+        errors={fieldErrors?.percent}
+        hint="e.g. 3 for a 3% PM fee. Overrides Amount when set."
       />
       <TextField label="Notes" name="notes" errors={fieldErrors?.notes} />
       <div className="col-span-2 flex items-center gap-3 md:col-span-4">

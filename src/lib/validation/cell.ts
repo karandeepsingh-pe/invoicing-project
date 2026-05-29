@@ -3,7 +3,7 @@
 // save action for defense in depth. Single source of truth for what counts
 // as a valid timesheet cell value.
 
-export const STATUS_CODES = ["PH", "AB", "NA"] as const;
+export const STATUS_CODES = ["PH", "AB", "NA", "PTO", "HALF_DAY"] as const;
 export type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_SET = new Set<string>(STATUS_CODES);
@@ -19,7 +19,7 @@ export type CellParse =
   | { kind: "status"; status: StatusCode }
   | { kind: "invalid"; reason: string };
 
-const INVALID_REASON = "Enter hours 0–24 or PH / AB / NA";
+const INVALID_REASON = "Enter hours 0–24 or PH / AB / NA / PTO / HALF_DAY";
 
 export function parseCellText(raw: string): CellParse {
   const trimmed = raw.trim();

@@ -55,15 +55,23 @@ describe("splitCell", () => {
     expect(s.weekendHours.toNumber()).toBe(8);
   });
 
-  it("PH/AB/NA -> all zeros regardless of hours value", () => {
+  it("PH/AB/NA/PTO -> all zeros regardless of hours value", () => {
     const ph = splitCell({ date: TUE_APR_14, hours: dec(8), status: "PH" }, 8);
     const ab = splitCell({ date: TUE_APR_14, hours: dec(0), status: "AB" }, 8);
     const na = splitCell({ date: SAT_APR_4, hours: dec(8), status: "NA" }, 8);
-    for (const s of [ph, ab, na]) {
+    const pto = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PTO" }, 8);
+    for (const s of [ph, ab, na, pto]) {
       expect(s.regularDays.toNumber()).toBe(0);
       expect(s.otHours.toNumber()).toBe(0);
       expect(s.weekendHours.toNumber()).toBe(0);
     }
+  });
+
+  it("HALF_DAY -> 0.5 day, no OT, no weekend", () => {
+    const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "HALF_DAY" }, 8);
+    expect(s.regularDays.toNumber()).toBe(0.5);
+    expect(s.otHours.toNumber()).toBe(0);
+    expect(s.weekendHours.toNumber()).toBe(0);
   });
 
   it("defaultHours = 7 (custom) treats 7h as full day", () => {
@@ -110,6 +118,17 @@ describe("splitEntries", () => {
     expect(totals.regularDays.toNumber()).toBe(21);
     expect(totals.otHours.toNumber()).toBe(2);
     expect(totals.weekendHours.toNumber()).toBe(6);
+  });
+
+  it("half-day adds 0.5 to a full worked day", () => {
+    const cells: DayCell[] = [
+      { date: FRI_APR_3, hours: dec(8), status: null },
+      { date: TUE_APR_14, hours: dec(0), status: "HALF_DAY" },
+    ];
+    const totals = splitEntries(cells, 8);
+    expect(totals.regularDays.toNumber()).toBe(1.5);
+    expect(totals.otHours.toNumber()).toBe(0);
+    expect(totals.weekendHours.toNumber()).toBe(0);
   });
 
   it("empty array returns zeros", () => {

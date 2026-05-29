@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
-import { orgCreateSchema } from "@/lib/schemas/org";
+import { orgCreateSchema, orgUpdateSchema } from "@/lib/schemas/org";
 import type { ActionResult } from "./result";
 
 export async function createOrg(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -14,6 +14,8 @@ export async function createOrg(_prev: ActionResult, formData: FormData): Promis
     name: formData.get("name"),
     outputTemplate: formData.get("outputTemplate"),
     defaultCurrency: formData.get("defaultCurrency") || undefined,
+    backfillAllowed: formData.get("backfillAllowed") ?? undefined,
+    rateBasis: formData.get("rateBasis") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -27,6 +29,41 @@ export async function createOrg(_prev: ActionResult, formData: FormData): Promis
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return { ok: false, fieldErrors: { name: ["An org with this name already exists"] } };
+    }
+    throw err;
+  }
+}
+
+export async function updateOrg(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+
+  const parsed = orgUpdateSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    outputTemplate: formData.get("outputTemplate"),
+    defaultCurrency: formData.get("defaultCurrency") || undefined,
+    backfillAllowed: formData.get("backfillAllowed") ?? undefined,
+    rateBasis: formData.get("rateBasis") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  const { id, ...data } = parsed.data;
+  try {
+    await prisma.org.update({ where: { id }, data });
+    revalidatePath("/admin/orgs");
+    revalidatePath(`/admin/orgs/${id}`);
+    revalidatePath("/admin/accounts");
+    revalidatePath("/admin/management");
+    revalidatePath("/admin/commercials");
+    return { ok: true, message: "Org updated." };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { ok: false, fieldErrors: { name: ["An org with this name already exists"] } };
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+      return { ok: false, formError: "Org not found." };
     }
     throw err;
   }

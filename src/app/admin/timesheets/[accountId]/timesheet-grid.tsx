@@ -17,7 +17,7 @@ import {
 
 export type GridCell = {
   hours: number | null;
-  status: "PH" | "AB" | "NA" | null;
+  status: "PH" | "AB" | "NA" | "PTO" | "HALF_DAY" | null;
 };
 
 export type GridAssignment = {
@@ -215,6 +215,10 @@ export function TimesheetGrid({
       let weekendHours = 0;
       for (const d of days) {
         const p = parsedByKey[cellKey(a.assignmentId, d)];
+        if (p.kind === "status" && p.status === "HALF_DAY") {
+          regularDays += 0.5;
+          continue;
+        }
         if (p.kind !== "value") continue;
         const h = p.hours;
         if (h <= 0) continue;
@@ -269,7 +273,7 @@ export function TimesheetGrid({
     if (blankWeekdayCount > 0) {
       setActionState({
         ok: false,
-        formError: `${blankWeekdayCount} working-day cell${blankWeekdayCount === 1 ? " is" : "s are"} blank — enter hours or a status (PH / AB / NA) for every working day before saving.`,
+        formError: `${blankWeekdayCount} working-day cell${blankWeekdayCount === 1 ? " is" : "s are"} blank — enter hours or a status (PH / AB / NA / PTO / HALF_DAY) for every working day before saving.`,
       });
       return;
     }
@@ -354,7 +358,8 @@ export function TimesheetGrid({
         <div className="rounded-md border border-danger/40 bg-danger-bg/40 px-3 py-2 text-xs text-danger">
           {invalidCellCount} cell{invalidCellCount === 1 ? "" : "s"} have invalid
           values. Use a number 0–24 or one of <code>PH</code>, <code>AB</code>,{" "}
-          <code>NA</code>. Bad cells are outlined in red below.
+          <code>NA</code>, <code>PTO</code>, <code>HALF_DAY</code>. Bad cells are
+          outlined in red below.
         </div>
       )}
 
@@ -363,8 +368,8 @@ export function TimesheetGrid({
           {blankWeekdayCount} working-day cell
           {blankWeekdayCount === 1 ? " is" : "s are"} blank. Enter hours (0–24) or
           a status — <code>PH</code> (holiday), <code>AB</code> (absent),{" "}
-          <code>NA</code> — for every working day. Blank days are outlined in
-          amber below.
+          <code>NA</code> (terminated), <code>PTO</code>, <code>HALF_DAY</code>{" "}
+          (0.5 day) — for every working day. Blank days are outlined in amber below.
         </div>
       )}
 
@@ -478,7 +483,7 @@ export function TimesheetGrid({
                             isInvalid && parse.kind === "invalid"
                               ? parse.reason
                               : isBlankWeekday
-                                ? "Working day is blank — enter hours or PH / AB / NA"
+                                ? "Working day is blank — enter hours or PH / AB / NA / PTO / HALF_DAY"
                                 : undefined
                           }
                           inputMode="decimal"

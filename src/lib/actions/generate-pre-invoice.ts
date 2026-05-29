@@ -7,6 +7,7 @@ import { generatePreInvoiceSchema } from "@/lib/schemas/generate-pre-invoice";
 import { lastDayOfMonth, monthRange } from "@/lib/invoice/period";
 import { renderPreInvoice } from "@/lib/invoice/render-pre-invoice";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
 
 type SuccessPayload = { ok: true; filename: string; base64: string };
 type ErrorPayload = { ok: false; formError?: string };
@@ -48,7 +49,7 @@ export async function generatePreInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, businessDays } = parsed.data;
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -59,14 +60,40 @@ export async function generatePreInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const rows = await loadFteRows(accountId, range);
+  const { rows } = await loadFteRows(accountId, range, businessDays);
 
+  // Add-ons: percentage fees (e.g. PM fee) computed on the line-item subtotal,
+  // plus flat retainer and reimbursements. Authoritative totals via assembleInvoice.
+  const percentFees: FeeSpec[] = account.miscFees
+    .filter((m) => m.percent != null)
+    .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
-    .filter((m) => m.kind === "RETAINER_FEES")
+    .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
   const reimbursements = account.miscFees
-    .filter((m) => m.kind !== "RETAINER_FEES")
+    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+
+  const assembled = assembleInvoice(
+    rows.map((r) => r.extendedTotal),
+    [
+      ...percentFees,
+      { kind: "flat", label: "Retainer", amount: retainerFee },
+      { kind: "flat", label: "Reimbursements", amount: reimbursements },
+    ],
+  );
+  const pmFees = assembled.appliedFees.filter((f) => f.kind === "percent");
+  const pmFeeAmount = pmFees.reduce((n, f) => n + f.amount, 0);
+  const projectManagementFee =
+    pmFeeAmount > 0
+      ? {
+          label:
+            pmFees.length === 1 && pmFees[0].percent != null
+              ? `Project Management Fee (${pmFees[0].percent}%)`
+              : "Project Management Fee",
+          amount: pmFeeAmount,
+        }
+      : undefined;
 
   const monthLabel = range.start.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
 
@@ -85,7 +112,7 @@ export async function generatePreInvoice(
       monthYearLabel: `${monthLabel} ${year}`,
     },
     rows,
-    { retainerFee, reimbursements },
+    { retainerFee, reimbursements, projectManagementFee },
   );
 
   await prisma.invoiceRun.create({

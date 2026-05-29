@@ -64,10 +64,11 @@ export async function generateCombinedInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const [fteRows, projectRows] = await Promise.all([
+  const [fteResult, projectRows] = await Promise.all([
     loadFteRows(accountId, range),
     loadProjectRows(accountId, range),
   ]);
+  const fteRows = fteResult.rows;
   const dispatchRows = await loadDispatchTrackerRows(
     accountId,
     range,

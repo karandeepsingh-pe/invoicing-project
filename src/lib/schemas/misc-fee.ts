@@ -8,11 +8,20 @@ const optionalDecimal = z
   ])
   .optional();
 
+// Percentage of subtotal (0..100), e.g. a 3% project management fee.
+const optionalPercent = z
+  .union([
+    z.coerce.number().nonnegative().max(100),
+    z.literal("").transform(() => undefined),
+  ])
+  .optional();
+
 export const miscFeeCreateSchema = z.object({
   clientAccountId: z.string().min(1),
   kind: z.nativeEnum(MiscFeeKind),
   label: z.string().trim().min(1).max(120),
   amount: optionalDecimal,
+  percent: optionalPercent,
   notes: z
     .union([z.string().trim().max(500), z.literal("").transform(() => undefined)])
     .optional(),

@@ -34,6 +34,9 @@ export type PreInvoiceRow = {
 export type PreInvoiceFooter = {
   retainerFee?: number;
   reimbursements?: number;
+  // Percentage add-on (e.g. a 3% project management fee), already computed to a
+  // money amount by the engine. Rendered between the subtotal and grand total.
+  projectManagementFee?: { label: string; amount: number };
 };
 
 const CURRENCY_FMT = '"$"#,##0.00';
@@ -221,7 +224,8 @@ export async function renderPreInvoice(
 
   const lastDataRow = FIRST_DATA_ROW + Math.max(rows.length, 1) - 1;
   const totalRow1 = lastDataRow + 1;
-  const retainerRow = totalRow1 + 1;
+  const pmRow = footer.projectManagementFee ? totalRow1 + 1 : null;
+  const retainerRow = (pmRow ?? totalRow1) + 1;
   const reimbursementsRow = retainerRow + 1;
   const totalRow2 = reimbursementsRow + 1;
   const noteRow = totalRow2 + 2;
@@ -243,6 +247,19 @@ export async function renderPreInvoice(
   totalCell1.font = { bold: true };
   applyHeaderFill(totalCell1);
   applyBorder(totalCell1);
+
+  // ── Project Management Fee row (percentage add-on, when present) ──
+  if (pmRow !== null && footer.projectManagementFee) {
+    sheet.mergeCells(`B${pmRow}:M${pmRow}`);
+    const pmLabel = sheet.getCell(`B${pmRow}`);
+    pmLabel.value = footer.projectManagementFee.label;
+    pmLabel.alignment = { horizontal: "right", vertical: "middle" };
+    applyBorder(pmLabel);
+    const pmCell = sheet.getCell(`N${pmRow}`);
+    pmCell.value = footer.projectManagementFee.amount;
+    pmCell.numFmt = CURRENCY_FMT;
+    applyBorder(pmCell);
+  }
 
   // ── Retainer Fee row ──
   sheet.mergeCells(`B${retainerRow}:M${retainerRow}`);
@@ -276,9 +293,13 @@ export async function renderPreInvoice(
   applyBorder(totalLabel2);
   const totalCell2 = sheet.getCell(`N${totalRow2}`);
   totalCell2.value = {
-    formula: `N${totalRow1}+N${retainerRow}+N${reimbursementsRow}`,
+    formula:
+      pmRow !== null
+        ? `N${totalRow1}+N${pmRow}+N${retainerRow}+N${reimbursementsRow}`
+        : `N${totalRow1}+N${retainerRow}+N${reimbursementsRow}`,
     result:
       rows.reduce((n, r) => n + r.extendedTotal, 0) +
+      (footer.projectManagementFee?.amount ?? 0) +
       (footer.retainerFee ?? 0) +
       (footer.reimbursements ?? 0),
   };

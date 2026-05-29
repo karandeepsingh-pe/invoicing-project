@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import { assignmentCreateSchema } from "@/lib/schemas/assignment";
 import { validateAssignment } from "@/lib/domain/assignment-validation";
+import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import type { ActionResult } from "./result";
 
 export async function createAssignment(
@@ -42,7 +43,7 @@ export async function createAssignment(
   });
   if (!tech) return { ok: false, formError: "Technician not found" };
 
-  const [accountRates, existingTechAssignments] = await Promise.all([
+  const [accountRates, existingTechAssignments, accountPolicy] = await Promise.all([
     prisma.accountRate.findMany({
       where: { clientAccountId: parsed.data.clientAccountId },
       select: {
@@ -56,7 +57,22 @@ export async function createAssignment(
       where: { technicianId: parsed.data.technicianId },
       select: { id: true, rateCategory: true, endDate: true },
     }),
+    prisma.clientAccount.findUnique({
+      where: { id: parsed.data.clientAccountId },
+      select: {
+        backfillAllowedOverride: true,
+        rateBasisOverride: true,
+        org: { select: { backfillAllowed: true, rateBasis: true } },
+      },
+    }),
   ]);
+
+  const backfillAllowed = accountPolicy
+    ? resolvePolicy(accountPolicy.org, {
+        backfillAllowedOverride: accountPolicy.backfillAllowedOverride,
+        rateBasisOverride: accountPolicy.rateBasisOverride,
+      }).backfillAllowed
+    : true;
 
   const validation = validateAssignment({
     technicianId: tech.id,
@@ -72,6 +88,8 @@ export async function createAssignment(
     technicianIsRebadged: tech.isRebadged,
     accountRates,
     existingTechnicianAssignments: existingTechAssignments,
+    slaTier: parsed.data.slaTier,
+    backfillAllowed,
   });
   if (!validation.ok) {
     return { ok: false, formError: validation.message };

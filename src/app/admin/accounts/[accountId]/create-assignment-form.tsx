@@ -30,11 +30,13 @@ export function AccountAssignmentCreateForm({
   clientAccountId,
   accountLabel,
   technicians,
+  backfillAllowed = true,
   onSuccess,
 }: {
   clientAccountId: string;
   accountLabel: string;
   technicians: TechOption[];
+  backfillAllowed?: boolean;
   onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createAssignment, null);
@@ -158,10 +160,14 @@ export function AccountAssignmentCreateForm({
         name="slaTier"
         defaultValue="NONE"
         errors={fieldErrors?.slaTier}
-        hint="DEDICATED: BACKFILL / NO_BACKFILL picks the rate row. NONE for Dispatch / Project."
+        hint={
+          backfillAllowed
+            ? "DEDICATED: BACKFILL / NO_BACKFILL picks the rate row. NONE for Dispatch / Project."
+            : "Org policy: backfill is off for this account, so the BACKFILL tier is unavailable."
+        }
       >
         <option value="NONE">None (Dispatch / Project)</option>
-        <option value="BACKFILL">Backfill (replacement guaranteed)</option>
+        {backfillAllowed && <option value="BACKFILL">Backfill (replacement guaranteed)</option>}
         <option value="NO_BACKFILL">No Backfill</option>
       </SelectField>
 

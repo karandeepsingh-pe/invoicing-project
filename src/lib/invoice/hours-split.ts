@@ -5,7 +5,8 @@
 //   weekday  -> regular = min(hours, defaultHours)
 //               OT      = max(0, hours - defaultHours)
 //   weekend  -> weekend = hours (no day credit, no OT)
-//   PH/AB/NA -> 0 across all buckets (status overrides numeric value)
+//   PH/AB/NA/PTO -> 0 across all buckets (status overrides numeric value)
+//   HALF_DAY -> 0.5 regular days, no OT, no weekend
 //
 // `regularDays` accumulates `regular / defaultHours` per cell, so a 6-hour
 // weekday adds 0.75 days and a 10-hour weekday adds 1 day + 2 OT.
@@ -48,10 +49,12 @@ export function splitCell(cell: DayCell, defaultHours: number): PerCellSplit {
     throw new Error("splitCell: defaultHours must be > 0");
   }
   if (cell.status !== null) {
+    // HALF_DAY counts as half a worked day; PH / AB / NA / PTO count as zero.
+    const isHalf = cell.status === "HALF_DAY";
     return {
       date: cell.date,
-      regularHours: ZERO,
-      regularDays: ZERO,
+      regularHours: isHalf ? new Decimal(defaultHours).times("0.5") : ZERO,
+      regularDays: isHalf ? new Decimal("0.5") : ZERO,
       otHours: ZERO,
       weekendHours: ZERO,
       status: cell.status,

@@ -1,8 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import type { RateBasis } from "@prisma/client";
 import { updateClientAccount } from "@/lib/actions/client-account";
 import { FormError, SubmitButton, TextField } from "@/components/admin/field";
+import { PolicyOverrideFields } from "@/components/admin/policy-override-fields";
 
 export function ClientAccountEditForm({
   id,
@@ -13,6 +15,10 @@ export function ClientAccountEditForm({
   clientSpocEmail,
   projectDescription,
   defaultHours,
+  orgBackfillAllowed,
+  orgRateBasis,
+  backfillAllowedOverride,
+  rateBasisOverride,
 }: {
   id: string;
   name: string;
@@ -22,6 +28,10 @@ export function ClientAccountEditForm({
   clientSpocEmail: string | null;
   projectDescription: string | null;
   defaultHours: number;
+  orgBackfillAllowed: boolean;
+  orgRateBasis: RateBasis;
+  backfillAllowedOverride: boolean | null;
+  rateBasisOverride: RateBasis | null;
 }) {
   const [state, action] = useActionState(updateClientAccount, null);
   const [open, setOpen] = useState(false);
@@ -99,6 +109,14 @@ export function ClientAccountEditForm({
         defaultValue={defaultHours}
         errors={fieldErrors?.defaultHours}
         hint="Per-day full-shift hours. Drives FTE pre-fill + OT split."
+      />
+      <PolicyOverrideFields
+        orgBackfillAllowed={orgBackfillAllowed}
+        orgRateBasis={orgRateBasis}
+        backfillDefault={
+          backfillAllowedOverride === null ? "" : backfillAllowedOverride ? "true" : "false"
+        }
+        rateBasisDefault={rateBasisOverride ?? ""}
       />
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>

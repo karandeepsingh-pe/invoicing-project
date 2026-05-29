@@ -11,7 +11,16 @@ export default async function AccountsPage() {
     prisma.clientAccount.findMany({
       orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
       include: {
-        org: { select: { id: true, name: true, defaultCurrency: true, outputTemplate: true } },
+        org: {
+          select: {
+            id: true,
+            name: true,
+            defaultCurrency: true,
+            outputTemplate: true,
+            backfillAllowed: true,
+            rateBasis: true,
+          },
+        },
         _count: {
           select: {
             accountRates: true,
@@ -40,6 +49,10 @@ export default async function AccountsPage() {
     clientSpocEmail: a.clientSpocEmail,
     projectDescription: a.projectDescription,
     defaultHours: a.defaultHours,
+    orgBackfillAllowed: a.org.backfillAllowed,
+    orgRateBasis: a.org.rateBasis,
+    backfillAllowedOverride: a.backfillAllowedOverride,
+    rateBasisOverride: a.rateBasisOverride,
   }));
 
   return (
