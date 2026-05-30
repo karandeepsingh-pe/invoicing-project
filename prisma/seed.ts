@@ -3,7 +3,6 @@ import {
   OutputTemplate,
   UserRole,
   RateCategory,
-  RateBasis,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -12,16 +11,11 @@ type OrgSeed = {
   name: string;
   outputTemplate: OutputTemplate;
   accounts: string[];
-  // Org policy. Defaults keep current behavior (backfill on, day-rate basis).
-  backfillAllowed?: boolean;
-  rateBasis?: RateBasis;
 };
 
 const orgSeeds: OrgSeed[] = [
-  // HCL example: no backfill, annual rate basis (day rate = annual / 260).
-  { name: "HCL", outputTemplate: OutputTemplate.FSO, accounts: ["ZF", "Acadia"], backfillAllowed: false, rateBasis: RateBasis.ANNUAL },
-  // Cognizant example: backfill available, day-rate basis.
-  { name: "Cognizant", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: [], backfillAllowed: true, rateBasis: RateBasis.DAY_RATE },
+  { name: "HCL", outputTemplate: OutputTemplate.FSO, accounts: ["ZF", "Acadia"] },
+  { name: "Cognizant", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: [] },
   { name: "TCS", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["TCS"] },
   { name: "Wipro", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Wipro"] },
   { name: "Hiscox", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Hiscox"] },
@@ -93,12 +87,10 @@ const visitTypeSeeds: { code: string; label: string; sortOrder: number }[] = [
 
 async function main() {
   for (const seed of orgSeeds) {
-    const backfillAllowed = seed.backfillAllowed ?? true;
-    const rateBasis = seed.rateBasis ?? RateBasis.DAY_RATE;
     const org = await prisma.org.upsert({
       where: { name: seed.name },
-      update: { outputTemplate: seed.outputTemplate, backfillAllowed, rateBasis },
-      create: { name: seed.name, outputTemplate: seed.outputTemplate, backfillAllowed, rateBasis },
+      update: { outputTemplate: seed.outputTemplate },
+      create: { name: seed.name, outputTemplate: seed.outputTemplate },
     });
 
     for (const accountName of seed.accounts) {
@@ -144,6 +136,21 @@ async function main() {
     });
   }
 
+  // Example 2026 gazetted holidays (global). Idempotent on date.
+  const holidaySeeds: { date: string; name: string }[] = [
+    { date: "2026-01-01", name: "New Year's Day" },
+    { date: "2026-05-01", name: "Labour Day" },
+    { date: "2026-12-25", name: "Christmas" },
+  ];
+  for (const h of holidaySeeds) {
+    const date = new Date(`${h.date}T00:00:00.000Z`);
+    await prisma.holiday.upsert({
+      where: { date },
+      update: { name: h.name },
+      create: { date, name: h.name },
+    });
+  }
+
   await prisma.user.upsert({
     where: { email: "admin@ovationwps.com" },
     update: { role: UserRole.ADMIN },
@@ -160,6 +167,7 @@ async function main() {
     slas: await prisma.sla.count(),
     rateSubCategories: await prisma.rateSubCategory.count(),
     dispatchVisitTypes: await prisma.dispatchVisitType.count(),
+    holidays: await prisma.holiday.count(),
     users: await prisma.user.count(),
   };
   console.log("Seed complete:", counts);

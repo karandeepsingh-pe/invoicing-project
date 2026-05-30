@@ -8,7 +8,6 @@ import {
   coverageCreateSchema,
   coverageDeleteSchema,
 } from "@/lib/schemas/coverage";
-import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import type { ActionResult } from "./result";
 
 export async function createCoverageEvent(
@@ -28,35 +27,18 @@ export async function createCoverageEvent(
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  // Guards: org policy must allow backfill, and the covered assignment must be
-  // BACKFILL tier. Both enforced app-side.
+  // Guard: the covered assignment must be a BACKFILL-tier technician. Backfill is
+  // a technician trait now, so coverage is allowed wherever the covered tech is
+  // BACKFILL tier.
   const covered = await prisma.assignment.findUnique({
     where: { id: parsed.data.coveredAssignmentId },
     select: {
       slaTier: true,
       clientAccountId: true,
-      clientAccount: {
-        select: {
-          backfillAllowedOverride: true,
-          rateBasisOverride: true,
-          org: { select: { backfillAllowed: true, rateBasis: true } },
-        },
-      },
     },
   });
   if (!covered) {
     return { ok: false, formError: "Covered assignment not found." };
-  }
-  const policy = resolvePolicy(covered.clientAccount.org, {
-    backfillAllowedOverride: covered.clientAccount.backfillAllowedOverride,
-    rateBasisOverride: covered.clientAccount.rateBasisOverride,
-  });
-  if (!policy.backfillAllowed) {
-    return {
-      ok: false,
-      formError:
-        "This account's organization policy does not allow backfill, so coverage events cannot be recorded.",
-    };
   }
   if (covered.slaTier !== "BACKFILL") {
     return {

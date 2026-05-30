@@ -197,6 +197,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
       />
 
       <RebadgedFields
+        primaryCategory={primaryCategory}
         defaults={{
           isRebadged: props.isRebadged,
           annualSalary: props.annualSalary,

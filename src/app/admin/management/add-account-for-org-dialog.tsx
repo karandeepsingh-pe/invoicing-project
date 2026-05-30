@@ -1,6 +1,5 @@
 "use client";
 
-import type { RateBasis } from "@prisma/client";
 import { Dialog } from "@/components/admin/dialog";
 import { ClientAccountCreateForm } from "@/app/admin/orgs/[orgId]/create-account-form";
 
@@ -8,14 +7,10 @@ export function AddAccountForOrgDialog({
   orgId,
   orgName,
   defaultCurrency,
-  orgBackfillAllowed,
-  orgRateBasis,
 }: {
   orgId: string;
   orgName: string;
   defaultCurrency: string;
-  orgBackfillAllowed: boolean;
-  orgRateBasis: RateBasis;
 }) {
   return (
     <Dialog
@@ -34,8 +29,6 @@ export function AddAccountForOrgDialog({
         <ClientAccountCreateForm
           orgId={orgId}
           defaultCurrency={defaultCurrency}
-          orgBackfillAllowed={orgBackfillAllowed}
-          orgRateBasis={orgRateBasis}
           onSuccess={close}
         />
       )}

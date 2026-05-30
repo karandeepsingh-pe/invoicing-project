@@ -31,9 +31,7 @@ export default async function OrgDetailPage({
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-semibold tracking-tight">{org.name}</h1>
             <p className="text-sm text-fg-muted">
-              {org.outputTemplate} · default currency {org.defaultCurrency} ·{" "}
-              backfill {org.backfillAllowed ? "allowed" : "not allowed"} ·{" "}
-              dedicated rate basis {org.rateBasis === "ANNUAL" ? "annual" : "day rate"}
+              {org.outputTemplate} · default currency {org.defaultCurrency}
             </p>
           </div>
           <OrgEditForm
@@ -41,8 +39,6 @@ export default async function OrgDetailPage({
             name={org.name}
             outputTemplate={org.outputTemplate}
             defaultCurrency={org.defaultCurrency}
-            backfillAllowed={org.backfillAllowed}
-            rateBasis={org.rateBasis}
           />
         </div>
       </header>
@@ -53,8 +49,6 @@ export default async function OrgDetailPage({
           <CreateAccountUnderOrgDialog
             orgId={org.id}
             defaultCurrency={org.defaultCurrency}
-            orgBackfillAllowed={org.backfillAllowed}
-            orgRateBasis={org.rateBasis}
           />
         </div>
         <table className="w-full text-sm">

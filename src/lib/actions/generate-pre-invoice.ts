@@ -49,7 +49,7 @@ export async function generatePreInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month, businessDays } = parsed.data;
+  const { accountId, year, month } = parsed.data;
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -60,7 +60,7 @@ export async function generatePreInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const { rows } = await loadFteRows(accountId, range, businessDays);
+  const { rows } = await loadFteRows(accountId, range);
 
   // Add-ons: percentage fees (e.g. PM fee) computed on the line-item subtotal,
   // plus flat retainer and reimbursements. Authoritative totals via assembleInvoice.

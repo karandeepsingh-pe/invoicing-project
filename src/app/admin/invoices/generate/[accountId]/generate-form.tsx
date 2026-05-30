@@ -56,7 +56,6 @@ export function GenerateForm({
   unpriced: UnpricedAssignment[];
 }) {
   const [pending, startTransition] = useTransition();
-  const [businessDaysInput, setBusinessDaysInput] = useState<string>(String(businessDays));
   const [actionState, setActionState] = useState<
     | { ok: true; filename: string }
     | { ok: false; formError?: string }
@@ -68,14 +67,8 @@ export function GenerateForm({
     error: { fallbackTitle: "Failed to generate pre-invoice" },
   });
 
-  // Effective business days: the edited value when valid (1..31), else the
-  // computed default. Drives annual-rate proration in the engine.
-  const parsedBd = Math.round(Number(businessDaysInput));
-  const effectiveBusinessDays =
-    Number.isFinite(parsedBd) && parsedBd >= 1 && parsedBd <= 31 ? parsedBd : businessDays;
-
   function handleGenerate() {
-    const payload = { accountId, year, month, businessDays: effectiveBusinessDays };
+    const payload = { accountId, year, month };
     startTransition(async () => {
       const fd = new FormData();
       fd.append("payload", JSON.stringify(payload));
@@ -115,21 +108,6 @@ export function GenerateForm({
         DefaultHours. Weekend = numeric Sat/Sun cells.
       </p>
 
-      <label className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-fg-muted">Business days this month</span>
-        <input
-          type="number"
-          min={1}
-          max={31}
-          value={businessDaysInput}
-          onChange={(e) => setBusinessDaysInput(e.target.value)}
-          className="glass-input w-20 rounded-md px-2 py-1 tabular-nums"
-        />
-        <span className="text-xs text-fg-subtle">
-          Default {businessDays} (weekdays minus PH). Used to prorate annual-rate
-          FTEs: Extended = (Annual / 12) x (Days Worked / Business Days).
-        </span>
-      </label>
       <div className="glass overflow-x-auto rounded-lg">
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
@@ -149,7 +127,7 @@ export function GenerateForm({
                 <td className="px-3 py-2 text-fg-muted">
                   Band {a.band} · {a.backfillLabel}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{effectiveBusinessDays}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{businessDays}</td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {a.daysWorked.toFixed(2)}
                 </td>

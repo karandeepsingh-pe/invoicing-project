@@ -24,8 +24,6 @@ export async function createClientAccount(
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
-    backfillAllowedOverride: formData.get("backfillAllowedOverride") ?? undefined,
-    rateBasisOverride: formData.get("rateBasisOverride") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -64,8 +62,6 @@ export async function updateClientAccount(
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
-    backfillAllowedOverride: formData.get("backfillAllowedOverride") ?? undefined,
-    rateBasisOverride: formData.get("rateBasisOverride") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

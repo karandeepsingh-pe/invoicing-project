@@ -18,6 +18,13 @@ export const softDeleteRowMonthSchema = z.object({
   month: monthField,
 });
 
+// Soft-delete several technician rows (assignments) for a month in one action.
+export const softDeleteRowsMonthSchema = z.object({
+  assignmentIds: z.array(z.string().min(1)).min(1),
+  year: yearField,
+  month: monthField,
+});
+
 // Soft-delete an entire month for an account + invoice-type combination.
 export const softDeleteAccountTypeMonthSchema = z.object({
   accountId: z.string().min(1),

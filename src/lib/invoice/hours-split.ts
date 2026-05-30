@@ -49,12 +49,20 @@ export function splitCell(cell: DayCell, defaultHours: number): PerCellSplit {
     throw new Error("splitCell: defaultHours must be > 0");
   }
   if (cell.status !== null) {
-    // HALF_DAY counts as half a worked day; PH / AB / NA / PTO count as zero.
+    // PH (public holiday) bills as a full PAID day; HALF_DAY counts as half a
+    // worked day; AB / NA / PTO count as zero.
+    const isPh = cell.status === "PH";
     const isHalf = cell.status === "HALF_DAY";
+    const regularDays = isPh ? new Decimal(1) : isHalf ? new Decimal("0.5") : ZERO;
+    const regularHours = isPh
+      ? new Decimal(defaultHours)
+      : isHalf
+        ? new Decimal(defaultHours).times("0.5")
+        : ZERO;
     return {
       date: cell.date,
-      regularHours: isHalf ? new Decimal(defaultHours).times("0.5") : ZERO,
-      regularDays: isHalf ? new Decimal("0.5") : ZERO,
+      regularHours,
+      regularDays,
       otHours: ZERO,
       weekendHours: ZERO,
       status: cell.status,

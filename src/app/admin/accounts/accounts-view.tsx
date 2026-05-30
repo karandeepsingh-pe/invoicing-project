@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { RateBasis } from "@prisma/client";
 import { SearchBar } from "@/components/admin/search-bar";
 import { ClientAccountEditForm } from "./edit-form";
 import { ClientAccountDeleteButton } from "./delete-button";
@@ -23,10 +22,6 @@ export type AccountCard = {
   clientSpocEmail: string | null;
   projectDescription: string | null;
   defaultHours: number;
-  orgBackfillAllowed: boolean;
-  orgRateBasis: RateBasis;
-  backfillAllowedOverride: boolean | null;
-  rateBasisOverride: RateBasis | null;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -121,10 +116,6 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 clientSpocEmail={a.clientSpocEmail}
                 projectDescription={a.projectDescription}
                 defaultHours={a.defaultHours}
-                orgBackfillAllowed={a.orgBackfillAllowed}
-                orgRateBasis={a.orgRateBasis}
-                backfillAllowedOverride={a.backfillAllowedOverride}
-                rateBasisOverride={a.rateBasisOverride}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

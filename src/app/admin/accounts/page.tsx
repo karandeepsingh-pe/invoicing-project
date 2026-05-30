@@ -17,8 +17,6 @@ export default async function AccountsPage() {
             name: true,
             defaultCurrency: true,
             outputTemplate: true,
-            backfillAllowed: true,
-            rateBasis: true,
           },
         },
         _count: {
@@ -49,10 +47,6 @@ export default async function AccountsPage() {
     clientSpocEmail: a.clientSpocEmail,
     projectDescription: a.projectDescription,
     defaultHours: a.defaultHours,
-    orgBackfillAllowed: a.org.backfillAllowed,
-    orgRateBasis: a.org.rateBasis,
-    backfillAllowedOverride: a.backfillAllowedOverride,
-    rateBasisOverride: a.rateBasisOverride,
   }));
 
   return (

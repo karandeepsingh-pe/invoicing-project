@@ -13,9 +13,7 @@ import {
   type CoverageContext,
   type CoverageEventInput,
 } from "./coverage";
-import { deriveRebadgedRates } from "./rebadged-rates";
-import { deriveAnnualDayRate } from "./billing-basis";
-import { resolvePolicy } from "@/lib/domain/policy-resolver";
+import { annualFromBandHourly, dedicatedDayRate } from "./billing-basis";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 function slaTierLabel(tier: "BACKFILL" | "NO_BACKFILL" | "NONE"): string {
@@ -49,25 +47,17 @@ export type FteRowsResult = {
 export async function loadFteRows(
   accountId: string,
   range: { start: Date; end: Date },
-  businessDaysOverride?: number,
 ): Promise<FteRowsResult> {
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
     select: {
       defaultHours: true,
-      backfillAllowedOverride: true,
-      rateBasisOverride: true,
-      org: { select: { backfillAllowed: true, rateBasis: true } },
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
   });
   if (!account) return { rows: [], unpriced: [] };
   const defaultHours = account.defaultHours;
   const accountRates = account.accountRates;
-  const policy = resolvePolicy(account.org, {
-    backfillAllowedOverride: account.backfillAllowedOverride,
-    rateBasisOverride: account.rateBasisOverride,
-  });
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -88,34 +78,16 @@ export async function loadFteRows(
     ],
   });
 
-  const phDateSet = new Set<string>();
-  for (const a of assignments) {
-    for (const e of a.timesheetEntries) {
-      if (e.status === "PH") phDateSet.add(e.date.toISOString().slice(0, 10));
-    }
-  }
-  const phDates = Array.from(phDateSet).map((iso) => new Date(`${iso}T00:00:00.000Z`));
-  // Business days is a per-run input (varies by month, e.g. 21 Apr / 22 Mar); fall
-  // back to the computed value (weekdays minus public holidays) when not supplied.
-  const businessDays = businessDaysOverride ?? businessDaysInRange(range, phDates);
+  // PH days now bill as paid working days (see splitCell), so the informational
+  // Business Days reference is simply the weekday count for the month.
+  const businessDays = businessDaysInRange(range, []);
 
-  // Resolve { dayRate, ot, weekend } for an assignment. Day-rate source is
-  // selected explicitly by basis, in order:
-  //   rebadged  -> dayRate = (salary / 2080) x defaultHours
-  //   ANNUAL    -> dayRate = annual / (12 x businessDays); Extended = dayRate x daysWorked
-  //                = (Annual/12) x (DaysWorked/BusinessDays). Sheet stores the annual figure.
-  //   DAY_RATE  -> dayRate = hourly x defaultHours (sheet stores an hourly rate)
+  // Resolve { dayRate, ot, weekend } for an assignment. The dedicated base is an
+  // hourly rate; day rate = hourly x account defaultHours, billed per day worked
+  // (= hourly x regular hours). Rebadged derives its hourly from salary / 2080.
   // OT and weekend are always per-hour from the sheet (rebadged uses its own).
   type AssignmentWithTech = (typeof assignments)[number];
   function resolveRates(a: AssignmentWithTech) {
-    if (a.technician.isRebadged) {
-      const { dayRate } = deriveRebadgedRates(Number(a.technician.annualSalary ?? 0), defaultHours);
-      return {
-        dayRate: new Prisma.Decimal(dayRate),
-        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
-        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
-      };
-    }
     const techRates = ratesForTechnicianInRange(
       accountRates,
       "DEDICATED",
@@ -123,6 +95,31 @@ export async function loadFteRows(
       range.start,
       range.end,
     );
+    const dayRateRow = techRates.find(
+      (r) =>
+        (r.rateSubCategory.code === "MONTHLY_DAY_RATE" ||
+          r.rateSubCategory.code === "ANNUAL_BACKFILL") &&
+        r.sla.code === a.slaTier,
+    );
+
+    // Day rate = the technician's annual salary spread over the month's business
+    // days (annual / 12 / businessDays), so a fully-worked month bills exactly
+    // annual / 12. Per-tech annual wins; otherwise fall back to the band rate row
+    // (stored hourly -> implied annual via x 2080).
+    const perTechAnnual = Number(a.technician.annualSalary ?? 0);
+    const bandAnnual = annualFromBandHourly(Number(dayRateRow?.rateAmount?.toString() ?? 0));
+    const annual = perTechAnnual > 0 ? perTechAnnual : bandAnnual;
+    const dayRate = new Prisma.Decimal(dedicatedDayRate(annual, businessDays));
+
+    // OT / weekend: rebadged techs use their own manual hourly rates; everyone
+    // else uses the band rate sheet.
+    if (a.technician.isRebadged) {
+      return {
+        dayRate,
+        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
+        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
+      };
+    }
     const otRow = techRates.find(
       (r) =>
         (r.rateSubCategory.code === "OT_HOURLY_RATE" ||
@@ -135,43 +132,23 @@ export async function loadFteRows(
           r.rateSubCategory.code === "HOURLY_BACKFILL_WEEKEND") &&
         r.sla.code === a.slaTier,
     );
-    const ot = new Prisma.Decimal(otRow?.rateAmount?.toString() ?? 0);
-    const weekend = new Prisma.Decimal(weekendRow?.rateAmount?.toString() ?? 0);
-
-    if (policy.rateBasis === "ANNUAL") {
-      const annualRow = techRates.find(
-        (r) => r.rateSubCategory.code === "ANNUAL_RATE" && r.sla.code === a.slaTier,
-      );
-      const annual = Number(annualRow?.rateAmount?.toString() ?? 0);
-      return { dayRate: new Prisma.Decimal(deriveAnnualDayRate(annual, businessDays)), ot, weekend };
-    }
-
-    const dayRateRow = techRates.find(
-      (r) =>
-        (r.rateSubCategory.code === "MONTHLY_DAY_RATE" ||
-          r.rateSubCategory.code === "ANNUAL_BACKFILL") &&
-        r.sla.code === a.slaTier,
-    );
     return {
-      // Sheet value is an HOURLY rate → day rate = hourly × defaultHours.
-      dayRate: new Prisma.Decimal(dayRateRow?.rateAmount?.toString() ?? 0).times(defaultHours),
-      ot,
-      weekend,
+      dayRate,
+      ot: new Prisma.Decimal(otRow?.rateAmount?.toString() ?? 0),
+      weekend: new Prisma.Decimal(weekendRow?.rateAmount?.toString() ?? 0),
     };
   }
 
   const assignmentIds = assignments.map((a) => a.id);
-  // Coverage (backfill) only applies where org/account policy allows it. For a
-  // no-backfill account, any stale coverage rows are ignored at invoice time.
-  const coverageRows = policy.backfillAllowed
-    ? await prisma.coverageEvent.findMany({
-        where: {
-          ...notDeleted,
-          date: { gte: range.start, lt: range.end },
-          coveredAssignmentId: { in: assignmentIds },
-        },
-      })
-    : [];
+  // Coverage (backfill) validity is governed per event by the covered technician's
+  // tier (BACKFILL) in the calculator, so load all coverage rows for the period.
+  const coverageRows = await prisma.coverageEvent.findMany({
+    where: {
+      ...notDeleted,
+      date: { gte: range.start, lt: range.end },
+      coveredAssignmentId: { in: assignmentIds },
+    },
+  });
 
   const contextByAssignment = new Map<string, CoverageContext>();
   const techNameByAssignment = new Map<string, string>();

@@ -68,15 +68,6 @@ enum AssignmentSlaTier {
   NONE
 }
 
-// How a dedicated technician's bill rate is derived for an org (or an account
-// that overrides it). DAY_RATE: the rate sheet stores an hourly rate and the
-// day rate is hourly x account.defaultHours (the historical default). ANNUAL:
-// the rate sheet stores an annual figure and the day rate is annual / 260.
-enum RateBasis {
-  DAY_RATE
-  ANNUAL
-}
-
 // Append-only audit trail for booking/soft-delete actions during the testing
 // phase. OVERLAP_OVERRIDE: a time-slot conflict was knowingly overridden.
 // DELETE_AFTER_INVOICE: a day already in a generated InvoiceRun was soft-deleted.
@@ -96,10 +87,6 @@ model Org {
   name            String         @unique
   outputTemplate  OutputTemplate
   defaultCurrency String         @default("USD")
-  // Org-level policy. Accounts inherit these unless they set an override.
-  // backfillAllowed gates both the BACKFILL rate tier and coverage events.
-  backfillAllowed Boolean        @default(true)
-  rateBasis       RateBasis      @default(DAY_RATE)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -118,9 +105,6 @@ model ClientAccount {
   clientSpocEmail    String?
   projectDescription String?
   defaultHours       Int      @default(8)
-  // Per-account policy overrides. NULL means inherit the org value.
-  backfillAllowedOverride Boolean?
-  rateBasisOverride       RateBasis?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -150,6 +134,19 @@ model Sla {
   dispatchVisits DispatchVisit[]
 
   @@map("slas")
+}
+
+// Gazetted public-holiday master (global). A holiday date auto-prefills PH on the
+// Dedicated timesheet grid (overridable); a PH day bills as a paid full day.
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@map("holidays")
 }
 
 // Rate sub-category master — one row per (rate category, sub-cat code).

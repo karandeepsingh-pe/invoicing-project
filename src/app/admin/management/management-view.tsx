@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { RateCategory, type RateBasis } from "@prisma/client";
+import { RateCategory } from "@prisma/client";
 import {
   DeleteAccountButton,
   DeleteOrgButton,
@@ -37,7 +37,6 @@ export type AccountRow = {
   id: string;
   name: string;
   currency: string;
-  backfillAllowed: boolean;
   rateCount: number;
   miscCount: number;
   assignmentCount: number;
@@ -62,8 +61,6 @@ export type OrgRow = {
   name: string;
   outputTemplate: string;
   defaultCurrency: string;
-  backfillAllowed: boolean;
-  rateBasis: RateBasis;
   accounts: AccountRow[];
   technicians: TechRow[];
 };
@@ -329,8 +326,6 @@ export function ManagementView({
                             orgId={o.id}
                             orgName={o.name}
                             defaultCurrency={o.defaultCurrency}
-                            orgBackfillAllowed={o.backfillAllowed}
-                            orgRateBasis={o.rateBasis}
                           />
                         }
                         empty="No client accounts."
@@ -368,7 +363,6 @@ export function ManagementView({
                                       id={a.id}
                                       name={a.name}
                                       accountLabel={`${o.name} / ${a.name}`}
-                                      backfillAllowed={a.backfillAllowed}
                                       technicians={techOptions}
                                     />
                                   </td>
@@ -459,7 +453,6 @@ export function ManagementView({
                       id={a.id}
                       name={a.name}
                       accountLabel={`${a.orgName} / ${a.name}`}
-                      backfillAllowed={a.backfillAllowed}
                       technicians={techOptions}
                     />
                   </td>
@@ -574,13 +567,11 @@ function AccountActions({
   id,
   name,
   accountLabel,
-  backfillAllowed,
   technicians,
 }: {
   id: string;
   name: string;
   accountLabel: string;
-  backfillAllowed: boolean;
   technicians: TechOption[];
 }) {
   return (
@@ -589,7 +580,6 @@ function AccountActions({
         clientAccountId={id}
         accountLabel={accountLabel}
         technicians={technicians}
-        backfillAllowed={backfillAllowed}
       />
       <Link href={`/admin/timesheets/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
         Timesheet

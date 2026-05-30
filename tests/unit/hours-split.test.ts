@@ -55,16 +55,23 @@ describe("splitCell", () => {
     expect(s.weekendHours.toNumber()).toBe(8);
   });
 
-  it("PH/AB/NA/PTO -> all zeros regardless of hours value", () => {
-    const ph = splitCell({ date: TUE_APR_14, hours: dec(8), status: "PH" }, 8);
+  it("AB/NA/PTO -> all zeros regardless of hours value", () => {
     const ab = splitCell({ date: TUE_APR_14, hours: dec(0), status: "AB" }, 8);
     const na = splitCell({ date: SAT_APR_4, hours: dec(8), status: "NA" }, 8);
     const pto = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PTO" }, 8);
-    for (const s of [ph, ab, na, pto]) {
+    for (const s of [ab, na, pto]) {
       expect(s.regularDays.toNumber()).toBe(0);
       expect(s.otHours.toNumber()).toBe(0);
       expect(s.weekendHours.toNumber()).toBe(0);
     }
+  });
+
+  it("PH (public holiday) -> 1 full paid day (defaultHours regular), no OT/weekend", () => {
+    const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PH" }, 8);
+    expect(s.regularDays.toNumber()).toBe(1);
+    expect(s.regularHours.toNumber()).toBe(8);
+    expect(s.otHours.toNumber()).toBe(0);
+    expect(s.weekendHours.toNumber()).toBe(0);
   });
 
   it("HALF_DAY -> 0.5 day, no OT, no weekend", () => {
@@ -111,11 +118,10 @@ describe("splitEntries", () => {
       .concat([{ date: SAT_APR_4, hours: dec(6), status: null }]);
 
     const totals = splitEntries(cells, 8);
-    // 22 weekdays - 1 PH = 21 worked weekdays.
-    //   20 of them at 8h = 20 regularDays;
-    //   1 (Apr 14) at 10h = +1 regularDay + 2 OT.
-    // Total regularDays = 21; OT = 2; Weekend = 6.
-    expect(totals.regularDays.toNumber()).toBe(21);
+    // 22 weekdays, all billed (PH is a paid day now):
+    //   20 at 8h = 20 regularDays; Apr 14 at 10h = +1 regularDay + 2 OT;
+    //   Apr 3 PH = +1 paid day. Total regularDays = 22; OT = 2; Weekend = 6.
+    expect(totals.regularDays.toNumber()).toBe(22);
     expect(totals.otHours.toNumber()).toBe(2);
     expect(totals.weekendHours.toNumber()).toBe(6);
   });

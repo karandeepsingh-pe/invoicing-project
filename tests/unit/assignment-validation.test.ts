@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RateCategory } from "@prisma/client";
-import { validateAssignment } from "../../src/lib/domain/assignment-validation";
+import {
+  validateAssignment,
+  deriveAssignmentSlaTier,
+} from "../../src/lib/domain/assignment-validation";
 
 const D = (s: string) => new Date(`${s}T00:00:00Z`);
 
@@ -46,6 +49,7 @@ describe("validateAssignment", () => {
     const result = validateAssignment({
       ...baseInputs,
       rateCategory: RateCategory.DEDICATED,
+      slaTier: "BACKFILL",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("NO_RATE_CARD");
@@ -70,6 +74,7 @@ describe("validateAssignment", () => {
     const result = validateAssignment({
       ...baseInputs,
       rateCategory: RateCategory.DEDICATED,
+      slaTier: "BACKFILL",
       accountRates: [
         {
           ...projectTmBand2,
@@ -88,6 +93,7 @@ describe("validateAssignment", () => {
     const result = validateAssignment({
       ...baseInputs,
       rateCategory: RateCategory.DEDICATED,
+      slaTier: "BACKFILL",
       accountRates: [
         {
           ...projectTmBand2,
@@ -136,6 +142,7 @@ describe("validateAssignment", () => {
     const result = validateAssignment({
       ...baseInputs,
       rateCategory: RateCategory.DEDICATED,
+      slaTier: "BACKFILL",
       accountRates: [
         { ...projectTmBand2, rateSubCategory: { rateCategory: RateCategory.DEDICATED } },
       ],
@@ -150,34 +157,52 @@ describe("validateAssignment", () => {
   const dedicatedInputs = {
     ...baseInputs,
     rateCategory: RateCategory.DEDICATED,
+    slaTier: "BACKFILL" as const,
     accountRates: [
       { ...projectTmBand2, rateSubCategory: { rateCategory: RateCategory.DEDICATED } },
     ],
   };
 
-  it("blocks the BACKFILL tier when policy disallows backfill (BACKFILL_NOT_ALLOWED)", () => {
-    const result = validateAssignment({
-      ...dedicatedInputs,
-      slaTier: "BACKFILL",
-      backfillAllowed: false,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("BACKFILL_NOT_ALLOWED");
-  });
-
-  it("allows the BACKFILL tier when policy allows backfill", () => {
-    expect(
-      validateAssignment({ ...dedicatedInputs, slaTier: "BACKFILL", backfillAllowed: true }).ok,
-    ).toBe(true);
-  });
-
-  it("allows NO_BACKFILL even when backfill is disallowed", () => {
-    expect(
-      validateAssignment({ ...dedicatedInputs, slaTier: "NO_BACKFILL", backfillAllowed: false }).ok,
-    ).toBe(true);
-  });
-
-  it("treats an undefined backfillAllowed as allowed (back-compat)", () => {
+  it("allows a DEDICATED assignment with the BACKFILL tier", () => {
     expect(validateAssignment({ ...dedicatedInputs, slaTier: "BACKFILL" }).ok).toBe(true);
+  });
+
+  it("allows a DEDICATED assignment with the NO_BACKFILL tier", () => {
+    expect(validateAssignment({ ...dedicatedInputs, slaTier: "NO_BACKFILL" }).ok).toBe(true);
+  });
+
+  it("blocks a DEDICATED assignment whose tier is NONE (MISSING_BACKFILL_TIER)", () => {
+    const result = validateAssignment({ ...dedicatedInputs, slaTier: "NONE" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("MISSING_BACKFILL_TIER");
+  });
+
+  it("blocks a DEDICATED assignment with no tier provided (MISSING_BACKFILL_TIER)", () => {
+    const result = validateAssignment({ ...dedicatedInputs, slaTier: undefined });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("MISSING_BACKFILL_TIER");
+  });
+
+  it("does not require a tier for a rebadged DEDICATED technician", () => {
+    expect(
+      validateAssignment({
+        ...dedicatedInputs,
+        slaTier: "NONE",
+        technicianIsRebadged: true,
+      }).ok,
+    ).toBe(true);
+  });
+});
+
+describe("deriveAssignmentSlaTier", () => {
+  it("returns the technician tier for DEDICATED work", () => {
+    expect(deriveAssignmentSlaTier(RateCategory.DEDICATED, "BACKFILL")).toBe("BACKFILL");
+    expect(deriveAssignmentSlaTier(RateCategory.DEDICATED, "NO_BACKFILL")).toBe("NO_BACKFILL");
+    expect(deriveAssignmentSlaTier(RateCategory.DEDICATED, "NONE")).toBe("NONE");
+  });
+
+  it("forces NONE for non-DEDICATED work regardless of the technician tier", () => {
+    expect(deriveAssignmentSlaTier(RateCategory.PROJECT_TM, "BACKFILL")).toBe("NONE");
+    expect(deriveAssignmentSlaTier(RateCategory.DISPATCH_SCHED, "NO_BACKFILL")).toBe("NONE");
   });
 });

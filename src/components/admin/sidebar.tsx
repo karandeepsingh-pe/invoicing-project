@@ -22,6 +22,7 @@ const sections: Section[] = [
       { kind: "link", href: "/admin/masters/slas", label: "SLAs" },
       { kind: "link", href: "/admin/masters/sub-categories", label: "Sub-categories" },
       { kind: "link", href: "/admin/masters/visit-types", label: "Visit types" },
+      { kind: "link", href: "/admin/masters/holidays", label: "Holidays" },
       { kind: "link", href: "/admin/masters/bands", label: "Bands" },
       { kind: "link", href: "/admin/masters/postal-codes", label: "Postal codes" },
     ],

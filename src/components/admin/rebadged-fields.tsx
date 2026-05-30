@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { deriveRebadgedRates } from "@/lib/invoice/rebadged-rates";
+import { RateCategory } from "@prisma/client";
+import { monthlyFromAnnual } from "@/lib/invoice/billing-basis";
 
 export type RebadgedDefaults = {
   isRebadged?: boolean;
@@ -14,22 +15,54 @@ const inputCls =
   "rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
 
 /**
- * "Rebadged" toggle + salary-driven fields for the technician forms. When on,
- * reveals Annual Salary (+ manual OT/Weekend hourly rates) and a live derived
- * preview. A rebadged Dedicated tech bills off salary, not the account rate sheet.
+ * Dedicated FTE rate fields for the technician forms:
+ *  - "Annual rate" (annualSalary), shown for every Dedicated tech. Billing spreads
+ *    it across the month's business days (annual / 12 / businessDays), so a fully
+ *    worked month bills exactly annual / 12.
+ *  - A "Rebadged" toggle that ONLY swaps the OT/weekend source to custom per-tech
+ *    hourly rates (the day rate always uses the Annual rate above).
  */
-export function RebadgedFields({ defaults }: { defaults?: RebadgedDefaults }) {
+export function RebadgedFields({
+  primaryCategory,
+  defaults,
+}: {
+  primaryCategory: RateCategory;
+  defaults?: RebadgedDefaults;
+}) {
   const [rebadged, setRebadged] = useState(Boolean(defaults?.isRebadged));
   const [salary, setSalary] = useState(defaults?.annualSalary ?? "");
 
+  const isDedicated = primaryCategory === RateCategory.DEDICATED;
   const salaryNum = Number(salary);
-  const { hourly, dayRate } = deriveRebadgedRates(
-    Number.isFinite(salaryNum) ? salaryNum : 0,
-    8,
-  );
+  const monthly = monthlyFromAnnual(Number.isFinite(salaryNum) ? salaryNum : 0);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
+      {isDedicated && (
+        <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
+          <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+            Annual rate
+            <input
+              name="annualSalary"
+              type="number"
+              step="0.01"
+              min="0"
+              value={salary}
+              onChange={(e) => setSalary(e.target.value)}
+              placeholder="e.g. 74100"
+              className={inputCls}
+            />
+          </label>
+          <p className="text-xs text-fg-subtle">
+            Billed as the monthly salary spread over the month&apos;s business days. Monthly =
+            annual ÷ 12 = <span className="font-medium text-fg">${monthly.toFixed(2)}</span>; day
+            rate ≈ <span className="font-medium text-fg">${(monthly / 22).toFixed(2)}</span> at 22
+            business days (varies by month). A fully-worked month bills exactly annual ÷ 12. Leave
+            blank to fall back to the account band rate.
+          </p>
+        </div>
+      )}
+
       <label className="inline-flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -38,25 +71,12 @@ export function RebadgedFields({ defaults }: { defaults?: RebadgedDefaults }) {
           onChange={(e) => setRebadged(e.target.checked)}
           className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent"
         />
-        <span className="font-medium text-fg">Rebadged — bill from annual salary</span>
+        <span className="font-medium text-fg">Rebadged — bill OT / weekend at custom rates</span>
       </label>
 
       {rebadged && (
         <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-              Annual salary
-              <input
-                name="annualSalary"
-                type="number"
-                step="0.01"
-                min="0"
-                value={salary}
-                onChange={(e) => setSalary(e.target.value)}
-                placeholder="e.g. 104000"
-                className={inputCls}
-              />
-            </label>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
               OT rate / hr (manual)
               <input
@@ -83,10 +103,8 @@ export function RebadgedFields({ defaults }: { defaults?: RebadgedDefaults }) {
             </label>
           </div>
           <p className="text-xs text-fg-subtle">
-            Derived: <span className="font-medium text-fg">${hourly.toFixed(2)}/hr</span> ·{" "}
-            <span className="font-medium text-fg">${dayRate.toFixed(2)}/day</span>{" "}
-            (hourly = salary ÷ 2080; day shown at 8h — billing uses the account&apos;s Default
-            Hours). OT &amp; weekend are billed at the manual rates above.
+            Overrides the band OT / weekend hourly rates for this technician. The day rate still
+            uses the Annual rate above.
           </p>
         </div>
       )}

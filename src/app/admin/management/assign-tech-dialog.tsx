@@ -10,12 +10,10 @@ export function AssignTechToAccountDialog({
   clientAccountId,
   accountLabel,
   technicians,
-  backfillAllowed = true,
 }: {
   clientAccountId: string;
   accountLabel: string;
   technicians: TechOption[];
-  backfillAllowed?: boolean;
 }) {
   return (
     <Dialog
@@ -27,8 +25,8 @@ export function AssignTechToAccountDialog({
           Assign
         </button>
       }
-      title={`Assign technician to ${accountLabel}`}
-      description="Pick an existing employed technician. Employ new techs from the org roster on the right."
+      title={`Assign technicians to ${accountLabel}`}
+      description="Pick one or more employed technicians. Employ new techs from the org roster on the right."
       size="lg"
     >
       {({ close }) => (
@@ -36,7 +34,6 @@ export function AssignTechToAccountDialog({
           clientAccountId={clientAccountId}
           accountLabel={accountLabel}
           technicians={technicians}
-          backfillAllowed={backfillAllowed}
           onSuccess={close}
         />
       )}

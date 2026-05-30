@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { notDeleted } from "@/lib/domain/soft-delete";
+import { monthEntryCounts, partitionMonthAssignments } from "@/lib/domain/timesheet-month";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { TimesheetGrid, type GridAssignment, type GridCell } from "./timesheet-grid";
 import { DeleteMonthButton } from "./delete-month-button";
+import { DeletedRowsSection } from "./deleted-rows-section";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
 
 function fmtIso(d: Date): string {
@@ -55,16 +56,43 @@ export default async function TimesheetPage({
     ],
   });
 
-  const entries = await prisma.timesheetEntry.findMany({
+  // Gazetted holidays falling in this month (global list). On a Dedicated grid
+  // these auto-prefill as PH (overridable); a PH day bills as a paid day.
+  const holidays = await prisma.holiday.findMany({
+    where: { date: { gte: range.start, lt: range.end } },
+    orderBy: { date: "asc" },
+  });
+  const holidayDates = holidays.map((h) => fmtIso(h.date));
+  const prefillHolidaysAsPh = rateCategory === "DEDICATED";
+
+  // All of this month's entries (live + soft-deleted), classified via the pure
+  // timesheet-month helpers. Querying the whole month at once keeps the
+  // active/deleted split testable and inherently month-scoped, so another
+  // month's deletions can never leak in.
+  const monthEntries = await prisma.timesheetEntry.findMany({
     where: {
-      ...notDeleted,
       assignmentId: { in: assignments.map((a) => a.id) },
       date: { gte: range.start, lt: range.end },
     },
+    select: { assignmentId: true, date: true, hours: true, status: true, deletedAt: true },
   });
 
+  const counts = monthEntryCounts(monthEntries, range);
+  const partition = partitionMonthAssignments(assignments.map((a) => a.id), counts);
+  const activeAssignments = assignments.filter((a) => partition.activeIds.has(a.id));
+  const deletedRows = assignments
+    .filter((a) => partition.deletedIds.has(a.id))
+    .map((a) => ({
+      assignmentId: a.id,
+      technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
+      band: a.technician.band,
+      deletedDays: partition.deletedCountById.get(a.id) ?? 0,
+    }));
+
+  // Grid cells come from the LIVE entries only.
   const cellsByAssignmentDate = new Map<string, GridCell>();
-  for (const e of entries) {
+  for (const e of monthEntries) {
+    if (e.deletedAt !== null) continue;
     const key = `${e.assignmentId}|${fmtIso(e.date)}`;
     cellsByAssignmentDate.set(key, {
       hours: e.status ? null : Number(e.hours.toString()),
@@ -72,7 +100,7 @@ export default async function TimesheetPage({
     });
   }
 
-  const gridAssignments: GridAssignment[] = assignments.map((a) => ({
+  const gridAssignments: GridAssignment[] = activeAssignments.map((a) => ({
     assignmentId: a.id,
     technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
     category: a.rateCategory === "PROJECT_TM" ? "PROJECT_TM" : "DEDICATED",
@@ -151,6 +179,16 @@ export default async function TimesheetPage({
 
       <MonthPicker accountId={accountId} year={year} month={month} isProject={isProject} />
 
+      {holidays.length > 0 && (
+        <div className="glass-soft rounded-md px-3 py-2 text-xs text-fg-muted">
+          <span className="font-semibold text-fg">Holidays this month:</span>{" "}
+          {holidays.map((h) => `${fmtIso(h.date)} ${h.name}`).join(" · ")}
+          {prefillHolidaysAsPh
+            ? " — pre-filled as PH (paid) for every technician; type hours over a cell if someone works that day."
+            : ""}
+        </div>
+      )}
+
       {env.SOFT_DELETE_ENABLED && gridAssignments.length > 0 && (
         <div className="flex justify-end">
           <DeleteMonthButton
@@ -163,22 +201,35 @@ export default async function TimesheetPage({
         </div>
       )}
 
-      {gridAssignments.length === 0 ? (
+      {gridAssignments.length === 0 && deletedRows.length === 0 ? (
         <div className="glass rounded-lg p-6 text-sm text-fg-muted">
           No {typeLabel} assignments overlap this month. Add a {typeLabel} assignment
           to a technician under this account, then return here.
         </div>
       ) : (
-        <TimesheetGrid
-          accountId={accountId}
-          year={year}
-          month={month}
-          defaultHours={account.defaultHours}
-          assignments={gridAssignments}
-          days={days}
-          initialCells={Object.fromEntries(cellsByAssignmentDate)}
-          softDeleteEnabled={env.SOFT_DELETE_ENABLED}
-        />
+        <>
+          {gridAssignments.length > 0 && (
+            <TimesheetGrid
+              accountId={accountId}
+              year={year}
+              month={month}
+              defaultHours={account.defaultHours}
+              assignments={gridAssignments}
+              days={days}
+              initialCells={Object.fromEntries(cellsByAssignmentDate)}
+              softDeleteEnabled={env.SOFT_DELETE_ENABLED}
+              holidayDates={holidayDates}
+              prefillHolidaysAsPh={prefillHolidaysAsPh}
+            />
+          )}
+          {env.SOFT_DELETE_ENABLED && deletedRows.length > 0 && (
+            <DeletedRowsSection
+              year={year}
+              month={month}
+              rows={deletedRows}
+            />
+          )}
+        </>
       )}
     </div>
   );

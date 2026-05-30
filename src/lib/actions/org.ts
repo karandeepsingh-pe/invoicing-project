@@ -14,8 +14,6 @@ export async function createOrg(_prev: ActionResult, formData: FormData): Promis
     name: formData.get("name"),
     outputTemplate: formData.get("outputTemplate"),
     defaultCurrency: formData.get("defaultCurrency") || undefined,
-    backfillAllowed: formData.get("backfillAllowed") ?? undefined,
-    rateBasis: formData.get("rateBasis") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -42,8 +40,6 @@ export async function updateOrg(_prev: ActionResult, formData: FormData): Promis
     name: formData.get("name"),
     outputTemplate: formData.get("outputTemplate"),
     defaultCurrency: formData.get("defaultCurrency") || undefined,
-    backfillAllowed: formData.get("backfillAllowed") ?? undefined,
-    rateBasis: formData.get("rateBasis") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

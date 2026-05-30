@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { RateBasis } from "@prisma/client";
 
 const currencyField = z
   .string()
@@ -8,17 +7,6 @@ const currencyField = z
   .regex(/^[A-Z]{3}$/, "ISO 4217 currency code (e.g. USD)")
   .optional()
   .or(z.literal("").transform(() => undefined));
-
-// Tri-state overrides from <select>. "" (or absent) means inherit -> NULL.
-const backfillOverrideField = z
-  .union([z.literal(""), z.literal("true"), z.literal("false")])
-  .optional()
-  .transform((v) => (v === "true" ? true : v === "false" ? false : null));
-
-const rateBasisOverrideField = z
-  .union([z.literal(""), z.nativeEnum(RateBasis)])
-  .optional()
-  .transform((v) => (v === "" || v === undefined ? null : v));
 
 const optionalText = (max: number) =>
   z
@@ -47,8 +35,6 @@ export const clientAccountCreateSchema = z.object({
   clientSpocEmail: emailOrEmpty,
   projectDescription: optionalText(200),
   defaultHours: defaultHoursField,
-  backfillAllowedOverride: backfillOverrideField,
-  rateBasisOverride: rateBasisOverrideField,
 });
 
 export type ClientAccountCreateInput = z.infer<typeof clientAccountCreateSchema>;
@@ -61,8 +47,6 @@ export const clientAccountUpdateSchema = z.object({
   clientSpocEmail: emailOrEmpty,
   projectDescription: optionalText(200),
   defaultHours: defaultHoursField,
-  backfillAllowedOverride: backfillOverrideField,
-  rateBasisOverride: rateBasisOverrideField,
 });
 
 export type ClientAccountUpdateInput = z.infer<typeof clientAccountUpdateSchema>;

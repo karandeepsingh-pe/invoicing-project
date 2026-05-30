@@ -12,7 +12,7 @@ export type AssignmentValidationResult =
         | "DEDICATED_ALREADY_ASSIGNED"
         | "NOT_IN_POOL"
         | "DEDICATED_LOCKS_OUT"
-        | "BACKFILL_NOT_ALLOWED";
+        | "MISSING_BACKFILL_TIER";
       message: string;
     };
 
@@ -26,10 +26,9 @@ export type AssignmentValidationInput = {
   technicianIsRebadged?: boolean;
   accountRates: RateWithSubCat[];
   existingTechnicianAssignments: Pick<Assignment, "id" | "rateCategory" | "endDate">[];
+  // The assignment's billing tier, derived from the technician's backfill trait
+  // (see deriveAssignmentSlaTier). DEDICATED work requires a real tier.
   slaTier?: AssignmentSlaTier;
-  // Resolved org/account policy for the target account. When false, the
-  // BACKFILL tier is not permitted. Undefined is treated as allowed.
-  backfillAllowed?: boolean;
 };
 
 const categoryName: Record<RateCategory, string> = {
@@ -37,6 +36,19 @@ const categoryName: Record<RateCategory, string> = {
   PROJECT_TM: "Project / T&M",
   DISPATCH_SCHED: "Dispatch",
 };
+
+/**
+ * An assignment's billing tier is the technician's backfill trait, but only for
+ * DEDICATED work. Project / Dispatch assignments are always NONE regardless of
+ * what the technician carries. The assignment's own category wins, because a
+ * technician can be assigned outside their (display-only) primaryCategory.
+ */
+export function deriveAssignmentSlaTier(
+  rateCategory: RateCategory,
+  techDefaultSlaTier: AssignmentSlaTier,
+): AssignmentSlaTier {
+  return rateCategory === RateCategory.DEDICATED ? techDefaultSlaTier : "NONE";
+}
 
 export function validateAssignment(input: AssignmentValidationInput): AssignmentValidationResult {
   const hasActiveDedication = input.existingTechnicianAssignments.some(
@@ -66,21 +78,28 @@ export function validateAssignment(input: AssignmentValidationInput): Assignment
     };
   }
 
-  // Org policy: the BACKFILL tier is only available where backfill is allowed.
-  if (input.slaTier === "BACKFILL" && input.backfillAllowed === false) {
-    return {
-      ok: false,
-      reason: "BACKFILL_NOT_ALLOWED",
-      message:
-        "This account's organization policy does not allow backfill, so the BACKFILL tier " +
-        "cannot be used. Pick No Backfill or None.",
-    };
-  }
-
   // Rebadged Dedicated techs bill off their salary, not the account rate sheet —
   // they don't need a rate-card row to be assignable.
   const rebadgedDedicated =
     Boolean(input.technicianIsRebadged) && input.rateCategory === RateCategory.DEDICATED;
+
+  // Backfill tier rides on the technician now. A DEDICATED assignment must resolve
+  // to a real tier (BACKFILL / NO_BACKFILL) or the rate lookup can't pick a row and
+  // the row prices at 0. Rebadged techs bill off salary, so their tier is irrelevant.
+  if (
+    input.rateCategory === RateCategory.DEDICATED &&
+    !rebadgedDedicated &&
+    input.slaTier !== "BACKFILL" &&
+    input.slaTier !== "NO_BACKFILL"
+  ) {
+    return {
+      ok: false,
+      reason: "MISSING_BACKFILL_TIER",
+      message:
+        "This technician has no backfill tier set. Open the technician, set Primary category to " +
+        "Dedicated and pick Backfill or No Backfill, then assign.",
+    };
+  }
 
   const applicable = ratesForTechnician(
     input.accountRates,

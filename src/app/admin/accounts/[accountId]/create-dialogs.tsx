@@ -8,16 +8,26 @@ import { MiscFeeCreateForm } from "./create-misc-fee-form";
 type SubCat = { id: string; rateCategory: RateCategory; code: string; label: string };
 type Sla = { id: string; code: string; label: string };
 
+const categoryLabel: Record<RateCategory, string> = {
+  DEDICATED: "Dedicated",
+  PROJECT_TM: "Project / T&M",
+  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+};
+
 export function AccountRateCreateDialog(props: {
   clientAccountId: string;
   subCategories: SubCat[];
   slas: Sla[];
+  lockedCategory?: RateCategory;
 }) {
+  const title = props.lockedCategory
+    ? `Add ${categoryLabel[props.lockedCategory]} rate row`
+    : "Add rate row";
   return (
     <Dialog
       trigger={<AddButton label="Add rate row" />}
-      title="Add rate row"
-      description="Pick a sub-category, SLA, band, and effective period."
+      title={title}
+      description="Pick a sub-category, SLA, and band."
       size="xl"
     >
       {({ close }) => <AccountRateCreateForm {...props} onSuccess={close} />}

@@ -1,37 +1,61 @@
 import { describe, expect, it } from "vitest";
-import { deriveAnnualDayRate } from "../../src/lib/invoice/billing-basis";
+import {
+  annualFromBandHourly,
+  annualToHourly,
+  dedicatedDayRate,
+  monthlyFromAnnual,
+} from "../../src/lib/invoice/billing-basis";
 
-// Extended (FTE) = (Annual / 12) x (DaysWorked / BusinessDays)
-//               = dayRate x daysWorked, where dayRate = annual / (12 x businessDays).
-// Rounded to cents the way the row loader does today (.toFixed(2)).
-function fteExtended(annual: number, businessDays: number, daysWorked: number): number {
-  return Number((deriveAnnualDayRate(annual, businessDays) * daysWorked).toFixed(2));
-}
-
-describe("deriveAnnualDayRate", () => {
-  it("annual / (12 x businessDays)", () => {
-    expect(deriveAnnualDayRate(74100, 21)).toBeCloseTo(74100 / (12 * 21), 8);
+describe("annualToHourly", () => {
+  it("annual / 2080", () => {
+    expect(annualToHourly(74100)).toBeCloseTo(35.625, 6);
+    expect(annualToHourly(66000)).toBeCloseTo(66000 / 2080, 6);
   });
 
-  it("zero / null / undefined / nonpositive businessDays -> 0", () => {
-    expect(deriveAnnualDayRate(0, 21)).toBe(0);
-    expect(deriveAnnualDayRate(null, 21)).toBe(0);
-    expect(deriveAnnualDayRate(undefined, 21)).toBe(0);
-    expect(deriveAnnualDayRate(60000, 0)).toBe(0);
-    expect(deriveAnnualDayRate(-100, 21)).toBe(0);
+  it("zero / null / undefined / negative -> 0", () => {
+    expect(annualToHourly(0)).toBe(0);
+    expect(annualToHourly(null)).toBe(0);
+    expect(annualToHourly(undefined)).toBe(0);
+    expect(annualToHourly(-100)).toBe(0);
   });
 });
 
-describe("FTE extended total (known-good invoices)", () => {
-  it("annual 74100 with-backfill, 21/21 worked -> 6175.00", () => {
-    expect(fteExtended(74100, 21, 21)).toBe(6175.0);
+describe("monthlyFromAnnual", () => {
+  it("annual / 12", () => {
+    expect(monthlyFromAnnual(74100)).toBeCloseTo(6175, 6);
+    expect(monthlyFromAnnual(0)).toBe(0);
+    expect(monthlyFromAnnual(null)).toBe(0);
+  });
+});
+
+describe("dedicatedDayRate", () => {
+  it("spreads annual/12 across the month's business days", () => {
+    expect(dedicatedDayRate(74100, 22)).toBeCloseTo(280.6818, 3); // 6175 / 22
+    expect(dedicatedDayRate(64000, 22)).toBeCloseTo(242.4242, 3); // 5333.33 / 22
   });
 
-  it("annual 83000 no-backfill, 6/21 worked -> 1976.19", () => {
-    expect(fteExtended(83000, 21, 6)).toBe(1976.19);
+  it("a fully-worked month bills exactly annual/12", () => {
+    expect(dedicatedDayRate(74100, 22) * 22).toBeCloseTo(6175, 2);
+    expect(dedicatedDayRate(64000, 22) * 22).toBeCloseTo(5333.33, 2);
   });
 
-  it("full month at full attendance equals annual / 12", () => {
-    expect(fteExtended(74100, 21, 21)).toBe(Number((74100 / 12).toFixed(2)));
+  it("a 21-day month at 21 days worked matches the FSO Steven Patten line", () => {
+    expect(dedicatedDayRate(74100, 22) * 21).toBeCloseTo(5894.32, 2);
+  });
+
+  it("returns 0 for non-positive annual or zero business days", () => {
+    expect(dedicatedDayRate(0, 22)).toBe(0);
+    expect(dedicatedDayRate(74100, 0)).toBe(0);
+    expect(dedicatedDayRate(null, 22)).toBe(0);
+  });
+});
+
+describe("annualFromBandHourly", () => {
+  it("bridges a band hourly back to annual (× 2080)", () => {
+    expect(annualFromBandHourly(35.625)).toBe(74100); // Band 3 stored hourly
+  });
+  it("zero / null -> 0", () => {
+    expect(annualFromBandHourly(0)).toBe(0);
+    expect(annualFromBandHourly(null)).toBe(0);
   });
 });

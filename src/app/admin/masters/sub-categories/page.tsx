@@ -25,10 +25,7 @@ export default async function SubCategoriesMastersPage() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-4xl font-semibold tracking-tighter2">Rate sub-categories</h1>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-fg-subtle">{rows.length} total</span>
-            <SubCategoryCreateDialog />
-          </div>
+          <span className="text-sm text-fg-subtle">{rows.length} total</span>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
           Rows in the rate matrix. Each (rate category, code) is unique. Adding new sub-categories
@@ -41,11 +38,14 @@ export default async function SubCategoriesMastersPage() {
           const list = grouped.get(cat)!;
           return (
             <section key={cat} className="glass overflow-hidden rounded-lg">
-              <div className="glass-header flex items-baseline justify-between border-b border-border/60 px-4 py-2.5 text-sm font-semibold tracking-tightish">
+              <div className="glass-header flex items-center justify-between border-b border-border/60 px-4 py-2.5 text-sm font-semibold tracking-tightish">
                 <span>{categoryLabel[cat]}</span>
-                <span className="text-xs font-normal text-fg-subtle">
-                  {list.length} sub-categor{list.length === 1 ? "y" : "ies"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-normal text-fg-subtle">
+                    {list.length} sub-categor{list.length === 1 ? "y" : "ies"}
+                  </span>
+                  <SubCategoryCreateDialog lockedCategory={cat} />
+                </div>
               </div>
               <table className="w-full text-sm">
                 <thead className="text-xs uppercase tracking-wider text-fg-subtle">

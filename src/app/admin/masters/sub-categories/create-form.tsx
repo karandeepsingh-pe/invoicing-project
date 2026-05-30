@@ -12,7 +12,13 @@ const categoryLabel: Record<RateCategory, string> = {
   DISPATCH_SCHED: "Dispatch + Scheduled Visit",
 };
 
-export function SubCategoryCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
+export function SubCategoryCreateForm({
+  lockedCategory,
+  onSuccess,
+}: {
+  lockedCategory?: RateCategory;
+  onSuccess?: () => void;
+} = {}) {
   const [state, action] = useActionState(createRateSubCategory, null);
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
@@ -29,18 +35,22 @@ export function SubCategoryCreateForm({ onSuccess }: { onSuccess?: () => void } 
   return (
     <form action={action} className="grid grid-cols-1 gap-3 md:grid-cols-5">
       <FormError error={formError} />
-      <SelectField
-        label="Rate category"
-        name="rateCategory"
-        required
-        errors={fieldErrors?.rateCategory}
-      >
-        {Object.values(RateCategory).map((c) => (
-          <option key={c} value={c}>
-            {categoryLabel[c]}
-          </option>
-        ))}
-      </SelectField>
+      {lockedCategory ? (
+        <input type="hidden" name="rateCategory" value={lockedCategory} />
+      ) : (
+        <SelectField
+          label="Rate category"
+          name="rateCategory"
+          required
+          errors={fieldErrors?.rateCategory}
+        >
+          {Object.values(RateCategory).map((c) => (
+            <option key={c} value={c}>
+              {categoryLabel[c]}
+            </option>
+          ))}
+        </SelectField>
+      )}
       <TextField
         label="Code"
         name="code"

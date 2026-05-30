@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { OutputTemplate, RateBasis } from "@prisma/client";
+import { OutputTemplate } from "@prisma/client";
 import { updateOrg } from "@/lib/actions/org";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
 
@@ -10,15 +10,11 @@ export function OrgEditForm({
   name,
   outputTemplate,
   defaultCurrency,
-  backfillAllowed,
-  rateBasis,
 }: {
   id: string;
   name: string;
   outputTemplate: OutputTemplate;
   defaultCurrency: string;
-  backfillAllowed: boolean;
-  rateBasis: RateBasis;
 }) {
   const [state, action] = useActionState(updateOrg, null);
   const [open, setOpen] = useState(false);
@@ -70,24 +66,6 @@ export function OrgEditForm({
         maxLength={3}
         errors={fieldErrors?.defaultCurrency}
       />
-      <SelectField
-        label="Backfill policy"
-        name="backfillAllowed"
-        defaultValue={backfillAllowed ? "true" : "false"}
-        hint="Gates the BACKFILL tier and coverage events. Accounts can override."
-      >
-        <option value="true">Allowed</option>
-        <option value="false">Not allowed</option>
-      </SelectField>
-      <SelectField
-        label="Dedicated rate basis"
-        name="rateBasis"
-        defaultValue={rateBasis}
-        hint="Dedicated FTEs only. Annual divides the annual figure by 260 for a day rate. Dispatch and Project bill from their own hourly-based rates. Accounts can override."
-      >
-        <option value={RateBasis.DAY_RATE}>Day rate</option>
-        <option value={RateBasis.ANNUAL}>Annual</option>
-      </SelectField>
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>
         {state && state.ok && <span className="text-xs text-success">Saved.</span>}

@@ -92,29 +92,29 @@ describe("computeDaysWorked (legacy, used by Project flow)", () => {
 });
 
 describe("calculateDedicatedFteRow", () => {
-  // 22 weekdays in April 2026; tests use 21 worked + 1 PH unless noted.
+  // 22 weekdays in April 2026; PH is a paid day, so a month with 1 PH bills 22.
   const weekdays = aprilWeekdays();
   expect(weekdays.length).toBe(22);
 
-  it("full month (21 worked + 1 PH) = dayRate × daysWorked", () => {
+  it("full month (21 worked + 1 PH paid) = dayRate × 22", () => {
     const entries: TimesheetCell[] = weekdays.map((d, i) =>
       i === 0 ? statusCell(d, "PH") : workedCell(d, 8),
     );
     const result = calculateDedicatedFteRow({
       defaultHours: 8,
-      businessDays: 21,
+      businessDays: 22,
       entries,
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(21);
+    expect(result.daysWorked.toNumber()).toBe(22);
     expect(result.otHours.toNumber()).toBe(0);
     expect(result.weekendHours.toNumber()).toBe(0);
     expect(result.dayRate.toNumber()).toBe(250);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22, 2);
   });
 
-  it("partial month: 20 worked + 1 AB + 1 PH = dayRate × 20", () => {
+  it("partial month: 20 worked + 1 AB + 1 PH(paid) = dayRate × 21", () => {
     const entries: TimesheetCell[] = weekdays.map((d, i) => {
       if (i === 0) return statusCell(d, "PH");
       if (i === 1) return statusCell(d, "AB");
@@ -122,13 +122,29 @@ describe("calculateDedicatedFteRow", () => {
     });
     const result = calculateDedicatedFteRow({
       defaultHours: 8,
-      businessDays: 21,
+      businessDays: 22,
       entries,
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(20);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 20, 2);
+    expect(result.daysWorked.toNumber()).toBe(21);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+  });
+
+  it("holiday worked: a PH date overridden with 10h bills 1 day + 2 OT, not a paid PH day", () => {
+    // The tech works the holiday: that cell holds hours, not PH.
+    const entries: TimesheetCell[] = weekdays.map((d) => workedCell(d, 8));
+    entries[0] = workedCell(weekdays[0], 10);
+    const result = calculateDedicatedFteRow({
+      defaultHours: 8,
+      businessDays: 22,
+      entries,
+      rates,
+      slaTier: "BACKFILL",
+    });
+    expect(result.daysWorked.toNumber()).toBe(22); // 21 at 8h + 1 regular from the 10h
+    expect(result.otHours.toNumber()).toBe(2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 2 * 75, 2);
   });
 
   it("terminated tech: 6 worked + 16 NA = dayRate × 6", () => {
@@ -159,10 +175,10 @@ describe("calculateDedicatedFteRow", () => {
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(21);
+    expect(result.daysWorked.toNumber()).toBe(22);
     expect(result.otHours.toNumber()).toBe(2);
     expect(result.otPortion.toNumber()).toBeCloseTo(2 * 75, 2);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21 + 2 * 75, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 2 * 75, 2);
   });
 
   it("derives weekend hours from a Sat 8h cell", () => {
@@ -182,7 +198,7 @@ describe("calculateDedicatedFteRow", () => {
     });
     expect(result.weekendHours.toNumber()).toBe(8);
     expect(result.weekendPortion.toNumber()).toBe(800);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21 + 800, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 800, 2);
   });
 
   it("missing rate falls back to zero", () => {
@@ -225,7 +241,7 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "NO_BACKFILL",
     });
     expect(result.dayRate.toNumber()).toBe(200);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(200 * 21, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(200 * 22, 2);
   });
 
   it("coverageDaysDelta subtracts from covered tech", () => {
@@ -240,8 +256,8 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "BACKFILL",
       coverageDaysDelta: dec(-1),
     });
-    expect(result.daysWorked.toNumber()).toBe(20);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 20, 2);
+    expect(result.daysWorked.toNumber()).toBe(21);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });
 
   it("coverage OT + override rates bill at covered tech's rates", () => {

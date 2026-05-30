@@ -69,7 +69,7 @@ export function SubmitButton({ children = "Save" }: { children?: React.ReactNode
 export function FormError({ error }: { error?: string }) {
   if (!error) return null;
   return (
-    <div className="rounded-md border border-danger/30 bg-danger-bg px-3 py-2 text-sm text-danger">
+    <div className="whitespace-pre-line rounded-md border border-danger/30 bg-danger-bg px-3 py-2 text-sm text-danger">
       {error}
     </div>
   );

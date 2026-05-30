@@ -166,7 +166,7 @@ export function TechnicianCreateForm({
 
       <AvailabilityFlagsField />
 
-      <RebadgedFields />
+      <RebadgedFields primaryCategory={primaryCategory} />
 
       <LocationFields
         fieldErrors={{

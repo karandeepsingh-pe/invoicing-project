@@ -1,23 +1,17 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import type { RateBasis } from "@prisma/client";
 import { createClientAccount } from "@/lib/actions/client-account";
 import { FormError, SubmitButton, TextField } from "@/components/admin/field";
-import { PolicyOverrideFields } from "@/components/admin/policy-override-fields";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function ClientAccountCreateForm({
   orgId,
   defaultCurrency,
-  orgBackfillAllowed,
-  orgRateBasis,
   onSuccess,
 }: {
   orgId: string;
   defaultCurrency: string;
-  orgBackfillAllowed: boolean;
-  orgRateBasis: RateBasis;
   onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createClientAccount, null);
@@ -77,7 +71,6 @@ export function ClientAccountCreateForm({
         errors={fieldErrors?.defaultHours}
         hint="Hours counted as one full working day. Pre-fills FTE weekday cells; anything above becomes OT."
       />
-      <PolicyOverrideFields orgBackfillAllowed={orgBackfillAllowed} orgRateBasis={orgRateBasis} />
       <SubmitButton>Create account</SubmitButton>
       {state && state.ok && !onSuccess && <div className="text-sm text-success">Account created.</div>}
     </form>

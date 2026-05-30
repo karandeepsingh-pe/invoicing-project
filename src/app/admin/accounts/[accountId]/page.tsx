@@ -2,14 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MiscFeeKind, RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { resolvePolicy } from "@/lib/domain/policy-resolver";
 import { AccountRateCreateDialog, MiscFeeCreateDialog } from "./create-dialogs";
 import { AccountRateRowActions } from "./rate-row-actions";
 import { MiscFeeDeleteButton } from "./misc-fee-row-actions";
 import { AccountAssignmentCreateDialog } from "./create-assignment-dialog";
 import type { TechOption } from "./create-assignment-form";
-import { DeleteAssignmentButton } from "../../technicians/[techId]/delete-assignment-button";
-import { EndAssignmentButton } from "../../technicians/[techId]/end-assignment-button";
+import { AssignmentsTable } from "./assignments-table";
 import { InvoiceRunDeleteButton } from "./invoice-run-actions";
 
 const invoiceFormatLabel: Record<string, string> = {
@@ -108,13 +106,20 @@ export default async function AccountDetailPage({
   if (!account) notFound();
 
   const currency = account.currency ?? account.org.defaultCurrency;
-  const { backfillAllowed } = resolvePolicy(account.org, account);
 
   const ratesByCategory = new Map<RateCategory, typeof account.accountRates>();
   for (const c of categoryOrder) ratesByCategory.set(c, []);
   for (const r of account.accountRates) {
     ratesByCategory.get(r.rateSubCategory.rateCategory)!.push(r);
   }
+
+  const rateSubCatOptions = subCategories.map((s) => ({
+    id: s.id,
+    rateCategory: s.rateCategory,
+    code: s.code,
+    label: s.label,
+  }));
+  const slaOptions = slas.map((s) => ({ id: s.id, code: s.code, label: s.label }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -134,21 +139,9 @@ export default async function AccountDetailPage({
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Rate sheet</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-fg-subtle">
-              {account.accountRates.length} row{account.accountRates.length === 1 ? "" : "s"} total
-            </span>
-            <AccountRateCreateDialog
-              clientAccountId={account.id}
-              subCategories={subCategories.map((s) => ({
-                id: s.id,
-                rateCategory: s.rateCategory,
-                code: s.code,
-                label: s.label,
-              }))}
-              slas={slas.map((s) => ({ id: s.id, code: s.code, label: s.label }))}
-            />
-          </div>
+          <span className="text-xs text-fg-subtle">
+            {account.accountRates.length} row{account.accountRates.length === 1 ? "" : "s"} total
+          </span>
         </div>
         {categoryOrder.map((cat) => {
           const rows = ratesByCategory.get(cat)!;
@@ -157,11 +150,19 @@ export default async function AccountDetailPage({
               key={cat}
               className="glass overflow-hidden"
             >
-              <div className="flex items-baseline justify-between border-b border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold tracking-tight">
+              <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold tracking-tight">
                 <span>{categoryLabel[cat]}</span>
-                <span className="text-xs font-normal text-fg-subtle">
-                  {rows.length} row{rows.length === 1 ? "" : "s"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-normal text-fg-subtle">
+                    {rows.length} row{rows.length === 1 ? "" : "s"}
+                  </span>
+                  <AccountRateCreateDialog
+                    clientAccountId={account.id}
+                    subCategories={rateSubCatOptions}
+                    slas={slaOptions}
+                    lockedCategory={cat}
+                  />
+                </div>
               </div>
               <table className="w-full text-sm">
                 <thead className="text-xs uppercase tracking-wider text-fg-subtle">
@@ -250,7 +251,6 @@ export default async function AccountDetailPage({
           <AccountAssignmentCreateDialog
             clientAccountId={account.id}
             accountLabel={`${account.org.name} / ${account.name}`}
-            backfillAllowed={backfillAllowed}
             technicians={allTechs.map<TechOption>((t) => ({
               id: t.id,
               firstName: t.firstName,
@@ -260,6 +260,7 @@ export default async function AccountDetailPage({
               primaryAccountName: null,
               band: t.band,
               primaryCategory: t.primaryCategory,
+              defaultSlaTier: t.defaultSlaTier,
               flags: {
                 isAvailableForDedicated: t.isAvailableForDedicated,
                 isAvailableForProject: t.isAvailableForProject,
@@ -270,51 +271,19 @@ export default async function AccountDetailPage({
           />
           </div>
         </div>
-        <div className="glass overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
-              <tr>
-                <th className="px-4 py-2.5 text-left font-medium">Technician</th>
-                <th className="px-4 py-2.5 text-left font-medium">Band</th>
-                <th className="px-4 py-2.5 text-left font-medium">Category</th>
-                <th className="px-4 py-2.5 text-left font-medium">Start</th>
-                <th className="px-4 py-2.5 text-left font-medium">End</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {account.assignments.map((a) => (
-                <tr key={a.id} className="border-t border-border transition-colors hover:bg-surface-2">
-                  <td className="px-4 py-2.5">
-                    <Link className="font-medium text-fg hover:text-accent" href={`/admin/technicians/${a.technician.id}` as never}>
-                      {a.technician.firstName} {a.technician.lastName}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2.5 text-fg-muted">Band {a.technician.band}</td>
-                  <td className="px-4 py-2.5 text-fg-muted">{categoryLabel[a.rateCategory]}</td>
-                  <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.startDate)}</td>
-                  <td className="px-4 py-2.5 text-fg-muted">{fmtDate(a.endDate)}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      {a.endDate === null && <EndAssignmentButton id={a.id} />}
-                      <DeleteAssignmentButton
-                        id={a.id}
-                        accountLabel={`${account.org.name} / ${account.name}`}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {account.assignments.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-4 text-sm text-fg-subtle">
-                    No assignments to this account yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AssignmentsTable
+          accountLabel={`${account.org.name} / ${account.name}`}
+          rows={account.assignments.map((a) => ({
+            id: a.id,
+            techId: a.technician.id,
+            techName: `${a.technician.firstName} ${a.technician.lastName}`,
+            band: a.technician.band,
+            categoryLabel: categoryLabel[a.rateCategory],
+            start: fmtDate(a.startDate),
+            end: fmtDate(a.endDate),
+            isActive: a.endDate === null,
+          }))}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

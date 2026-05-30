@@ -18,15 +18,19 @@ export function AccountRateCreateForm({
   clientAccountId,
   subCategories,
   slas,
+  lockedCategory,
   onSuccess,
 }: {
   clientAccountId: string;
   subCategories: SubCat[];
   slas: Sla[];
+  lockedCategory?: RateCategory;
   onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createAccountRate, null);
-  const [category, setCategory] = useState<RateCategory>(RateCategory.DEDICATED);
+  const [category, setCategory] = useState<RateCategory>(
+    lockedCategory ?? RateCategory.DEDICATED,
+  );
 
   useEffect(() => {
     if (state && state.ok) onSuccess?.();
@@ -70,18 +74,20 @@ export function AccountRateCreateForm({
     <form action={action} className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <input type="hidden" name="clientAccountId" value={clientAccountId} />
 
-      <SelectField
-        label="Category"
-        name="_category"
-        value={category}
-        onChange={(e) => setCategory(e.target.value as RateCategory)}
-      >
-        {Object.values(RateCategory).map((c) => (
-          <option key={c} value={c}>
-            {categoryLabel[c]}
-          </option>
-        ))}
-      </SelectField>
+      {!lockedCategory && (
+        <SelectField
+          label="Category"
+          name="_category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as RateCategory)}
+        >
+          {Object.values(RateCategory).map((c) => (
+            <option key={c} value={c}>
+              {categoryLabel[c]}
+            </option>
+          ))}
+        </SelectField>
+      )}
 
       <SelectField
         label="Sub-category"
