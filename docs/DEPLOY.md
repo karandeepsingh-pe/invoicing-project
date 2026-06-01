@@ -34,6 +34,8 @@ Add these for **Production** (and Preview if you want preview deploys):
 | `DATABASE_URL` | the Neon pooled connection string from step 1 |
 | `DEV_ADMIN_EMAIL` | your email, e.g. `kstalwar@ovationwps.com` (the shared admin identity) |
 | `SOFT_DELETE_ENABLED` | `true` (so delete + restore work for testers) |
+| `BASIC_AUTH_USER` | a shared username for the password gate, e.g. `testers` |
+| `BASIC_AUTH_PASSWORD` | a long random shared password (see step 6) |
 | `NEXT_PUBLIC_APP_NAME` | `Ovation Invoicing` (optional) |
 
 `NODE_ENV` is set to `production` by Vercel automatically. Do **not** set the
@@ -61,9 +63,15 @@ start empty and enter your own orgs/accounts, you can skip seeding — but the r
 masters (SLAs, sub-categories) are needed for billing, so run at least the masters.
 
 ## 6. Lock it down (required while there is no login)
-Vercel → project **Settings → Deployment Protection** → enable **Vercel Authentication**
-or a **Password**. Share the password with your testers. This keeps the open-admin
-instance off the public internet until in-app Microsoft login is built.
+The app ships a shared-password gate in `src/middleware.ts` that enforces HTTP Basic
+auth whenever `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` are set (step 3). This works
+on any Vercel plan (including the free Hobby tier, where production URLs are otherwise
+public). Generate a strong password, set it in the Vercel env vars, and share the
+username + password with your testers. The browser prompts once per session.
+
+Alternatively, on a paid Vercel plan you can use **Settings → Deployment Protection →
+Password Protection** or **Vercel Authentication** instead of (or on top of) the
+middleware gate. Either way, do not leave the open-admin instance ungated.
 
 ## 7. Smoke test
 Open the deployment URL and confirm:
