@@ -136,5 +136,67 @@ designed for later.
 - Local dev uses a Docker/local Postgres; production uses Neon. `pnpm db:seed` is run manually
   against Neon once (not on every deploy).
 - Reference client data lives under `KD/` (gitignored) — never commit it.
-- The full per-task plan from this session lived at `~/.claude/plans/floating-imagining-flurry.md`
-  (outside the repo, will NOT travel to a new workspace) — its substance is captured here.
+- The active per-task plan file (`~/.claude/plans/floating-imagining-flurry.md`, outside the repo) is
+  reproduced verbatim in Appendix A below so it travels with the repo. Earlier plan iterations in that file
+  (band-rate refinement, four-type invoicing, data-driven hours) were overwritten as the session progressed;
+  their substance is in workstreams 1-3 above.
+
+---
+
+## Appendix A: active plan file (verbatim)
+
+As-built note: A1 and A3 below mention a Prisma `directUrl` / `DIRECT_URL` split. That was intentionally NOT
+implemented — it breaks local dev when the var is unset and is unnecessary at test scale (a single Neon
+connection string serves both runtime and migrations). Everything else in this plan was implemented as
+written. See workstream 4 for the rationale.
+
+> # Plan: deploy to Vercel + Neon now (no login); design RBAC + Entra ID auth for later
+>
+> Style: plain language, no em dashes.
+>
+> ## Context
+> The prior multi-engagement invoicing build is done and verified. The user now wants the app DEPLOYED to
+> Vercel + Neon Postgres so they and a few testers can use it as-is (the current single-admin experience), with
+> NO in-app login yet. The full Microsoft Entra ID auth + ADMIN/SDM RBAC + account-to-SDM assignment is to be
+> PLANNED and DOCUMENTED for a later pass, not built now.
+>
+> Decisions (from the user): (1) skip login for now, plan it for later; (2) host on Vercel + Neon; (3) skip SDM
+> scoping for now, keep the current admin experience.
+>
+> ### Honest risk to surface
+> With login skipped, the deployed app is reachable by anyone with the URL at full admin (the current
+> `requireAdmin()` in `src/lib/auth/dev-session.ts` is a dev stub that reads `DEV_ADMIN_EMAIL` and does NOT
+> verify a logged-in user). Mitigation for the test phase, zero code: turn on Vercel Deployment Protection.
+>
+> ### Already deploy-friendly (no change)
+> Invoice files return to the browser as base64 (no server file storage). Schema + 22 migrations + idempotent
+> seed are in place. `next-auth` is installed but unused, so it does not affect the build.
+>
+> ## Part A — Build now: Vercel + Neon deploy readiness
+> - A1. Prisma datasource for Neon (pooled `url` + `directUrl`). [NOT implemented — see as-built note above.]
+> - A2. `package.json`: add `postinstall: prisma generate` and `vercel-build: prisma migrate deploy && next build`.
+> - A3. Env hardening (`src/lib/env.ts` + `.env.example`): coerce empty-string optional vars to undefined so a
+>   copied `.env` does not 500 on `NEXTAUTH_SECRET=""`. (The `DIRECT_URL` part was dropped — see as-built note.)
+> - A4. `src/app/admin/layout.tsx`: `export const dynamic = "force-dynamic"` (already present).
+> - A5. `docs/DEPLOY.md` (Vercel + Neon click-by-click) + README deployment pointer.
+> - A6. Verify: typecheck / lint / vitest / `pnpm build` / `prisma validate` all green.
+>
+> ## Part B — Document now, build later: RBAC + Microsoft Entra ID auth
+> Deliverable: the committed design doc `docs/auth-rbac-plan.md` (full design, no runtime code this pass).
+> The schema is already ready (`User`, `UserRole {ADMIN, SDM}`, `UserAccountAccess`, and the NextAuth
+> `Account`/`Session`/`VerificationToken` tables). The doc specifies: auth wiring (`src/auth.ts` +
+> `[...nextauth]` route + `middleware.ts`); restrict sign-in to `@ovationwps.com`; replace the dev gate with
+> real `requireAdmin()` + add `requireUser()` and `requireAccountAccess(accountId)`; the ADMIN-only vs
+> SDM-allowed action surface (SDM = timesheet save, dispatch-visit create/delete, coverage create/delete, the
+> four generate-*-invoice actions); scope the four account-list pages; role-based sidebar; the many-to-many
+> account-to-SDM assignment UI; and first-admin bootstrap.
+>
+> ## Files
+> Part A: `prisma/schema.prisma`, `package.json`, `src/lib/env.ts`, `.env.example`, `src/app/admin/layout.tsx`,
+> `docs/DEPLOY.md` (new), `README.md`. Part B: `docs/auth-rbac-plan.md` (new design doc).
+>
+> ## Verification
+> Part A: typecheck / lint / tests green; `pnpm build` succeeds; `prisma validate` passes; `prisma migrate
+> deploy` applies all migrations to a fresh DB. Part B: `docs/auth-rbac-plan.md` covers the full design.
+
+The complete, expanded version of Part B (turnkey for implementation) is `docs/auth-rbac-plan.md`.
