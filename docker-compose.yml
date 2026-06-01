@@ -1,0 +1,25 @@
+# Local development Postgres for Ovation Invoicing.
+# Matches the DATABASE_URL in .env:
+#   postgresql://invoicing:invoicing@localhost:5432/invoicing?schema=public
+# Usage: docker compose up -d   (needs Docker Desktop running)
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: invoicing-postgres
+    environment:
+      POSTGRES_USER: invoicing
+      POSTGRES_PASSWORD: invoicing
+      POSTGRES_DB: invoicing
+    ports:
+      - "5432:5432"
+    volumes:
+      - invoicing-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invoicing -d invoicing"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  invoicing-pgdata:

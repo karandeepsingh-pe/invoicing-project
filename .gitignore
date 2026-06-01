@@ -28,7 +28,9 @@ desktop.ini
 *.swo
 
 # Test artifacts
-coverage/
+# Anchored to repo root so it only ignores the vitest coverage report dir, not
+# App Router route folders that happen to be named "coverage".
+/coverage/
 playwright-report/
 test-results/
 
