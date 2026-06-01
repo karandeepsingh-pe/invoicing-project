@@ -8,7 +8,6 @@ import {
   accountRateCreateSchema,
   accountRateUpdateAmountSchema,
 } from "@/lib/schemas/account-rate";
-import { annualToHourly } from "@/lib/invoice/billing-basis";
 import type { ActionResult } from "./result";
 
 // Rates are not time-versioned in the UI — every row is "always active". A fixed
@@ -35,33 +34,17 @@ export async function createAccountRate(
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  // Annual Rate is a data-entry convenience for DEDICATED: store it as the
-  // Hourly Rate (MONTHLY_DAY_RATE) at annual / 2080. No annual row persists.
-  let rateSubCategoryId = parsed.data.rateSubCategoryId;
-  let rateAmount = parsed.data.rateAmount;
-  const sub = await prisma.rateSubCategory.findUnique({
-    where: { id: rateSubCategoryId },
-    select: { code: true, rateCategory: true },
-  });
-  if (sub?.rateCategory === "DEDICATED" && sub.code === "ANNUAL_RATE") {
-    const hourly = await prisma.rateSubCategory.findUnique({
-      where: { rateCategory_code: { rateCategory: "DEDICATED", code: "MONTHLY_DAY_RATE" } },
-      select: { id: true },
-    });
-    if (hourly) {
-      rateSubCategoryId = hourly.id;
-      rateAmount = rateAmount != null ? annualToHourly(rateAmount) : undefined;
-    }
-  }
-
+  // DEDICATED day rate is stored as an exact annual salary on the ANNUAL_RATE
+  // row (annual / 12 / business days is computed at invoice time). No hourly
+  // conversion: storing annual / 2080 here loses cents on the round-trip.
   try {
     const row = await prisma.accountRate.create({
       data: {
         clientAccountId: parsed.data.clientAccountId,
-        rateSubCategoryId,
+        rateSubCategoryId: parsed.data.rateSubCategoryId,
         band: parsed.data.band,
         slaId: parsed.data.slaId,
-        rateAmount: rateAmount ?? null,
+        rateAmount: parsed.data.rateAmount ?? null,
         effectiveFrom: ALWAYS_ACTIVE_FROM,
         effectiveTo: null,
         notes: parsed.data.notes ?? null,

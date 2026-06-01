@@ -26,12 +26,14 @@ const categoryOrder: RateCategory[] = [
   RateCategory.DEDICATED,
   RateCategory.PROJECT_TM,
   RateCategory.DISPATCH_SCHED,
+  RateCategory.SCHEDULED,
 ];
 
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 const miscKindLabel: Record<MiscFeeKind, string> = {

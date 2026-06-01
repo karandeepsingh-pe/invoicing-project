@@ -10,13 +10,14 @@ export function TimesheetTypeTabs({
   accountId: string;
   year: number;
   month: number;
-  active: "DEDICATED" | "PROJECT_TM" | "DISPATCH";
+  active: "DEDICATED" | "PROJECT_TM" | "SCHEDULED" | "DISPATCH";
 }) {
   const qs = `year=${year}&month=${month}`;
   const tabs: { key: string; label: string; href: string }[] = [
     { key: "DEDICATED", label: "Dedicated FTE", href: `/admin/timesheets/${accountId}?${qs}` },
     { key: "PROJECT_TM", label: "Project / T&M", href: `/admin/timesheets/${accountId}?${qs}&type=project` },
-    { key: "DISPATCH", label: "Dispatch / Scheduled Visit", href: `/admin/dispatch-visits/${accountId}?${qs}` },
+    { key: "SCHEDULED", label: "Scheduled Visit", href: `/admin/timesheets/${accountId}?${qs}&type=scheduled` },
+    { key: "DISPATCH", label: "Dispatch", href: `/admin/dispatch-visits/${accountId}?${qs}` },
   ];
   return (
     <div className="mt-1 flex flex-wrap gap-1.5 text-xs">

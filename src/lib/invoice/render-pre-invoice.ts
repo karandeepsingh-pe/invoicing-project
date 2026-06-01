@@ -19,8 +19,8 @@ export type PreInvoiceRow = {
   technicianName: string;
   bandLabel: string;           // "Band 2", "Band 3"
   backfillLabel: string;       // "Backfill" or "No Backfill"
-  engineerType: string;        // "FTE"
-  businessDays: number;
+  engineerType: string;        // "FTE" | "Project" | "Scheduled" | "Dispatch"
+  businessDays: number;        // 0 renders blank (Scheduled / Dispatch)
   daysWorked: number;
   dayRate: number;             // per-day rate (monthly ÷ business days)
   otHours: number;
@@ -28,6 +28,11 @@ export type PreInvoiceRow = {
   weekendHours: number;
   weekendRate: number;
   extendedTotal: number;
+  // When true, Extended Total is written as a literal instead of the
+  // I*H + J*K + L*M formula. Needed for rows where Extended is not simply
+  // dayRate × daysWorked: a monthly-capped Project row, a Scheduled row with
+  // half-days, or a per-visit Dispatch row.
+  literalExtended?: boolean;
   remarks?: string;
 };
 
@@ -95,6 +100,25 @@ export async function renderPreInvoice(
     pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true },
   });
 
+  writePreInvoiceSheet(sheet, header, rows, footer);
+
+  const arrayBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(arrayBuffer as ArrayBuffer);
+}
+
+/**
+ * Populate an existing worksheet with the pre-invoice layout: title, metadata,
+ * the unified line-item table (FTE / Project / Scheduled / Dispatch rows),
+ * subtotal, optional PM fee, retainer, reimbursements, and the grand total.
+ * Extracted so the combined generator can place this same sheet alongside detail
+ * tabs (e.g. the dispatch tracker) in one workbook.
+ */
+export function writePreInvoiceSheet(
+  sheet: ExcelJS.Worksheet,
+  header: PreInvoiceHeader,
+  rows: PreInvoiceRow[],
+  footer: PreInvoiceFooter,
+): void {
   COL_WIDTHS.forEach((w, i) => {
     sheet.getColumn(i + 1).width = w;
   });
@@ -195,9 +219,9 @@ export async function renderPreInvoice(
     sheet.getCell(`D${r}`).value = row.bandLabel;
     sheet.getCell(`E${r}`).value = row.backfillLabel;
     sheet.getCell(`F${r}`).value = row.engineerType;
-    sheet.getCell(`G${r}`).value = row.businessDays;
+    sheet.getCell(`G${r}`).value = row.businessDays || null;
     sheet.getCell(`G${r}`).numFmt = NUMBER_FMT;
-    sheet.getCell(`H${r}`).value = row.daysWorked;
+    sheet.getCell(`H${r}`).value = row.daysWorked || null;
     sheet.getCell(`H${r}`).numFmt = NUMBER_FMT;
     sheet.getCell(`I${r}`).value = row.dayRate || null;
     sheet.getCell(`I${r}`).numFmt = CURRENCY_FMT;
@@ -209,12 +233,16 @@ export async function renderPreInvoice(
     sheet.getCell(`L${r}`).numFmt = NUMBER_FMT;
     sheet.getCell(`M${r}`).value = row.weekendRate || null;
     sheet.getCell(`M${r}`).numFmt = CURRENCY_FMT;
-    // Extended total = Day Rate × Days Worked + OT + Weekend. Day Rate (I) is now
-    // the per-day rate, so it's a straight multiply (no /businessDays here).
-    sheet.getCell(`N${r}`).value = {
-      formula: `I${r}*H${r}+J${r}*K${r}+L${r}*M${r}`,
-      result: row.extendedTotal,
-    };
+    // Extended total. For most rows it is Day Rate × Days Worked + OT + Weekend,
+    // written as a live formula. Rows where that identity does not hold (a
+    // monthly-capped Project row, a Scheduled row with half-days, or a per-visit
+    // Dispatch row) carry literalExtended and write the computed value directly.
+    sheet.getCell(`N${r}`).value = row.literalExtended
+      ? row.extendedTotal
+      : {
+          formula: `I${r}*H${r}+J${r}*K${r}+L${r}*M${r}`,
+          result: row.extendedTotal,
+        };
     sheet.getCell(`N${r}`).numFmt = CURRENCY_FMT;
     sheet.getCell(`O${r}`).value = row.remarks ?? "";
     for (const col of "BCDEFGHIJKLMNO") {
@@ -313,7 +341,4 @@ export async function renderPreInvoice(
   sheet.getCell(`B${noteRow}`).font = { bold: true };
   sheet.getCell(`C${noteRow}`).value = `Invoice is for the month ${header.monthYearLabel}`;
   sheet.mergeCells(`C${noteRow}:F${noteRow}`);
-
-  const arrayBuffer = await workbook.xlsx.writeBuffer();
-  return Buffer.from(arrayBuffer as ArrayBuffer);
 }

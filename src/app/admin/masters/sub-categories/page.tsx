@@ -6,7 +6,8 @@ import { SubCategoryCreateDialog } from "./create-dialog";
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 export default async function SubCategoriesMastersPage() {

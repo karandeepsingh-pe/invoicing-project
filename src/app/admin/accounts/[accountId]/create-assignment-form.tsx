@@ -15,7 +15,8 @@ import {
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 function tierLabel(tier: AssignmentSlaTier): string {

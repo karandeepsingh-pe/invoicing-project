@@ -17,13 +17,15 @@ import type { ExistingTech } from "@/app/admin/technicians/create-form";
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 const categoryShort: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project",
   DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled",
 };
 
 export type AssignedTech = {

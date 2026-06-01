@@ -27,6 +27,9 @@ export type ProjectRow = {
   dayRate: number;
   daysWorked: number;
   extendedTotal: number;
+  // True when the per-day total hit the flat monthly cap (full-month billing). The
+  // combined sheet blanks the per-day rate and writes Extended as a literal.
+  capped?: boolean;
   remarks?: string;
 };
 

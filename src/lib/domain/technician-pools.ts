@@ -17,6 +17,9 @@ export function flagForCategory(
     case RateCategory.PROJECT_TM:
       return flags.isAvailableForProject;
     case RateCategory.DISPATCH_SCHED:
+    case RateCategory.SCHEDULED:
+      // Scheduled visits use the same field crew as reactive dispatch; one
+      // availability flag covers both.
       return flags.isAvailableForDispatch;
     default:
       return false;

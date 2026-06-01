@@ -24,11 +24,12 @@ enum OutputTemplate {
   PRE_INVOICE
 }
 
-// The three top-level rate categories on every account's rate sheet.
+// The top-level rate categories on every account's rate sheet.
 enum RateCategory {
   DEDICATED // formerly TechType.FTE
   PROJECT_TM // formerly TechType.PROJECT
-  DISPATCH_SCHED // dispatch + scheduled visit (merged)
+  DISPATCH_SCHED // reactive dispatch visits (per-visit, tracker-driven)
+  SCHEDULED // scheduled visits (per-day, timesheet-driven; full/half day rates)
 }
 
 enum InvoiceFormat {

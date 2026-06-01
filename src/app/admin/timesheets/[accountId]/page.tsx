@@ -27,11 +27,19 @@ export default async function TimesheetPage({
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();
   const month = sp.month ? Number(sp.month) : now.getUTCMonth() + 1;
 
-  // Dedicated and Project/T&M are separate tabs, but share this one day-grid page
-  // (same TimesheetEntry model + category-agnostic save). ?type switches which.
-  const isProject = sp.type === "project";
-  const rateCategory = isProject ? "PROJECT_TM" : "DEDICATED";
-  const typeLabel = isProject ? "Project / T&M" : "Dedicated FTE";
+  // Dedicated, Project/T&M, and Scheduled are separate tabs that share this one
+  // day-grid page (same TimesheetEntry model + category-agnostic save). Dispatch
+  // is tracker-driven and lives on its own page. ?type switches which.
+  const type =
+    sp.type === "project" ? "project" : sp.type === "scheduled" ? "scheduled" : "dedicated";
+  const rateCategory =
+    type === "project" ? "PROJECT_TM" : type === "scheduled" ? "SCHEDULED" : "DEDICATED";
+  const typeLabel =
+    type === "project"
+      ? "Project / T&M"
+      : type === "scheduled"
+        ? "Scheduled Visit"
+        : "Dedicated FTE";
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -103,7 +111,12 @@ export default async function TimesheetPage({
   const gridAssignments: GridAssignment[] = activeAssignments.map((a) => ({
     assignmentId: a.id,
     technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
-    category: a.rateCategory === "PROJECT_TM" ? "PROJECT_TM" : "DEDICATED",
+    category:
+      a.rateCategory === "PROJECT_TM"
+        ? "PROJECT_TM"
+        : a.rateCategory === "SCHEDULED"
+          ? "SCHEDULED"
+          : "DEDICATED",
     contactNo: a.technician.phone ?? undefined,
     location: a.technician.postalCode
       ? `${a.technician.postalCode.city}, ${a.technician.postalCode.state}`
@@ -177,7 +190,7 @@ export default async function TimesheetPage({
         </details>
       </header>
 
-      <MonthPicker accountId={accountId} year={year} month={month} isProject={isProject} />
+      <MonthPicker accountId={accountId} year={year} month={month} type={type} />
 
       {holidays.length > 0 && (
         <div className="glass-soft rounded-md px-3 py-2 text-xs text-fg-muted">
@@ -239,12 +252,12 @@ function MonthPicker({
   accountId,
   year,
   month,
-  isProject,
+  type,
 }: {
   accountId: string;
   year: number;
   month: number;
-  isProject: boolean;
+  type: "dedicated" | "project" | "scheduled";
 }) {
   const months = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -252,12 +265,10 @@ function MonthPicker({
   ];
   const years = [year - 1, year, year + 1];
   const qs = `year=${year}&month=${month}`;
-  const generateHref = isProject
-    ? `/admin/invoices/generate/${accountId}/project?${qs}`
-    : `/admin/invoices/generate/${accountId}?${qs}`;
+  const isDedicated = type === "dedicated";
   return (
     <form className="flex flex-wrap items-center gap-3 text-sm" method="get">
-      {isProject && <input type="hidden" name="type" value="project" />}
+      {type !== "dedicated" && <input type="hidden" name="type" value={type} />}
       <label className="flex items-center gap-2">
         <span className="text-fg-muted">Month</span>
         <select name="month" defaultValue={String(month)} className="glass-input rounded-md px-2 py-1">
@@ -280,7 +291,7 @@ function MonthPicker({
       >
         Load
       </button>
-      {!isProject && (
+      {isDedicated && (
         <Link
           href={`/admin/timesheets/${accountId}/coverage?${qs}`}
           className="ml-auto rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
@@ -288,15 +299,25 @@ function MonthPicker({
           Backfill log →
         </Link>
       )}
-      <Link
-        href={generateHref}
-        className={`rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 ${isProject ? "ml-auto" : ""}`}
-      >
-        Generate {isProject ? "Project" : "FTE"} →
-      </Link>
+      {type === "dedicated" && (
+        <Link
+          href={`/admin/invoices/generate/${accountId}?${qs}`}
+          className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+        >
+          Generate FTE →
+        </Link>
+      )}
+      {type === "project" && (
+        <Link
+          href={`/admin/invoices/generate/${accountId}/project?${qs}`}
+          className="ml-auto rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+        >
+          Generate Project →
+        </Link>
+      )}
       <Link
         href={`/admin/invoices/generate/${accountId}/combined?${qs}`}
-        className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+        className={`rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 ${type === "scheduled" ? "ml-auto" : ""}`}
       >
         Generate combined →
       </Link>

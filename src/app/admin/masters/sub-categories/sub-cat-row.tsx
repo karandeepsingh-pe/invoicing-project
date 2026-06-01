@@ -9,7 +9,8 @@ import { useActionToast } from "@/lib/hooks/use-action-toast";
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 export function SubCategoryRowActions({

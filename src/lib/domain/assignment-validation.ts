@@ -35,6 +35,7 @@ const categoryName: Record<RateCategory, string> = {
   DEDICATED: "Dedicated FTE",
   PROJECT_TM: "Project / T&M",
   DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 /**

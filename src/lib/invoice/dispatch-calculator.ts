@@ -3,17 +3,30 @@
 // Per-visit billing. No backfill semantics — Dispatch does not import
 // coverage logic.
 //
-// Visit charge = firstHourRate + max(0, hoursOnSite - 1) × additionalHourRate
-//   when afterHours: rates may be uplifted to the OUT_OF_OFFICE variant
-//   when weekend: rates may be uplifted to the WEEKEND variant
+// base   = firstHourRate + max(0, hoursOnSite - 1) × additionalHourRate
+//          (FIRST_HOUR = SLA first-hour rate; ADDITIONAL_HOUR = T&M hourly)
+// base   = min(base, FULL_DAY)                          when a full-day cap is set
+// charge = round2(base × uplift), where uplift is:
+//            WEEKEND_PH_MULTIPLIER (default 2.0)  when weekend or public holiday
+//            OOBH_MULTIPLIER       (default 1.5)  when after-hours (and not weekend/PH)
+//            1.0                                  otherwise
+//   Weekend/PH takes precedence over OOBH; the two do not stack.
+//
+// A PER_TICKET rate, when present, is a flat per-visit charge that bypasses the
+// hourly model, the cap, and the multipliers.
 //
 // Rate lookup keys on (band, slaId of the visit). Sub-cat codes:
-//   FIRST_HOUR / ADDITIONAL_HOUR / OUT_OF_OFFICE / WEEKEND.
+//   FIRST_HOUR / ADDITIONAL_HOUR / FULL_DAY / OOBH_MULTIPLIER /
+//   WEEKEND_PH_MULTIPLIER / PER_TICKET.
 
 import { Prisma } from "@prisma/client";
 
 const Decimal = Prisma.Decimal;
 type DecimalLike = InstanceType<typeof Decimal>;
+
+// SOW-standard uplifts, used when the rate sheet does not override them.
+const DEFAULT_OOBH_MULTIPLIER = new Decimal("1.5");
+const DEFAULT_WEEKEND_PH_MULTIPLIER = new Decimal("2.0");
 
 export type DispatchRateRow = {
   rateAmount: DecimalLike | null;
@@ -29,6 +42,7 @@ export type DispatchVisitInput = {
   hoursOnSite: DecimalLike;
   afterHours: boolean;
   weekend: boolean;
+  isPublicHoliday: boolean;
   slaCode: string;
   technicianName: string;
   technicianBand: number;
@@ -98,47 +112,40 @@ export function calculateDispatchVisit(
     };
   }
 
-  const baseFirst = pick(rates, visit.technicianBand, visit.slaCode, "FIRST_HOUR");
-  const baseAdditional = pick(
+  const firstHourRate = pick(rates, visit.technicianBand, visit.slaCode, "FIRST_HOUR");
+  const additionalHourRate = pick(
     rates,
     visit.technicianBand,
     visit.slaCode,
     "ADDITIONAL_HOUR",
   );
-
-  let firstHourRate = baseFirst;
-  let additionalHourRate = baseAdditional;
   const modifiers: string[] = [];
 
-  if (visit.afterHours) {
-    const outOfOffice = pick(
-      rates,
-      visit.technicianBand,
-      visit.slaCode,
-      "OUT_OF_OFFICE",
-    );
-    if (!outOfOffice.isZero()) {
-      // OUT_OF_OFFICE is treated as an alternative hourly rate covering all
-      // hours of an after-hours visit.
-      firstHourRate = outOfOffice;
-      additionalHourRate = outOfOffice;
-      modifiers.push("after-hours");
-    }
+  // Base labor: first hour at the SLA rate + each additional hour at the T&M rate.
+  const extraHours = hours.greaterThan(1) ? hours.minus(1) : new Decimal(0);
+  let base = firstHourRate.plus(additionalHourRate.times(extraHours));
+
+  // Full-day cap: the per-visit labor never exceeds the full-day rate.
+  const fullDay = pick(rates, visit.technicianBand, visit.slaCode, "FULL_DAY");
+  if (fullDay.greaterThan(0) && base.greaterThan(fullDay)) {
+    base = fullDay;
+    modifiers.push("full-day cap");
   }
 
-  if (visit.weekend) {
-    const weekend = pick(rates, visit.technicianBand, visit.slaCode, "WEEKEND");
-    if (!weekend.isZero()) {
-      firstHourRate = weekend;
-      additionalHourRate = weekend;
-      modifiers.push("weekend");
-    }
+  // Uplift multiplier on the capped base. Weekend / public-holiday (default 2.0x)
+  // takes precedence over after-hours (default 1.5x); the two do not stack.
+  let uplift = new Decimal(1);
+  if (visit.weekend || visit.isPublicHoliday) {
+    const m = pick(rates, visit.technicianBand, visit.slaCode, "WEEKEND_PH_MULTIPLIER");
+    uplift = m.greaterThan(0) ? m : DEFAULT_WEEKEND_PH_MULTIPLIER;
+    modifiers.push(`${visit.isPublicHoliday ? "public-holiday" : "weekend"} x${uplift.toString()}`);
+  } else if (visit.afterHours) {
+    const m = pick(rates, visit.technicianBand, visit.slaCode, "OOBH_MULTIPLIER");
+    uplift = m.greaterThan(0) ? m : DEFAULT_OOBH_MULTIPLIER;
+    modifiers.push(`after-hours x${uplift.toString()}`);
   }
 
-  const extraHours = hours.greaterThan(1)
-    ? hours.minus(1)
-    : new Decimal(0);
-  const charge = firstHourRate.plus(additionalHourRate.times(extraHours));
+  const charge = base.times(uplift);
 
   return {
     visitId: visit.id,

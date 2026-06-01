@@ -4,11 +4,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import { z } from "zod";
-import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
+import { monthRange, lastDayOfMonth, businessDaysInRange } from "@/lib/invoice/period";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
 import { loadProjectRows } from "@/lib/invoice/project-rows";
+import { loadScheduledRows } from "@/lib/invoice/scheduled-rows";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { renderCombinedInvoice } from "@/lib/invoice/render-combined-invoice";
+import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
+import type { PreInvoiceRow } from "@/lib/invoice/render-pre-invoice";
 
 const schema = z.object({
   accountId: z.string().min(1),
@@ -63,24 +66,94 @@ export async function generateCombinedInvoice(
 
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
+  const businessDays = businessDaysInRange(range, []);
 
-  const [fteResult, projectRows] = await Promise.all([
+  const [fteResult, projectRows, scheduledRows, dispatchDetail] = await Promise.all([
     loadFteRows(accountId, range),
     loadProjectRows(accountId, range),
+    loadScheduledRows(accountId, range),
+    loadDispatchTrackerRows(accountId, range, dispatchRateRows(account.accountRates)),
   ]);
-  const fteRows = fteResult.rows;
-  const dispatchRows = await loadDispatchTrackerRows(
-    accountId,
-    range,
-    dispatchRateRows(account.accountRates),
-  );
 
+  // Merge every engagement type into ONE unified line-item table, in the order the
+  // reference sheet uses: FTE, then Project, then Scheduled, then Dispatch (one row
+  // per billable visit). FTE rows are already PreInvoiceRow-shaped; the rest map in.
+  const fteRows = fteResult.rows;
+  const projectAsRows: PreInvoiceRow[] = projectRows.map((r) => ({
+    location: r.location,
+    technicianName: r.technicianName,
+    bandLabel: r.bandLabel,
+    backfillLabel: "",
+    engineerType: "Project",
+    businessDays,
+    daysWorked: r.daysWorked,
+    dayRate: r.capped ? 0 : r.dayRate, // full-month rows show the flat monthly, no per-day rate
+    otHours: 0,
+    otRate: 0,
+    weekendHours: 0,
+    weekendRate: 0,
+    extendedTotal: r.extendedTotal,
+    literalExtended: r.capped,
+    remarks: r.capped ? "Monthly cap" : undefined,
+  }));
+  const dispatchAsRows: PreInvoiceRow[] = dispatchDetail
+    .filter((d) => d.billed > 0)
+    .map((d) => ({
+      location: [d.city, d.state].filter(Boolean).join(", ") || d.street || "—",
+      technicianName: d.engineerName,
+      bandLabel: `Band ${d.band}`,
+      backfillLabel: "",
+      engineerType: "Dispatch",
+      businessDays: 0,
+      daysWorked: 1,
+      dayRate: d.billed, // per-visit charge; Extended = dayRate × 1
+      otHours: 0,
+      otRate: 0,
+      weekendHours: 0,
+      weekendRate: 0,
+      extendedTotal: d.billed,
+      remarks: [d.ticketNumber, d.slaCode].filter(Boolean).join(" · ") || undefined,
+    }));
+
+  const rows: PreInvoiceRow[] = [
+    ...fteRows,
+    ...projectAsRows,
+    ...scheduledRows,
+    ...dispatchAsRows,
+  ];
+
+  // Add-on fees, identical to the single-type generator: percentage fees (e.g. the
+  // 3% PM fee) on the line-item subtotal, plus flat retainer + reimbursements.
+  const percentFees: FeeSpec[] = account.miscFees
+    .filter((m) => m.percent != null)
+    .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
-    .filter((m) => m.kind === "RETAINER_FEES")
+    .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
   const reimbursements = account.miscFees
-    .filter((m) => m.kind !== "RETAINER_FEES")
+    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+
+  const assembled = assembleInvoice(
+    rows.map((r) => r.extendedTotal),
+    [
+      ...percentFees,
+      { kind: "flat", label: "Retainer", amount: retainerFee },
+      { kind: "flat", label: "Reimbursements", amount: reimbursements },
+    ],
+  );
+  const pmFees = assembled.appliedFees.filter((f) => f.kind === "percent");
+  const pmFeeAmount = pmFees.reduce((n, f) => n + f.amount, 0);
+  const projectManagementFee =
+    pmFeeAmount > 0
+      ? {
+          label:
+            pmFees.length === 1 && pmFees[0].percent != null
+              ? `Project Management Fee (${pmFees[0].percent}%)`
+              : "Project Management Fee",
+          amount: pmFeeAmount,
+        }
+      : undefined;
 
   const monthLabel = range.start.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
 
@@ -98,10 +171,9 @@ export async function generateCombinedInvoice(
       dateOfPreApproval: fmtDmy(new Date()),
       monthYearLabel: `${monthLabel} ${year}`,
     },
-    fteRows,
-    projectRows,
-    dispatchRows,
-    { retainerFee, reimbursements },
+    rows,
+    dispatchDetail,
+    { retainerFee, reimbursements, projectManagementFee },
   );
 
   await prisma.invoiceRun.create({

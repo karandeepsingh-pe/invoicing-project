@@ -1,15 +1,20 @@
 import { z } from "zod";
 
+// Treat an empty-string env var (e.g. a blank line copied from .env.example) as
+// "unset" so optional vars do not fail their format checks. Without this,
+// NEXTAUTH_SECRET="" trips .min(16) and 500s the whole app on first boot.
+const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
+
 const serverSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
   DATABASE_URL: z.string().url(),
-  NEXTAUTH_SECRET: z.string().min(16).optional(),
-  AUTH_MICROSOFT_ENTRA_ID_ID: z.string().optional(),
-  AUTH_MICROSOFT_ENTRA_ID_SECRET: z.string().optional(),
-  AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.string().optional(),
-  DEV_ADMIN_EMAIL: z.string().email().optional(),
+  NEXTAUTH_SECRET: z.preprocess(emptyToUndefined, z.string().min(16).optional()),
+  AUTH_MICROSOFT_ENTRA_ID_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  AUTH_MICROSOFT_ENTRA_ID_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  DEV_ADMIN_EMAIL: z.preprocess(emptyToUndefined, z.string().email().optional()),
   // Testing-phase gate for the soft-delete affordances (cell/row/month). Off in
   // prod; flip to "true" while testing. z.coerce.boolean would treat "false" as
   // true, so parse an explicit enum instead.

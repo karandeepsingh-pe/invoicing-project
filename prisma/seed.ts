@@ -47,15 +47,20 @@ type SubCatSeed = {
 };
 
 const subCategorySeeds: SubCatSeed[] = [
-  // DISPATCH_SCHED — always Band 2 in practice; the rate sheet still lets you pick band.
-  // PER_TICKET is the flat per-visit option; when set it overrides the hourly model.
+  // DISPATCH_SCHED — reactive dispatch visits. Always Band 2 in practice; the rate
+  // sheet still lets you pick band. PER_TICKET is the flat per-visit override.
+  // Per-visit charge = FIRST_HOUR (by SLA) + (hours-1) x ADDITIONAL_HOUR (T&M),
+  // capped at FULL_DAY, then x the OOBH / Weekend-PH multiplier when applicable.
   { rateCategory: RateCategory.DISPATCH_SCHED, code: "PER_TICKET", label: "Per Ticket (flat)", sortOrder: 5 },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "FIRST_HOUR", label: "First Hour Rate", sortOrder: 10 },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "ADDITIONAL_HOUR", label: "Additional Hour Rate", sortOrder: 20 },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "OUT_OF_OFFICE", label: "Out of Office Hours", sortOrder: 30, isOvertimeVariant: true },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "WEEKEND", label: "Weekend", sortOrder: 40, isOvertimeVariant: true },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "SCHEDULED_FULL_DAY", label: "Scheduled Visit (Full day)", sortOrder: 50 },
-  { rateCategory: RateCategory.DISPATCH_SCHED, code: "SCHEDULED_HALF_DAY", label: "Scheduled Visit (Half day)", sortOrder: 60 },
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "FIRST_HOUR", label: "First Hour Rate (by SLA)", sortOrder: 10 },
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "ADDITIONAL_HOUR", label: "T&M Hourly Rate", sortOrder: 20 },
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "FULL_DAY", label: "Full Day (per-visit cap)", sortOrder: 30 },
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "OOBH_MULTIPLIER", label: "OOBH Multiplier (e.g. 1.5)", sortOrder: 40, isOvertimeVariant: true },
+  { rateCategory: RateCategory.DISPATCH_SCHED, code: "WEEKEND_PH_MULTIPLIER", label: "Weekend / PH Multiplier (e.g. 2.0)", sortOrder: 50, isOvertimeVariant: true },
+
+  // SCHEDULED — scheduled visits billed per day off the timesheet (no monthly cap).
+  { rateCategory: RateCategory.SCHEDULED, code: "FULL_DAY", label: "Full Day Rate", sortOrder: 10 },
+  { rateCategory: RateCategory.SCHEDULED, code: "HALF_DAY", label: "Half Day Rate", sortOrder: 20 },
 
   // PROJECT_TM — bands 1/2/3, SLA = NA.
   { rateCategory: RateCategory.PROJECT_TM, code: "FULL_DAY", label: "Full Day Rate", sortOrder: 10 },

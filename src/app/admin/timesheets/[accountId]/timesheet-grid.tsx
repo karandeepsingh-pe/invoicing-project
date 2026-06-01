@@ -26,7 +26,7 @@ export type GridCell = {
 export type GridAssignment = {
   assignmentId: string;
   technicianName: string;
-  category: "DEDICATED" | "PROJECT_TM";
+  category: "DEDICATED" | "PROJECT_TM" | "SCHEDULED";
   contactNo?: string;
   location: string;
   band: number;
@@ -40,7 +40,9 @@ function slaTierLabel(t: GridAssignment["slaTier"]): string {
 }
 
 function categoryLabel(c: GridAssignment["category"]): string {
-  return c === "PROJECT_TM" ? "Project" : "Dedicated";
+  if (c === "PROJECT_TM") return "Project";
+  if (c === "SCHEDULED") return "Scheduled";
+  return "Dedicated";
 }
 
 type RawCells = Record<string, GridCell>;

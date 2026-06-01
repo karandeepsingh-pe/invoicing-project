@@ -17,3 +17,14 @@ pnpm dev                   # http://localhost:3000
 ```
 
 Reference xlsx data lives under `KD/` (gitignored).
+
+## Deployment
+
+To put a testable instance online (Vercel + Neon Postgres), follow
+[`docs/DEPLOY.md`](./docs/DEPLOY.md).
+
+**Current auth status:** there is no in-app login yet — a deployed instance runs as a
+single shared admin (`DEV_ADMIN_EMAIL`), so it must be kept private with Vercel
+Deployment Protection. The planned Microsoft Entra ID sign-in plus ADMIN/SDM role-based
+access (SDMs scoped to their own accounts) is designed in
+[`docs/auth-rbac-plan.md`](./docs/auth-rbac-plan.md).

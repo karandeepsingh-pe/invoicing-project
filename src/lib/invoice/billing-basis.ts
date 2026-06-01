@@ -1,14 +1,5 @@
 import { ANNUAL_WORK_HOURS } from "./rebadged-rates";
 
-// Annual figures are a data-entry convenience only: an annual amount converts to
-// an hourly rate by dividing across standard annual work hours (2080 = 40h x 52w),
-// the same divisor used for rebadged technicians. Billing itself is hourly.
-export function annualToHourly(annual: number | null | undefined): number {
-  const amount = annual ?? 0;
-  if (amount <= 0) return 0;
-  return amount / ANNUAL_WORK_HOURS;
-}
-
 /** Monthly salary from an annual figure (annual / 12). */
 export function monthlyFromAnnual(annual: number | null | undefined): number {
   const amount = annual ?? 0;
@@ -31,9 +22,25 @@ export function dedicatedDayRate(
 
 /**
  * Bridge a band rate-sheet hourly rate back to an implied annual (hourly × 2080).
- * Used as the fallback when a technician has no per-tech annual rate set.
+ * Used as the fallback when a band only has a legacy hourly day-rate row.
  */
 export function annualFromBandHourly(hourly: number | null | undefined): number {
   const h = hourly ?? 0;
   return h > 0 ? h * ANNUAL_WORK_HOURS : 0;
+}
+
+/**
+ * Resolve a band's dedicated annual salary from its rate-sheet rows. A band may
+ * store the salary either as an exact annual (the `ANNUAL_RATE` row) or as a
+ * legacy hourly day rate (`MONTHLY_DAY_RATE`, = annual / 2080). Prefer the exact
+ * annual; otherwise bridge the hourly back to an implied annual. Returns 0 when
+ * neither is present, so the assignment surfaces as unpriced rather than billing $0.
+ */
+export function pickBandAnnual(
+  annualRowAmount: number | null | undefined,
+  hourlyRowAmount: number | null | undefined,
+): number {
+  const annual = annualRowAmount ?? 0;
+  if (annual > 0) return annual;
+  return annualFromBandHourly(hourlyRowAmount);
 }

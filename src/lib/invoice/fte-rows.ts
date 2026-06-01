@@ -13,7 +13,7 @@ import {
   type CoverageContext,
   type CoverageEventInput,
 } from "./coverage";
-import { annualFromBandHourly, dedicatedDayRate } from "./billing-basis";
+import { dedicatedDayRate, pickBandAnnual } from "./billing-basis";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 function slaTierLabel(tier: "BACKFILL" | "NO_BACKFILL" | "NONE"): string {
@@ -82,10 +82,10 @@ export async function loadFteRows(
   // Business Days reference is simply the weekday count for the month.
   const businessDays = businessDaysInRange(range, []);
 
-  // Resolve { dayRate, ot, weekend } for an assignment. The dedicated base is an
-  // hourly rate; day rate = hourly x account defaultHours, billed per day worked
-  // (= hourly x regular hours). Rebadged derives its hourly from salary / 2080.
-  // OT and weekend are always per-hour from the sheet (rebadged uses its own).
+  // Resolve { dayRate, ot, weekend } for an assignment. The dedicated day rate is
+  // an annual salary spread over the month's business days (annual / 12 /
+  // businessDays), so a fully-worked month bills exactly annual / 12. OT and
+  // weekend are always per-hour from the sheet (rebadged uses its own).
   type AssignmentWithTech = (typeof assignments)[number];
   function resolveRates(a: AssignmentWithTech) {
     const techRates = ratesForTechnicianInRange(
@@ -95,19 +95,26 @@ export async function loadFteRows(
       range.start,
       range.end,
     );
-    const dayRateRow = techRates.find(
+    // Band salary source: prefer the exact annual (ANNUAL_RATE row); fall back to
+    // a legacy hourly day-rate row (MONTHLY_DAY_RATE / ANNUAL_BACKFILL, = annual /
+    // 2080) so accounts set up before the annual-storage change still price.
+    const annualRow = techRates.find(
+      (r) => r.rateSubCategory.code === "ANNUAL_RATE" && r.sla.code === a.slaTier,
+    );
+    const hourlyRow = techRates.find(
       (r) =>
         (r.rateSubCategory.code === "MONTHLY_DAY_RATE" ||
           r.rateSubCategory.code === "ANNUAL_BACKFILL") &&
         r.sla.code === a.slaTier,
     );
 
-    // Day rate = the technician's annual salary spread over the month's business
-    // days (annual / 12 / businessDays), so a fully-worked month bills exactly
-    // annual / 12. Per-tech annual wins; otherwise fall back to the band rate row
-    // (stored hourly -> implied annual via x 2080).
+    // Per-tech annual overrides the band salary (within-band exceptions + rebadged
+    // techs); otherwise the band rate applies.
     const perTechAnnual = Number(a.technician.annualSalary ?? 0);
-    const bandAnnual = annualFromBandHourly(Number(dayRateRow?.rateAmount?.toString() ?? 0));
+    const bandAnnual = pickBandAnnual(
+      Number(annualRow?.rateAmount?.toString() ?? 0),
+      Number(hourlyRow?.rateAmount?.toString() ?? 0),
+    );
     const annual = perTechAnnual > 0 ? perTechAnnual : bandAnnual;
     const dayRate = new Prisma.Decimal(dedicatedDayRate(annual, businessDays));
 

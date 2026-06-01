@@ -11,7 +11,8 @@ type Sla = { id: string; code: string; label: string };
 const categoryLabel: Record<RateCategory, string> = {
   DEDICATED: "Dedicated",
   PROJECT_TM: "Project / T&M",
-  DISPATCH_SCHED: "Dispatch + Scheduled Visit",
+  DISPATCH_SCHED: "Dispatch",
+  SCHEDULED: "Scheduled Visit",
 };
 
 export function AccountRateCreateForm({
@@ -37,9 +38,27 @@ export function AccountRateCreateForm({
   }, [state, onSuccess]);
 
   const subCatsForCategory = useMemo(
-    () => subCategories.filter((s) => s.rateCategory === category),
+    () =>
+      subCategories.filter(
+        (s) =>
+          s.rateCategory === category &&
+          // Dedicated day rate is entered as an annual salary (ANNUAL_RATE). The
+          // legacy hourly day-rate row is no longer offered for new entries; old
+          // rows still price via the resolver's x2080 fallback.
+          !(category === RateCategory.DEDICATED && s.code === "MONTHLY_DAY_RATE"),
+      ),
     [category, subCategories],
   );
+
+  const [subCatId, setSubCatId] = useState("");
+  useEffect(() => {
+    // Keep the selected sub-category valid as the category filter changes.
+    setSubCatId((prev) =>
+      subCatsForCategory.some((s) => s.id === prev) ? prev : subCatsForCategory[0]?.id ?? "",
+    );
+  }, [subCatsForCategory]);
+  const isAnnualRate =
+    subCatsForCategory.find((s) => s.id === subCatId)?.code === "ANNUAL_RATE";
 
   // Per-category SLA filter so the dropdown only shows codes that actually
   // apply to that rate dimension.
@@ -93,6 +112,8 @@ export function AccountRateCreateForm({
         label="Sub-category"
         name="rateSubCategoryId"
         required
+        value={subCatId}
+        onChange={(e) => setSubCatId(e.target.value)}
         errors={fieldErrors?.rateSubCategoryId}
       >
         {subCatsForCategory.map((s) => (
@@ -119,13 +140,13 @@ export function AccountRateCreateForm({
       </SelectField>
 
       <TextField
-        label="Rate amount"
+        label={isAnnualRate ? "Annual salary" : "Rate amount"}
         name="rateAmount"
         type="number"
         step="0.0001"
         min="0"
         errors={fieldErrors?.rateAmount}
-        hint="Leave blank to fill in later"
+        hint={isAnnualRate ? "Annual salary for this band" : "Leave blank to fill in later"}
       />
 
       <TextField

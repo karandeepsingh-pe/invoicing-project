@@ -1,17 +1,22 @@
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import {
-  calculateProjectRow,
-  type ProjectRateRow,
-  type ProjectTimesheetCell,
-} from "./project-calculator";
-import type { ProjectRow } from "./render-project";
+  calculateScheduledRow,
+  type ScheduledRateRow,
+  type ScheduledTimesheetCell,
+} from "./scheduled-calculator";
+import type { PreInvoiceRow } from "./render-pre-invoice";
 
-/** Load + compute the Project / T&M pre-invoice rows for an account + month. */
-export async function loadProjectRows(
+/**
+ * Load + compute the Scheduled-visit pre-invoice rows for an account + month.
+ * Per-day billing off the timesheet (full / half day rates), no monthly cap.
+ * Emits `PreInvoiceRow` so it merges onto the combined sheet alongside FTE,
+ * Project, and Dispatch rows.
+ */
+export async function loadScheduledRows(
   accountId: string,
   range: { start: Date; end: Date },
-): Promise<ProjectRow[]> {
+): Promise<PreInvoiceRow[]> {
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
     select: {
@@ -24,7 +29,7 @@ export async function loadProjectRows(
   const assignments = await prisma.assignment.findMany({
     where: {
       clientAccountId: accountId,
-      rateCategory: "PROJECT_TM",
+      rateCategory: "SCHEDULED",
       startDate: { lt: range.end },
       OR: [{ endDate: null }, { endDate: { gte: range.start } }],
     },
@@ -40,8 +45,8 @@ export async function loadProjectRows(
     ],
   });
 
-  const projectRates: ProjectRateRow[] = account.accountRates
-    .filter((r) => r.rateSubCategory.rateCategory === "PROJECT_TM")
+  const scheduledRates: ScheduledRateRow[] = account.accountRates
+    .filter((r) => r.rateSubCategory.rateCategory === "SCHEDULED")
     .map((r) => ({
       rateAmount: r.rateAmount,
       band: r.band,
@@ -49,17 +54,17 @@ export async function loadProjectRows(
       sla: { code: r.sla.code },
     }));
 
-  const rows: ProjectRow[] = [];
+  const rows: PreInvoiceRow[] = [];
   for (const a of assignments) {
-    const entries: ProjectTimesheetCell[] = a.timesheetEntries.map((e) => ({
+    const entries: ScheduledTimesheetCell[] = a.timesheetEntries.map((e) => ({
       hours: e.hours,
       status: e.status,
     }));
-    const calc = calculateProjectRow({
+    const calc = calculateScheduledRow({
       defaultHours: account.defaultHours,
       band: a.technician.band,
       entries,
-      rates: projectRates,
+      rates: scheduledRates,
     });
     const daysWorkedNum = Number(calc.daysWorked.toFixed(2));
     if (daysWorkedNum === 0) continue;
@@ -72,11 +77,23 @@ export async function loadProjectRows(
       location,
       technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
       bandLabel: `Band ${a.technician.band}`,
-      engineerType: "Project",
-      dayRate: Number(calc.dayRate.toFixed(2)),
+      backfillLabel: "",
+      engineerType: "Scheduled",
+      businessDays: 0, // scheduled rows leave Business Days blank
       daysWorked: daysWorkedNum,
+      dayRate: Number(calc.fullDayRate.toFixed(2)),
+      otHours: 0,
+      otRate: 0,
+      weekendHours: 0,
+      weekendRate: 0,
       extendedTotal: Number(calc.extendedTotal.toFixed(2)),
-      capped: calc.capped,
+      // With half-days the Extended is full×fullRate + half×halfRate, which the
+      // dayRate×daysWorked formula cannot reconstruct.
+      literalExtended: calc.halfDays > 0,
+      remarks:
+        calc.halfDays > 0
+          ? `${calc.fullDays} full + ${calc.halfDays} half day(s)`
+          : undefined,
     });
   }
   return rows;

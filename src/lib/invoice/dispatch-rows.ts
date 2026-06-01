@@ -27,6 +27,10 @@ export function dispatchRateRows(accountRates: AccountRateLike[]): DispatchRateR
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
+function isWeekendDate(d: Date): boolean {
+  const day = d.getUTCDay();
+  return day === 0 || day === 6;
+}
 function hhmm(d: Date): string {
   return d.toLocaleString("en-US", {
     hour: "2-digit",
@@ -42,22 +46,33 @@ export async function loadDispatchTrackerRows(
   range: { start: Date; end: Date },
   rateRows: DispatchRateRow[],
 ): Promise<DispatchTrackerRow[]> {
-  const visits = await prisma.dispatchVisit.findMany({
-    where: {
-      ...notDeleted,
-      visitDate: { gte: range.start, lt: range.end },
-      assignment: { clientAccountId: accountId },
-    },
-    include: {
-      sla: true,
-      postalCode: true,
-      assignment: { include: { technician: { include: { postalCode: true } } } },
-    },
-    orderBy: [{ visitDate: "asc" }],
-  });
+  const [visits, holidays] = await Promise.all([
+    prisma.dispatchVisit.findMany({
+      where: {
+        ...notDeleted,
+        visitDate: { gte: range.start, lt: range.end },
+        assignment: { clientAccountId: accountId },
+      },
+      include: {
+        sla: true,
+        postalCode: true,
+        assignment: { include: { technician: { include: { postalCode: true } } } },
+      },
+      orderBy: [{ visitDate: "asc" }],
+    }),
+    prisma.holiday.findMany({
+      where: { date: { gte: range.start, lt: range.end } },
+      select: { date: true },
+    }),
+  ]);
+
+  // Public-holiday dates drive the weekend/PH uplift (2.0x). Weekend is the visit's
+  // manual flag OR a Saturday/Sunday visit date.
+  const holidaySet = new Set(holidays.map((h) => isoDate(h.date)));
 
   return visits.map((v) => {
     const tech = v.assignment.technician;
+    const isPublicHoliday = holidaySet.has(isoDate(v.visitDate));
     const calc = calculateDispatchVisit(
       {
         id: v.id,
@@ -65,7 +80,8 @@ export async function loadDispatchTrackerRows(
         ticketNumber: v.ticketNumber,
         hoursOnSite: new Prisma.Decimal(v.hoursOnSite.toString()),
         afterHours: v.afterHours,
-        weekend: v.weekend,
+        weekend: v.weekend || isWeekendDate(v.visitDate),
+        isPublicHoliday,
         slaCode: v.sla.code,
         technicianName: `${tech.firstName} ${tech.lastName}`,
         technicianBand: tech.band,

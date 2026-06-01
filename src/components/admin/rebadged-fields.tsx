@@ -16,11 +16,12 @@ const inputCls =
 
 /**
  * Dedicated FTE rate fields for the technician forms:
- *  - "Annual rate" (annualSalary), shown for every Dedicated tech. Billing spreads
- *    it across the month's business days (annual / 12 / businessDays), so a fully
- *    worked month bills exactly annual / 12.
+ *  - "Annual rate override" (annualSalary), an OPTIONAL per-tech salary. Blank =
+ *    use the account's band salary. Set it only for a tech who differs from their
+ *    band. Billing spreads the annual across the month's business days (annual /
+ *    12 / businessDays), so a fully worked month bills exactly annual / 12.
  *  - A "Rebadged" toggle that ONLY swaps the OT/weekend source to custom per-tech
- *    hourly rates (the day rate always uses the Annual rate above).
+ *    hourly rates (the day rate always uses the override above, else the band salary).
  */
 export function RebadgedFields({
   primaryCategory,
@@ -41,7 +42,7 @@ export function RebadgedFields({
       {isDedicated && (
         <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-            Annual rate
+            Annual rate override (optional)
             <input
               name="annualSalary"
               type="number"
@@ -54,11 +55,12 @@ export function RebadgedFields({
             />
           </label>
           <p className="text-xs text-fg-subtle">
-            Billed as the monthly salary spread over the month&apos;s business days. Monthly =
-            annual ÷ 12 = <span className="font-medium text-fg">${monthly.toFixed(2)}</span>; day
-            rate ≈ <span className="font-medium text-fg">${(monthly / 22).toFixed(2)}</span> at 22
-            business days (varies by month). A fully-worked month bills exactly annual ÷ 12. Leave
-            blank to fall back to the account band rate.
+            Leave blank to use this account&apos;s band salary. Set only for a tech who differs from
+            their band. When set, it is billed as the monthly salary spread over the month&apos;s
+            business days. Monthly = annual ÷ 12 ={" "}
+            <span className="font-medium text-fg">${monthly.toFixed(2)}</span>; day rate ≈{" "}
+            <span className="font-medium text-fg">${(monthly / 22).toFixed(2)}</span> at 22 business
+            days (varies by month). A fully-worked month bills exactly annual ÷ 12.
           </p>
         </div>
       )}
