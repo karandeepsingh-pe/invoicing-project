@@ -120,3 +120,112 @@ describe("calculateProjectRow honors the account's defaultHours", () => {
     expect(at10.extendedTotal.toNumber()).toBe(378); // 0.9 x 420
   });
 });
+
+// --- Rate-sheet-driven basis (Day / Weekly / Monthly) ---
+
+describe("calculateProjectRow weekly basis (weekly rate × days/5)", () => {
+  const weeklyRates: ProjectRateRow[] = [
+    { rateAmount: dec(2000), band: 2, rateSubCategory: { code: "WEEKLY" }, sla: { code: "NA" } },
+  ];
+
+  it("8 days = 1.6 weeks → 3,200", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: Array.from({ length: 8 }, () => hours(8)),
+      rates: weeklyRates,
+    });
+    expect(r.basis).toBe("weekly");
+    expect(r.extendedTotal.toNumber()).toBe(3200);
+  });
+
+  it("a clean 5-day week bills exactly the weekly rate", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: Array.from({ length: 5 }, () => hours(8)),
+      rates: weeklyRates,
+    });
+    expect(r.extendedTotal.toNumber()).toBe(2000);
+  });
+
+  it("weekly takes precedence over a day rate when both exist", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: Array.from({ length: 5 }, () => hours(8)),
+      rates: [
+        ...weeklyRates,
+        { rateAmount: dec(410), band: 2, rateSubCategory: { code: "FULL_DAY" }, sla: { code: "NA" } },
+      ],
+    });
+    expect(r.basis).toBe("weekly");
+    expect(r.extendedTotal.toNumber()).toBe(2000);
+  });
+});
+
+describe("calculateProjectRow monthly basis (pure monthly, pro-rated)", () => {
+  const monthlyOnly: ProjectRateRow[] = [
+    { rateAmount: dec(8800), band: 2, rateSubCategory: { code: "MONTHLY" }, sla: { code: "NA" } },
+  ];
+
+  it("a full month bills exactly the monthly rate (22/22 → 8,800)", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      businessDays: 22,
+      entries: Array.from({ length: 22 }, () => hours(8)),
+      rates: monthlyOnly,
+    });
+    expect(r.basis).toBe("monthly");
+    expect(r.extendedTotal.toNumber()).toBe(8800);
+  });
+
+  it("a partial month pro-rates by days/businessDays (6/22 → 2,400)", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      businessDays: 22,
+      entries: Array.from({ length: 6 }, () => hours(8)),
+      rates: monthlyOnly,
+    });
+    expect(r.extendedTotal.toNumber()).toBe(2400);
+  });
+
+  it("matches the $1,976.19 pro-rate style (monthly 6,916.67 × 6/21)", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      businessDays: 21,
+      entries: Array.from({ length: 6 }, () => hours(8)),
+      rates: [
+        { rateAmount: dec(83000 / 12), band: 2, rateSubCategory: { code: "MONTHLY" }, sla: { code: "NA" } },
+      ],
+    });
+    expect(r.extendedTotal.toNumber()).toBeCloseTo(1976.19, 2);
+  });
+
+  it("REGRESSION: a pure-monthly tech with no day rate must NOT bill $0", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      businessDays: 22,
+      entries: Array.from({ length: 10 }, () => hours(8)),
+      rates: monthlyOnly,
+    });
+    expect(r.extendedTotal.toNumber()).toBe(4000); // 8,800 × 10/22
+  });
+});
+
+describe("calculateProjectRow basis tagging", () => {
+  it("day-rate-only is basis 'day'", () => {
+    const r = calculateProjectRow({ defaultHours: 8, band: 2, entries: [hours(8)], rates });
+    expect(r.basis).toBe("day");
+  });
+
+  it("no matching rate is basis 'unpriced' and 0", () => {
+    const r = calculateProjectRow({ defaultHours: 8, band: 2, entries: [hours(8)], rates: [] });
+    expect(r.basis).toBe("unpriced");
+    expect(r.extendedTotal.toNumber()).toBe(0);
+  });
+});

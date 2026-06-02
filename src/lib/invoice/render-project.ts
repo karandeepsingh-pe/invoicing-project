@@ -30,6 +30,9 @@ export type ProjectRow = {
   // True when the per-day total hit the flat monthly cap (full-month billing). The
   // combined sheet blanks the per-day rate and writes Extended as a literal.
   capped?: boolean;
+  // True when the line is a flat amount (Weekly / Monthly / day-capped) rather than
+  // dayRate × daysWorked. The renderer writes Extended as a literal, no per-day rate.
+  flat?: boolean;
   remarks?: string;
 };
 
@@ -169,14 +172,15 @@ export async function renderProjectInvoice(
     sheet.getCell(`C${r}`).value = row.technicianName;
     sheet.getCell(`D${r}`).value = row.bandLabel;
     sheet.getCell(`E${r}`).value = row.engineerType;
-    sheet.getCell(`F${r}`).value = row.dayRate || null;
+    // Flat rows (Weekly / Monthly / day-capped) show no per-day rate and a literal
+    // Extended; day-rate rows keep the F*G formula.
+    sheet.getCell(`F${r}`).value = row.flat ? null : row.dayRate || null;
     sheet.getCell(`F${r}`).numFmt = CURRENCY_FMT;
     sheet.getCell(`G${r}`).value = row.daysWorked;
     sheet.getCell(`G${r}`).numFmt = NUMBER_FMT;
-    sheet.getCell(`H${r}`).value = {
-      formula: `F${r}*G${r}`,
-      result: row.extendedTotal,
-    };
+    sheet.getCell(`H${r}`).value = row.flat
+      ? row.extendedTotal
+      : { formula: `F${r}*G${r}`, result: row.extendedTotal };
     sheet.getCell(`H${r}`).numFmt = CURRENCY_FMT;
     sheet.getCell(`I${r}`).value = row.remarks ?? "";
     for (const col of "BCDEFGHI") {
