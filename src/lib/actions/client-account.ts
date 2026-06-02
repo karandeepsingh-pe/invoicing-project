@@ -24,6 +24,11 @@ export async function createClientAccount(
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
+    addressLine1: formData.get("addressLine1") ?? undefined,
+    city: formData.get("city") ?? undefined,
+    state: formData.get("state") ?? undefined,
+    postalCode: formData.get("postalCode") ?? undefined,
+    country: formData.get("country") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -62,6 +67,11 @@ export async function updateClientAccount(
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
+    addressLine1: formData.get("addressLine1") ?? undefined,
+    city: formData.get("city") ?? undefined,
+    state: formData.get("state") ?? undefined,
+    postalCode: formData.get("postalCode") ?? undefined,
+    country: formData.get("country") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

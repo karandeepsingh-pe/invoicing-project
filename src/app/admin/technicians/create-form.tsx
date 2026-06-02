@@ -169,6 +169,13 @@ export function TechnicianCreateForm({
 
       <RebadgedFields primaryCategory={primaryCategory} />
 
+      <TextField
+        label="Address line 1"
+        name="addressLine1"
+        errors={fieldErrors?.addressLine1}
+        hint="Street address (optional)."
+      />
+
       <LocationFields
         fieldErrors={{
           zipcode: fieldErrors?.zipcode,

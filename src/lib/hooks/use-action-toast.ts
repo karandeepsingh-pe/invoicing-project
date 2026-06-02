@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/admin/toast-provider";
 import type { ActionResult } from "@/lib/actions/result";
 
@@ -25,9 +26,11 @@ export function useActionToast(
   opts: {
     success?: SuccessOpts | ((res: { id?: string; message?: string }) => SuccessOpts);
     error?: ErrorOpts;
+    refreshOnSuccess?: boolean;
   } = {},
 ): void {
   const toast = useToast();
+  const router = useRouter();
   const last = useRef<ActionResult>(null);
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export function useActionToast(
     if (!state) return;
 
     if (state.ok === true) {
+      // Re-fetch the current route's server data so the mutation shows without
+      // a manual reload. Opt out with refreshOnSuccess: false.
+      if (opts.refreshOnSuccess !== false) router.refresh();
       const cfg =
         typeof opts.success === "function"
           ? opts.success({ id: state.id, message: state.message })
@@ -49,7 +55,7 @@ export function useActionToast(
       const body = state.formError ?? joinFieldErrors(state.fieldErrors);
       toast.error(title, { body });
     }
-  }, [state, toast, opts]);
+  }, [state, toast, opts, router]);
 }
 
 function joinFieldErrors(

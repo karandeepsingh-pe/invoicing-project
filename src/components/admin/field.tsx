@@ -1,4 +1,7 @@
+"use client";
+
 import { type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
+import { useFormStatus } from "react-dom";
 
 type FieldProps = {
   label: string;
@@ -55,13 +58,25 @@ export function SelectField({
   );
 }
 
+// Submit button wired to the enclosing <form>'s pending state via useFormStatus.
+// While the server action runs it disables itself and shows a spinner + "Saving..."
+// so a slow mutation never looks frozen. Must render inside a <form>.
 export function SubmitButton({ children = "Save" }: { children?: React.ReactNode }) {
+  const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className="inline-flex items-center self-start rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+      disabled={pending}
+      aria-busy={pending}
+      className="inline-flex items-center gap-2 self-start rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {children}
+      {pending && (
+        <span
+          aria-hidden
+          className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent-fg/30 border-t-accent-fg"
+        />
+      )}
+      {pending ? "Saving…" : children}
     </button>
   );
 }

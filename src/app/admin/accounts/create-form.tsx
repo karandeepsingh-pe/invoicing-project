@@ -91,6 +91,16 @@ export function ClientAccountCreateAnywhereForm({
         errors={fieldErrors?.defaultHours}
         hint="Per-day full-shift hours."
       />
+      <TextField
+        label="Address line 1"
+        name="addressLine1"
+        placeholder="123 Main Street"
+        errors={fieldErrors?.addressLine1}
+      />
+      <TextField label="City" name="city" errors={fieldErrors?.city} />
+      <TextField label="State / Region" name="state" errors={fieldErrors?.state} />
+      <TextField label="Zip / Postal code" name="postalCode" errors={fieldErrors?.postalCode} />
+      <TextField label="Country" name="country" errors={fieldErrors?.country} />
       <div className="md:col-span-3">
         <SubmitButton>Create account</SubmitButton>
         {state && state.ok && !onSuccess && <span className="ml-3 text-sm text-success">Created.</span>}

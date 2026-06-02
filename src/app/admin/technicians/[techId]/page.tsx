@@ -172,6 +172,7 @@ export default async function TechnicianDetailPage({
             employerOrgId={tech.employerOrgId}
             orgs={orgs}
             postalCodeId={tech.postalCodeId}
+            addressLine1={tech.addressLine1}
             zipcode={tech.postalCode?.zipcode ?? null}
             city={tech.postalCode?.city ?? null}
             state={tech.postalCode?.state ?? null}

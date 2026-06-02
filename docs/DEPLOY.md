@@ -12,11 +12,17 @@ access, so step 6 (Deployment Protection) is required to keep it private during 
 ---
 
 ## 1. Create the database (Neon)
-1. Sign up at https://neon.tech and create a project (any region close to your Vercel region).
-2. In the project dashboard, open **Connection Details** and copy the connection string.
-   Use the **Pooled connection** string. It looks like:
-   `postgresql://USER:PASSWORD@ep-xxxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require`
-3. Keep this handy — it is your `DATABASE_URL`.
+1. Sign up at https://neon.tech and create a project. Pick a region close to the Vercel
+   function region: this app pins `sin1` (Singapore) in `vercel.json`, so Neon
+   `ap-southeast-1` keeps the app and DB co-located and fast.
+2. In **Connection Details**, copy BOTH connection strings:
+   - **Pooled connection** (host contains `-pooler`) -> this is `DATABASE_URL` (runtime), so
+     serverless functions reuse connections instead of opening one per request.
+     `postgresql://USER:PASSWORD@ep-xxxx-pooler.REGION.aws.neon.tech/neondb?sslmode=require`
+   - **Direct connection** ("Pooled connection" unchecked, no `-pooler` in the host) -> this
+     is `DIRECT_URL`, used by `prisma migrate deploy` (the pooler does not support the
+     session advisory locks migrations need).
+3. Keep both handy for step 3.
 
 ## 2. Import the repo into Vercel
 1. Push this repo to GitHub (see the project README for the remote).
@@ -31,7 +37,8 @@ Add these for **Production** (and Preview if you want preview deploys):
 
 | Name | Value |
 |------|-------|
-| `DATABASE_URL` | the Neon pooled connection string from step 1 |
+| `DATABASE_URL` | the Neon **pooled** connection string from step 1 (runtime) |
+| `DIRECT_URL` | the Neon **direct/unpooled** connection string from step 1 (migrations) |
 | `DEV_ADMIN_EMAIL` | your email, e.g. `kstalwar@ovationwps.com` (the shared admin identity) |
 | `SOFT_DELETE_ENABLED` | `true` (so delete + restore work for testers) |
 | `BASIC_AUTH_USER` | a shared username for the password gate, e.g. `testers` |

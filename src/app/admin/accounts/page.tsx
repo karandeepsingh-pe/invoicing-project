@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { AccountsView, type AccountCard } from "./accounts-view";
 import { ClientAccountCreateDialog } from "./create-dialog";
+import { BulkUploadDialog } from "./bulk-upload-dialog";
 
 export default async function AccountsPage() {
   const [orgs, accounts] = await Promise.all([
@@ -47,6 +48,11 @@ export default async function AccountsPage() {
     clientSpocEmail: a.clientSpocEmail,
     projectDescription: a.projectDescription,
     defaultHours: a.defaultHours,
+    addressLine1: a.addressLine1,
+    city: a.city,
+    state: a.state,
+    postalCode: a.postalCode,
+    country: a.country,
   }));
 
   return (
@@ -57,6 +63,7 @@ export default async function AccountsPage() {
           <h1 className="text-4xl font-semibold tracking-tighter2">Accounts</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{cards.length} total</span>
+            <BulkUploadDialog />
             {orgs.length > 0 && <ClientAccountCreateDialog orgs={orgs} />}
           </div>
         </div>
