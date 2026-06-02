@@ -1,28 +1,6 @@
-import {
-  PrismaClient,
-  OutputTemplate,
-  UserRole,
-  RateCategory,
-} from "@prisma/client";
+import { PrismaClient, UserRole, RateCategory } from "@prisma/client";
 
 const prisma = new PrismaClient();
-
-type OrgSeed = {
-  name: string;
-  outputTemplate: OutputTemplate;
-  accounts: string[];
-};
-
-const orgSeeds: OrgSeed[] = [
-  { name: "HCL", outputTemplate: OutputTemplate.FSO, accounts: ["ZF", "Acadia"] },
-  { name: "Cognizant", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: [] },
-  { name: "TCS", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["TCS"] },
-  { name: "Wipro", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Wipro"] },
-  { name: "Hiscox", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["Hiscox"] },
-  { name: "EverSource", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["EverSource"] },
-  { name: "JLL", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["JLL"] },
-  { name: "MAS NJ", outputTemplate: OutputTemplate.PRE_INVOICE, accounts: ["MAS_NJ"] },
-];
 
 const slaSeeds: { code: string; label: string; sortOrder: number }[] = [
   { code: "NBD", label: "Next Business Day", sortOrder: 10 },
@@ -91,22 +69,9 @@ const visitTypeSeeds: { code: string; label: string; sortOrder: number }[] = [
 ];
 
 async function main() {
-  for (const seed of orgSeeds) {
-    const org = await prisma.org.upsert({
-      where: { name: seed.name },
-      update: { outputTemplate: seed.outputTemplate },
-      create: { name: seed.name, outputTemplate: seed.outputTemplate },
-    });
-
-    for (const accountName of seed.accounts) {
-      await prisma.clientAccount.upsert({
-        where: { orgId_name: { orgId: org.id, name: accountName } },
-        update: {},
-        create: { orgId: org.id, name: accountName },
-      });
-    }
-  }
-
+  // Masters only. No sample orgs / accounts / technicians are seeded — real
+  // orgs and accounts are created by the admin in the app, or imported via the
+  // bulk Excel upload on the Accounts page.
   for (const sla of slaSeeds) {
     await prisma.sla.upsert({
       where: { code: sla.code },
