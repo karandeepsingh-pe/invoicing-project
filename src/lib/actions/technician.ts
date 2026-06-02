@@ -59,6 +59,7 @@ export async function createTechnician(
     locationCity: formData.get("locationCity") ?? undefined,
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
+    addressLine1: formData.get("addressLine1") ?? undefined,
     defaultSlaTier: formData.get("defaultSlaTier") || undefined,
     initialAccountId: rawAccount && rawAccount !== "" ? rawAccount : undefined,
     initialCategory: formData.get("initialCategory") || undefined,
@@ -254,6 +255,7 @@ export async function updateTechnician(
     locationCity: formData.get("locationCity") ?? undefined,
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
+    addressLine1: formData.get("addressLine1") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

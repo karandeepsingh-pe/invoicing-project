@@ -20,6 +20,7 @@ const optionalText = (max: number) =>
 const zipcodeOptional = optionalText(12);
 const placeOptional = optionalText(80);
 const phoneOptional = optionalText(40);
+const addressOptional = optionalText(120);
 const emailOptional = z
   .string()
   .trim()
@@ -59,6 +60,7 @@ export const technicianCreateSchema = z.object({
   locationCity: placeOptional,
   locationState: placeOptional,
   locationCountry: placeOptional,
+  addressLine1: addressOptional,
   initialAccountId: z.string().optional(),
   initialCategory: z.nativeEnum(RateCategory).optional(),
   initialStartDate: z
@@ -87,6 +89,7 @@ export const technicianUpdateSchema = z.object({
   locationCity: placeOptional,
   locationState: placeOptional,
   locationCountry: placeOptional,
+  addressLine1: addressOptional,
 });
 
 export type TechnicianUpdateInput = z.infer<typeof technicianUpdateSchema>;

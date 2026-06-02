@@ -13,6 +13,11 @@ export function ClientAccountEditForm({
   clientSpocEmail,
   projectDescription,
   defaultHours,
+  addressLine1,
+  city,
+  state: stateValue,
+  postalCode,
+  country,
 }: {
   id: string;
   name: string;
@@ -22,6 +27,11 @@ export function ClientAccountEditForm({
   clientSpocEmail: string | null;
   projectDescription: string | null;
   defaultHours: number;
+  addressLine1: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
 }) {
   const [state, action] = useActionState(updateClientAccount, null);
   const [open, setOpen] = useState(false);
@@ -100,6 +110,22 @@ export function ClientAccountEditForm({
         errors={fieldErrors?.defaultHours}
         hint="Per-day full-shift hours. Drives FTE pre-fill + OT split."
       />
+      <TextField
+        label="Address line 1"
+        name="addressLine1"
+        defaultValue={addressLine1 ?? ""}
+        placeholder="123 Main Street"
+        errors={fieldErrors?.addressLine1}
+      />
+      <TextField label="City" name="city" defaultValue={city ?? ""} errors={fieldErrors?.city} />
+      <TextField label="State / Region" name="state" defaultValue={stateValue ?? ""} errors={fieldErrors?.state} />
+      <TextField
+        label="Zip / Postal code"
+        name="postalCode"
+        defaultValue={postalCode ?? ""}
+        errors={fieldErrors?.postalCode}
+      />
+      <TextField label="Country" name="country" defaultValue={country ?? ""} errors={fieldErrors?.country} />
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>
         {state && state.ok && <span className="text-xs text-success">Saved.</span>}

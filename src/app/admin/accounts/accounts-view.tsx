@@ -22,6 +22,11 @@ export type AccountCard = {
   clientSpocEmail: string | null;
   projectDescription: string | null;
   defaultHours: number;
+  addressLine1: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -116,6 +121,11 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 clientSpocEmail={a.clientSpocEmail}
                 projectDescription={a.projectDescription}
                 defaultHours={a.defaultHours}
+                addressLine1={a.addressLine1}
+                city={a.city}
+                state={a.state}
+                postalCode={a.postalCode}
+                country={a.country}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

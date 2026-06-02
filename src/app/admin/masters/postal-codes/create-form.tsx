@@ -3,8 +3,16 @@
 import { useActionState, useEffect } from "react";
 import { createPostalCode } from "@/lib/actions/postal-code";
 import { FormError, SubmitButton, TextField } from "@/components/admin/field";
-import { CascadingPlace } from "@/components/admin/cascading-place";
+import dynamic from "next/dynamic";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
+
+// Lazy-load the country/state/city picker (~7.8MB country-state-city dataset)
+// so this admin page does not ship it in the initial bundle.
+const CascadingPlace = dynamic(
+  () =>
+    import("@/components/admin/cascading-place").then((m) => m.CascadingPlace),
+  { ssr: false },
+);
 
 export function PostalCodeCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const [state, action] = useActionState(createPostalCode, null);

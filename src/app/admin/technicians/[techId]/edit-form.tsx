@@ -36,6 +36,7 @@ export type TechEditFormProps = {
   employerOrgId: string;
   orgs: { id: string; name: string }[];
   postalCodeId: string | null;
+  addressLine1: string | null;
   zipcode: string | null;
   city: string | null;
   state: string | null;
@@ -205,6 +206,14 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           rebadgedOtRate: props.rebadgedOtRate,
           rebadgedWeekendRate: props.rebadgedWeekendRate,
         }}
+      />
+
+      <TextField
+        label="Address line 1"
+        name="addressLine1"
+        defaultValue={props.addressLine1 ?? ""}
+        errors={fieldErrors?.addressLine1}
+        hint="Street address (optional)."
       />
 
       <LocationFields

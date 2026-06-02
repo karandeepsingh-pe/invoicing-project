@@ -2,11 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TextField } from "@/components/admin/field";
-import { CascadingPlace } from "@/components/admin/cascading-place";
+import dynamic from "next/dynamic";
 import {
   lookupPostalCode,
   type PostalCodeLookupHit,
 } from "@/lib/actions/postal-code-lookup";
+
+// Lazy-load the country/state/city picker so its large embedded dataset
+// (country-state-city, ~7.8MB) only downloads when a user actually needs the
+// manual-entry path (zipcode not in the postal-code master). This keeps every
+// form that includes LocationFields out of the heavy initial bundle.
+const CascadingPlace = dynamic(
+  () =>
+    import("@/components/admin/cascading-place").then((m) => m.CascadingPlace),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-xs text-fg-subtle md:col-span-3">
+        Loading location picker…
+      </p>
+    ),
+  },
+);
 
 type LookupStatus = "idle" | "looking" | "found" | "new";
 
