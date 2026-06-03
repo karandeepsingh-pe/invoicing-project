@@ -87,14 +87,14 @@ export async function generateCombinedInvoice(
     engineerType: "Project",
     businessDays,
     daysWorked: r.daysWorked,
-    dayRate: r.capped ? 0 : r.dayRate, // full-month rows show the flat monthly, no per-day rate
+    dayRate: r.flat ? 0 : r.dayRate, // flat (Weekly/Monthly/capped) rows show the flat amount, no per-day rate
     otHours: 0,
     otRate: 0,
     weekendHours: 0,
     weekendRate: 0,
     extendedTotal: r.extendedTotal,
-    literalExtended: r.capped,
-    remarks: r.capped ? "Monthly cap" : undefined,
+    literalExtended: r.flat,
+    remarks: r.remarks,
   }));
   const dispatchAsRows: PreInvoiceRow[] = dispatchDetail
     .filter((d) => d.billed > 0)

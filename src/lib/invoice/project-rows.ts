@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
+import { businessDaysInRange } from "./period";
 import {
   calculateProjectRow,
   type ProjectRateRow,
@@ -49,6 +50,9 @@ export async function loadProjectRows(
       sla: { code: r.sla.code },
     }));
 
+  // Working days in the billing month, used to pro-rate a pure-monthly basis.
+  const businessDays = businessDaysInRange(range, []);
+
   const rows: ProjectRow[] = [];
   for (const a of assignments) {
     const entries: ProjectTimesheetCell[] = a.timesheetEntries.map((e) => ({
@@ -60,6 +64,7 @@ export async function loadProjectRows(
       band: a.technician.band,
       entries,
       rates: projectRates,
+      businessDays,
     });
     const daysWorkedNum = Number(calc.daysWorked.toFixed(2));
     if (daysWorkedNum === 0) continue;
@@ -77,6 +82,8 @@ export async function loadProjectRows(
       daysWorked: daysWorkedNum,
       extendedTotal: Number(calc.extendedTotal.toFixed(2)),
       capped: calc.capped,
+      flat: calc.flat,
+      remarks: calc.remark,
     });
   }
   return rows;
