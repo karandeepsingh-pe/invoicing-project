@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { calculateDispatchVisit, type DispatchRateRow } from "./dispatch-calculator";
+import { profileFor } from "./dispatch-pricing-profiles";
 import { isBillableStatus } from "./dispatch-status";
 import type { DispatchTrackerRow } from "./render-dispatch";
 
@@ -40,12 +41,18 @@ function hhmm(d: Date): string {
   });
 }
 
-/** Load the month's dispatch visits for an account and resolve them to tracker rows. */
+/**
+ * Load the month's dispatch visits for an account and resolve them to tracker rows.
+ * `pricingModel` selects the dispatch profile (defaults to STANDARD, the original
+ * band + SLA math, so every existing caller is unchanged).
+ */
 export async function loadDispatchTrackerRows(
   accountId: string,
   range: { start: Date; end: Date },
   rateRows: DispatchRateRow[],
+  pricingModel?: string | null,
 ): Promise<DispatchTrackerRow[]> {
+  const profile = profileFor(pricingModel);
   const [visits, holidays] = await Promise.all([
     prisma.dispatchVisit.findMany({
       where: {
@@ -72,7 +79,10 @@ export async function loadDispatchTrackerRows(
 
   return visits.map((v) => {
     const tech = v.assignment.technician;
-    const isPublicHoliday = holidaySet.has(isoDate(v.visitDate));
+    // Calendar weekend / holiday only count when the profile opts in (JLL yes,
+    // TCS no — TCS bills weekends from its explicit flag).
+    const isPublicHoliday =
+      profile.autoWeekendFromDate && holidaySet.has(isoDate(v.visitDate));
     const calc = calculateDispatchVisit(
       {
         id: v.id,
@@ -80,7 +90,7 @@ export async function loadDispatchTrackerRows(
         ticketNumber: v.ticketNumber,
         hoursOnSite: new Prisma.Decimal(v.hoursOnSite.toString()),
         afterHours: v.afterHours,
-        weekend: v.weekend || isWeekendDate(v.visitDate),
+        weekend: v.weekend || (profile.autoWeekendFromDate && isWeekendDate(v.visitDate)),
         isPublicHoliday,
         slaCode: v.sla.code,
         technicianName: `${tech.firstName} ${tech.lastName}`,
@@ -89,11 +99,19 @@ export async function loadDispatchTrackerRows(
         notes: v.notes,
       },
       rateRows,
+      profile,
     );
     const pc = v.postalCode ?? tech.postalCode;
-    const billable = isBillableStatus(v.workStatus);
+    // COMPLETED always bills. Under a profile that charges a cancellation fee, a
+    // CANCELLED visit also bills (its computed charge is the first-hour cancel fee).
+    const billable =
+      isBillableStatus(v.workStatus) ||
+      (profile.cancelledBillsFirstHour && v.workStatus === "CANCELLED");
     const total = calc.hoursOnSite;
     return {
+      visitId: v.id,
+      firstHourRate: calc.firstHourRate,
+      additionalHourRate: calc.additionalHourRate,
       requestReceivedDate: v.requestReceivedDate ? isoDate(v.requestReceivedDate) : null,
       visitDate: isoDate(v.visitDate),
       visitTime: v.visitTime,
@@ -111,7 +129,9 @@ export async function loadDispatchTrackerRows(
       inTime: v.startDateTime ? hhmm(v.startDateTime) : null,
       outTime: v.endDateTime ? hhmm(v.endDateTime) : null,
       totalHrs: total,
-      additionalHours: Math.max(0, Number((total - 1).toFixed(2))),
+      // Hours billed beyond the first-hour charge, per the profile (JLL: after 1h,
+      // TCS: after 2h). Display only; the money is calc.charge.
+      additionalHours: Math.max(0, Number((total - profile.freeHoursIncluded).toFixed(2))),
       oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
       billed: billable ? calc.charge : 0,
       band: tech.band,

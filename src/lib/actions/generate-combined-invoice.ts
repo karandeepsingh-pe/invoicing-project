@@ -72,7 +72,12 @@ export async function generateCombinedInvoice(
     loadFteRows(accountId, range),
     loadProjectRows(accountId, range),
     loadScheduledRows(accountId, range),
-    loadDispatchTrackerRows(accountId, range, dispatchRateRows(account.accountRates)),
+    loadDispatchTrackerRows(
+      accountId,
+      range,
+      dispatchRateRows(account.accountRates),
+      account.dispatchPricingModel,
+    ),
   ]);
 
   // Merge every engagement type into ONE unified line-item table, in the order the

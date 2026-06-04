@@ -167,6 +167,9 @@ export default async function TechnicianDetailPage({
             isAvailableForDispatch={tech.isAvailableForDispatch}
             isRebadged={tech.isRebadged}
             annualSalary={tech.annualSalary?.toString() ?? null}
+            rebadgedHourlyRate={tech.rebadgedHourlyRate?.toString() ?? null}
+            rebadgedDayRate={tech.rebadgedDayRate?.toString() ?? null}
+            rebadgedMonthlyRate={tech.rebadgedMonthlyRate?.toString() ?? null}
             rebadgedOtRate={tech.rebadgedOtRate?.toString() ?? null}
             rebadgedWeekendRate={tech.rebadgedWeekendRate?.toString() ?? null}
             employerOrgId={tech.employerOrgId}

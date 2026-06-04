@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ChangeEvent,
+} from "react";
 import { useRouter } from "next/navigation";
-import { saveTimesheetMonth } from "@/lib/actions/timesheet";
+import { saveTimesheetCells } from "@/lib/actions/timesheet";
 import {
   softDeleteTimesheetCell,
   softDeleteTimesheetRowMonth,
@@ -32,6 +40,11 @@ export type GridAssignment = {
   band: number;
   slaTier: "BACKFILL" | "NO_BACKFILL" | "NONE";
 };
+
+// A cell to persist via the autosave action: an upsert (value/status) or a clear.
+type PersistCell =
+  | { assignmentId: string; date: string; hours: number | null; status: GridCell["status"] }
+  | { assignmentId: string; date: string; clear: true };
 
 function slaTierLabel(t: GridAssignment["slaTier"]): string {
   if (t === "BACKFILL") return "Backfill";
@@ -72,8 +85,6 @@ function isWeekend(date: string): boolean {
 
 export function TimesheetGrid({
   accountId,
-  year,
-  month,
   defaultHours,
   assignments,
   days,
@@ -81,6 +92,9 @@ export function TimesheetGrid({
   softDeleteEnabled = false,
   holidayDates = [],
   prefillHolidaysAsPh = false,
+  prefillDefaultHours = false,
+  year,
+  month,
 }: {
   accountId: string;
   year: number;
@@ -92,10 +106,12 @@ export function TimesheetGrid({
   softDeleteEnabled?: boolean;
   holidayDates?: string[];
   prefillHolidaysAsPh?: boolean;
+  // When true (Dedicated only), un-entered weekdays pre-fill the account default
+  // hours and are auto-committed on load. Project/Scheduled (specific-day
+  // engagements) leave un-entered weekdays blank.
+  prefillDefaultHours?: boolean;
 }) {
   const [text, setText] = useState<RawText>(() => {
-    // Dedicated grids pre-fill PH on gazetted-holiday weekdays (overridable);
-    // a PH day bills as a paid day. Other un-entered weekdays default to hours.
     const holidaySet = new Set(prefillHolidaysAsPh ? holidayDates : []);
     const out: RawText = {};
     for (const a of assignments) {
@@ -108,24 +124,32 @@ export function TimesheetGrid({
           out[key] = "";
         } else if (holidaySet.has(d)) {
           out[key] = "PH";
-        } else {
+        } else if (prefillDefaultHours) {
           out[key] = String(defaultHours);
+        } else {
+          out[key] = "";
         }
       }
     }
     return out;
   });
-  const [actionState, setActionState] = useState<
-    | { ok: true; message?: string }
-    | { ok: false; formError?: string }
-    | null
-  >(null);
-  const [pending, startTransition] = useTransition();
 
-  useActionToast(actionState, {
-    success: { title: "Timesheet saved" },
-    error: { fallbackTitle: "Failed to save timesheet" },
+  // The last value persisted to the DB per cell ("" = not persisted). The grid
+  // autosaves a cell whenever its normalized text differs from this.
+  const [savedText, setSavedText] = useState<RawText>(() => {
+    const out: RawText = {};
+    for (const a of assignments) {
+      for (const d of days) {
+        const key = cellKey(a.assignmentId, d);
+        const saved = initialCells[key];
+        out[key] = saved !== undefined ? cellToText(saved) : "";
+      }
+    }
+    return out;
   });
+
+  const [savingCount, setSavingCount] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const router = useRouter();
   const [deleteState, setDeleteState] = useState<
@@ -135,17 +159,66 @@ export function TimesheetGrid({
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<Set<string>>(
     () => new Set(),
   );
-  // Cells the user typed into this session. Combined with savedKeys (the server's
-  // saved entries), this lets the grid dim cells that are only the default
-  // pre-fill — so a deleted/cleared row reads as empty instead of re-showing the
-  // default hours.
-  const [editedKeys, setEditedKeys] = useState<Set<string>>(() => new Set());
-  const savedKeys = useMemo(() => new Set(Object.keys(initialCells)), [initialCells]);
 
   useActionToast(deleteState, {
     success: { title: "Deleted" },
     error: { fallbackTitle: "Delete failed" },
   });
+
+  // Persist a batch of cells (per-cell, fill-range, or the on-load default commit).
+  // Optimistically marks them saved on success; never triggers a page refresh.
+  const persist = useCallback(
+    (cells: PersistCell[], savedValues: RawText) => {
+      if (cells.length === 0) return;
+      setSavingCount((n) => n + 1);
+      void (async () => {
+        const fd = new FormData();
+        fd.append("payload", JSON.stringify({ accountId, cells }));
+        const result = await saveTimesheetCells(null, fd);
+        setSavingCount((n) => Math.max(0, n - 1));
+        if (result && result.ok) {
+          setSaveError(null);
+          setSavedText((prev) => ({ ...prev, ...savedValues }));
+        } else {
+          setSaveError(
+            result && result.ok === false
+              ? result.formError ?? "Autosave failed — changes not stored"
+              : "Autosave failed — changes not stored",
+          );
+        }
+      })();
+    },
+    [accountId],
+  );
+
+  // On load, commit any pre-filled defaults that are not yet persisted (Dedicated:
+  // the default hours + holiday PH). Project/Scheduled have no defaults, so this is
+  // a no-op for them. Runs once.
+  const didInitialPersist = useRef(false);
+  useEffect(() => {
+    if (didInitialPersist.current) return;
+    didInitialPersist.current = true;
+    const cells: PersistCell[] = [];
+    const savedValues: RawText = {};
+    for (const a of assignments) {
+      for (const d of days) {
+        const key = cellKey(a.assignmentId, d);
+        if ((savedText[key] ?? "") !== "") continue;
+        const norm = normalizeCellText(text[key] ?? "");
+        const p = parseCellText(norm);
+        if (p.kind === "value") {
+          cells.push({ assignmentId: a.assignmentId, date: d, hours: p.hours, status: null });
+        } else if (p.kind === "status") {
+          cells.push({ assignmentId: a.assignmentId, date: d, hours: null, status: p.status });
+        } else {
+          continue;
+        }
+        savedValues[key] = norm;
+      }
+    }
+    if (cells.length > 0) persist(cells, savedValues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleRow(assignmentId: string) {
     setSelectedAssignmentIds((prev) => {
@@ -156,9 +229,8 @@ export function TimesheetGrid({
     });
   }
 
-  // After a successful soft-delete, optimistically revert the affected cells to
-  // their un-entered look (weekday -> default hours, weekend -> blank) and pull
-  // fresh server data. On failure, leave the grid untouched.
+  // After a successful soft-delete, revert affected cells to their un-entered look
+  // (Dedicated weekday -> default hours, else blank) and mark them un-persisted.
   function applyDeleteResult(
     result: { ok: true; message?: string } | { ok: false; formError?: string },
     affectedKeys: string[],
@@ -169,16 +241,13 @@ export function TimesheetGrid({
       const next = { ...prev };
       for (const key of affectedKeys) {
         const date = key.slice(key.indexOf("|") + 1);
-        next[key] = isWeekend(date) ? "" : String(defaultHours);
+        next[key] = isWeekend(date) ? "" : prefillDefaultHours ? String(defaultHours) : "";
       }
       return next;
     });
-    // Cleared cells are no longer user-entered; drop them so they render dimmed
-    // (and savedKeys loses them once the refresh lands).
-    setEditedKeys((prev) => {
-      if (!affectedKeys.some((k) => prev.has(k))) return prev;
-      const next = new Set(prev);
-      for (const k of affectedKeys) next.delete(k);
+    setSavedText((prev) => {
+      const next = { ...prev };
+      for (const key of affectedKeys) next[key] = "";
       return next;
     });
     router.refresh();
@@ -210,7 +279,6 @@ export function TimesheetGrid({
     });
   }
 
-  // Bulk soft-delete the month for every selected technician row at once.
   function handleDeleteRows(): Promise<void> {
     return new Promise<void>((resolve) => {
       startDeleteTransition(async () => {
@@ -232,8 +300,6 @@ export function TimesheetGrid({
     });
   }
 
-  // Pre-parse every cell once per state change. The grid uses this for live
-  // summaries, per-cell red-borders, and the save-button disabled check.
   const parsedByKey = useMemo(() => {
     const out: Record<string, CellParse> = {};
     for (const a of assignments) {
@@ -253,11 +319,11 @@ export function TimesheetGrid({
     return n;
   }, [parsedByKey]);
 
-  // Blank weekday cells are blocking: a working day must carry hours or a
-  // status (PH / AB / NA). An empty cell means "unknown" and must never be
-  // silently auto-filled into the invoice. Weekend blanks are fine (no row).
+  // Blank weekdays are only flagged for Dedicated (every weekday is a work day). For
+  // Project/Scheduled, a blank weekday legitimately means "not worked".
   const blankWeekdayKeys = useMemo(() => {
     const out = new Set<string>();
+    if (!prefillDefaultHours) return out;
     for (const a of assignments) {
       for (const d of days) {
         if (isWeekend(d)) continue;
@@ -266,9 +332,22 @@ export function TimesheetGrid({
       }
     }
     return out;
-  }, [assignments, days, parsedByKey]);
+  }, [assignments, days, parsedByKey, prefillDefaultHours]);
 
   const blankWeekdayCount = blankWeekdayKeys.size;
+
+  // Cells whose current value differs from what is persisted (and are valid).
+  const dirtyCount = useMemo(() => {
+    let n = 0;
+    for (const a of assignments) {
+      for (const d of days) {
+        const key = cellKey(a.assignmentId, d);
+        if (parsedByKey[key].kind === "invalid") continue;
+        if (normalizeCellText(text[key] ?? "") !== (savedText[key] ?? "")) n += 1;
+      }
+    }
+    return n;
+  }, [assignments, days, text, savedText, parsedByKey]);
 
   const summaries = useMemo(() => {
     return assignments.map((a) => {
@@ -293,12 +372,7 @@ export function TimesheetGrid({
           otHours += ot;
         }
       }
-      return {
-        assignmentId: a.assignmentId,
-        regularDays,
-        otHours,
-        weekendHours,
-      };
+      return { assignmentId: a.assignmentId, regularDays, otHours, weekendHours };
     });
   }, [assignments, days, defaultHours, parsedByKey]);
 
@@ -309,11 +383,10 @@ export function TimesheetGrid({
   ) {
     const key = cellKey(assignmentId, date);
     setText((prev) => ({ ...prev, [key]: e.target.value }));
-    setEditedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }
 
-  // Per-row "Fill range": write one value/status into every day in a range. Pure
-  // client edit into the same text state typing uses; Save month persists it.
+  // Per-row "Fill range": write one value/status into every day in a range, then
+  // autosave the filled cells.
   function handleFillRange(
     assignmentId: string,
     args: { value: string; fromDate: string; toDate: string; weekdaysOnly: boolean },
@@ -327,115 +400,71 @@ export function TimesheetGrid({
       for (const k of keys) next[k] = norm;
       return next;
     });
-    setEditedKeys((prev) => {
-      const nextSet = new Set(prev);
-      for (const k of keys) nextSet.add(k);
-      return nextSet;
-    });
-  }
-
-  function handleBlur(assignmentId: string, date: string) {
-    setText((prev) => {
-      const key = cellKey(assignmentId, date);
-      const raw = prev[key] ?? "";
-      const normalized = normalizeCellText(raw);
-      if (normalized === raw) return prev;
-      return { ...prev, [key]: normalized };
-    });
-  }
-
-  function handleSave() {
-    if (invalidCellCount > 0) {
-      setActionState({
-        ok: false,
-        formError: `${invalidCellCount} cell${invalidCellCount === 1 ? "" : "s"} have invalid values — fix them before saving.`,
-      });
-      return;
-    }
-
-    if (blankWeekdayCount > 0) {
-      setActionState({
-        ok: false,
-        formError: `${blankWeekdayCount} working-day cell${blankWeekdayCount === 1 ? " is" : "s are"} blank — enter hours or a status (PH / AB / NA / PTO / HALF_DAY) for every working day before saving.`,
-      });
-      return;
-    }
-
-    // Build payload. Every working day now carries an explicit value or status
-    // (blank weekdays are blocked above). Weekend blank cells stay blank.
-    const cells: {
-      assignmentId: string;
-      date: string;
-      hours: number | null;
-      status: GridCell["status"];
-    }[] = [];
-
-    for (const a of assignments) {
-      for (const d of days) {
-        const key = cellKey(a.assignmentId, d);
-        const p = parsedByKey[key];
-        if (p.kind === "invalid") {
-          // Should be unreachable thanks to the guard above; defensive.
-          continue;
+    const p = parseCellText(norm);
+    if (p.kind === "invalid") return;
+    const cells: PersistCell[] = [];
+    const savedValues: RawText = {};
+    for (const d of targetDays) {
+      const key = cellKey(assignmentId, d);
+      if (p.kind === "blank") {
+        if ((savedText[key] ?? "") !== "") {
+          cells.push({ assignmentId, date: d, clear: true });
+          savedValues[key] = "";
         }
-        if (p.kind === "blank") {
-          // Weekend blank = no row. Weekday blank is unreachable (guarded
-          // above), but skip defensively rather than auto-fill.
-          continue;
-        }
-        if (p.kind === "status") {
-          cells.push({
-            assignmentId: a.assignmentId,
-            date: d,
-            hours: 0,
-            status: p.status,
-          });
-          continue;
-        }
-        // numeric value
-        cells.push({
-          assignmentId: a.assignmentId,
-          date: d,
-          hours: p.hours,
-          status: null,
-        });
+      } else if (p.kind === "status") {
+        cells.push({ assignmentId, date: d, hours: null, status: p.status });
+        savedValues[key] = norm;
+      } else {
+        cells.push({ assignmentId, date: d, hours: p.hours, status: null });
+        savedValues[key] = norm;
       }
     }
-
-    const payload = { accountId, year, month, cells };
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.append("payload", JSON.stringify(payload));
-      const result = await saveTimesheetMonth(null, fd);
-      setActionState(result);
-    });
+    persist(cells, savedValues);
   }
 
-  const saveDisabled = pending || invalidCellCount > 0 || blankWeekdayCount > 0;
-  const saveHint =
-    invalidCellCount > 0
-      ? `${invalidCellCount} cell${invalidCellCount === 1 ? "" : "s"} have invalid values`
-      : blankWeekdayCount > 0
-        ? `${blankWeekdayCount} working-day cell${blankWeekdayCount === 1 ? " is" : "s are"} blank`
-        : "Every working day has hours or a status";
+  // On blur: normalize the cell, then autosave it if it changed from the persisted
+  // value. Invalid values are not saved (the red ring prompts a fix).
+  function handleBlur(assignmentId: string, date: string) {
+    const key = cellKey(assignmentId, date);
+    const raw = text[key] ?? "";
+    const normalized = normalizeCellText(raw);
+    if (normalized !== raw) {
+      setText((prev) => ({ ...prev, [key]: normalized }));
+    }
+    const prevSaved = savedText[key] ?? "";
+    if (normalized === prevSaved) return;
+    const p = parseCellText(normalized);
+    if (p.kind === "invalid") return;
+    if (p.kind === "blank") {
+      if (prevSaved === "") return; // nothing to clear
+      persist([{ assignmentId, date, clear: true }], { [key]: "" });
+      return;
+    }
+    const cell: PersistCell =
+      p.kind === "status"
+        ? { assignmentId, date, hours: null, status: p.status }
+        : { assignmentId, date, hours: p.hours, status: null };
+    persist([cell], { [key]: normalized });
+  }
+
+  const saveStatus = saveError ? (
+    <span className="text-danger">{saveError}</span>
+  ) : savingCount > 0 ? (
+    <span className="text-fg-muted">Saving…</span>
+  ) : dirtyCount > 0 ? (
+    <span className="text-fg-muted">{dirtyCount} unsaved</span>
+  ) : (
+    <span className="text-success">All changes saved</span>
+  );
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="text-xs text-fg-subtle">
-          Scroll right to see all days · {assignments.length} technician
-          {assignments.length === 1 ? "" : "s"} · {days.length} days · dimmed cells are
-          unsaved defaults
+          Autosaves as you type · {assignments.length} technician
+          {assignments.length === 1 ? "" : "s"} · {days.length} days
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saveDisabled}
-          title={saveHint}
-          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save month"}
-        </button>
+        <div className="text-xs font-medium">{saveStatus}</div>
       </div>
 
       {softDeleteEnabled && (
@@ -505,7 +534,7 @@ export function TimesheetGrid({
           {invalidCellCount} cell{invalidCellCount === 1 ? "" : "s"} have invalid
           values. Use a number 0–24 or one of <code>PH</code>, <code>AB</code>,{" "}
           <code>NA</code>, <code>PTO</code>, <code>HALF_DAY</code>. Bad cells are
-          outlined in red below.
+          outlined in red below and are not saved until fixed.
         </div>
       )}
 
@@ -515,7 +544,7 @@ export function TimesheetGrid({
           {blankWeekdayCount === 1 ? " is" : "s are"} blank. Enter hours (0–24) or
           a status — <code>PH</code> (holiday), <code>AB</code> (absent),{" "}
           <code>NA</code> (terminated), <code>PTO</code>, <code>HALF_DAY</code>{" "}
-          (0.5 day) — for every working day. Blank days are outlined in amber below.
+          (0.5 day). Blank days are outlined in amber below.
         </div>
       )}
 
@@ -526,15 +555,9 @@ export function TimesheetGrid({
               <th className="sticky left-0 z-10 min-w-[180px] border-b border-r border-border bg-surface-2 px-3 py-2 text-left">
                 Technician
               </th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">
-                Days
-              </th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">
-                OT
-              </th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">
-                Weekend
-              </th>
+              <th className="border-b border-r border-border px-2 py-2 text-right">Days</th>
+              <th className="border-b border-r border-border px-2 py-2 text-right">OT</th>
+              <th className="border-b border-r border-border px-2 py-2 text-right">Weekend</th>
               {days.map((d) => (
                 <th
                   key={d}
@@ -548,9 +571,7 @@ export function TimesheetGrid({
                       timeZone: "UTC",
                     })}
                   </div>
-                  <div className="tabular-nums">
-                    {Number(d.slice(8))}
-                  </div>
+                  <div className="tabular-nums">{Number(d.slice(8))}</div>
                 </th>
               ))}
             </tr>
@@ -559,7 +580,8 @@ export function TimesheetGrid({
             {assignments.map((a, idx) => {
               const summary = summaries[idx];
               const savedCount = days.reduce(
-                (n, d) => (savedKeys.has(cellKey(a.assignmentId, d)) ? n + 1 : n),
+                (n, d) =>
+                  (savedText[cellKey(a.assignmentId, d)] ?? "") !== "" ? n + 1 : n,
                 0,
               );
               return (
@@ -648,12 +670,11 @@ export function TimesheetGrid({
                     const isStatus = parse.kind === "status";
                     const isInvalid = parse.kind === "invalid";
                     const isBlankWeekday = blankWeekdayKeys.has(key);
-                    // A numeric cell that is only the default pre-fill (not saved
-                    // server-side, not typed this session) renders dimmed.
+                    const isUnsaved =
+                      parse.kind !== "invalid" &&
+                      normalizeCellText(value) !== (savedText[key] ?? "");
                     const isProvisional =
-                      parse.kind === "value" &&
-                      !savedKeys.has(key) &&
-                      !editedKeys.has(key);
+                      (parse.kind === "value" || parse.kind === "status") && isUnsaved;
                     const canDeleteCell =
                       softDeleteEnabled &&
                       (parse.kind === "value" || parse.kind === "status");
@@ -686,7 +707,7 @@ export function TimesheetGrid({
                               : isBlankWeekday
                                 ? "rounded-sm ring-1 ring-warning"
                                 : isStatus
-                                  ? "font-semibold text-accent"
+                                  ? `font-semibold text-accent${isProvisional ? " opacity-60" : ""}`
                                   : isProvisional
                                     ? "tabular-nums text-fg-subtle/60"
                                     : "tabular-nums text-fg")

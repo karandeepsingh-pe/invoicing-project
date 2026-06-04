@@ -27,3 +27,16 @@ export const accountRateUpdateAmountSchema = z.object({
   id: z.string().min(1),
   rateAmount: optionalDecimal,
 });
+
+// Upsert a single rate cell by its natural key (account, sub-category, band, SLA).
+// Used by the rate matrix's per-cell autosave: a value creates-or-updates the
+// row; a blank amount sets it to null (the cell is cleared but the row is kept).
+export const accountRateSetSchema = z.object({
+  clientAccountId: z.string().min(1),
+  rateSubCategoryId: z.string().min(1),
+  band: z.coerce.number().int().min(0).max(4),
+  slaId: z.string().min(1),
+  rateAmount: optionalDecimal,
+});
+
+export type AccountRateSetInput = z.infer<typeof accountRateSetSchema>;

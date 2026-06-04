@@ -2,12 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { monthEntryCounts, partitionMonthAssignments } from "@/lib/domain/timesheet-month";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
-import { TimesheetGrid, type GridAssignment, type GridCell } from "./timesheet-grid";
-import { DeleteMonthButton } from "./delete-month-button";
-import { DeletedRowsSection } from "./deleted-rows-section";
+import { TimesheetCategorySection } from "./category-section";
+import { DispatchCategorySection } from "./dispatch-section";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
+
+type View = "all" | "dedicated" | "project" | "scheduled";
+const DAY_CATEGORY = {
+  dedicated: "DEDICATED",
+  project: "PROJECT_TM",
+  scheduled: "SCHEDULED",
+} as const;
 
 function fmtIso(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -27,19 +32,16 @@ export default async function TimesheetPage({
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();
   const month = sp.month ? Number(sp.month) : now.getUTCMonth() + 1;
 
-  // Dedicated, Project/T&M, and Scheduled are separate tabs that share this one
-  // day-grid page (same TimesheetEntry model + category-agnostic save). Dispatch
-  // is tracker-driven and lives on its own page. ?type switches which.
-  const type =
-    sp.type === "project" ? "project" : sp.type === "scheduled" ? "scheduled" : "dedicated";
-  const rateCategory =
-    type === "project" ? "PROJECT_TM" : type === "scheduled" ? "SCHEDULED" : "DEDICATED";
-  const typeLabel =
-    type === "project"
-      ? "Project / T&M"
-      : type === "scheduled"
-        ? "Scheduled Visit"
-        : "Dedicated FTE";
+  // No ?type -> the combined "All categories" view (load every category for the
+  // month at once). The single-category tabs stay for focused editing.
+  const view: View =
+    sp.type === "project"
+      ? "project"
+      : sp.type === "scheduled"
+        ? "scheduled"
+        : sp.type === "dedicated"
+          ? "dedicated"
+          : "all";
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -50,80 +52,12 @@ export default async function TimesheetPage({
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const assignments = await prisma.assignment.findMany({
-    where: {
-      clientAccountId: accountId,
-      rateCategory,
-      startDate: { lt: range.end },
-      OR: [{ endDate: null }, { endDate: { gte: range.start } }],
-    },
-    include: { technician: { include: { postalCode: true } } },
-    orderBy: [
-      { technician: { lastName: "asc" } },
-      { technician: { firstName: "asc" } },
-    ],
-  });
-
-  // Gazetted holidays falling in this month (global list). On a Dedicated grid
-  // these auto-prefill as PH (overridable); a PH day bills as a paid day.
+  // Gazetted holidays for the month (global list); same for every category.
   const holidays = await prisma.holiday.findMany({
     where: { date: { gte: range.start, lt: range.end } },
     orderBy: { date: "asc" },
   });
   const holidayDates = holidays.map((h) => fmtIso(h.date));
-  const prefillHolidaysAsPh = rateCategory === "DEDICATED";
-
-  // All of this month's entries (live + soft-deleted), classified via the pure
-  // timesheet-month helpers. Querying the whole month at once keeps the
-  // active/deleted split testable and inherently month-scoped, so another
-  // month's deletions can never leak in.
-  const monthEntries = await prisma.timesheetEntry.findMany({
-    where: {
-      assignmentId: { in: assignments.map((a) => a.id) },
-      date: { gte: range.start, lt: range.end },
-    },
-    select: { assignmentId: true, date: true, hours: true, status: true, deletedAt: true },
-  });
-
-  const counts = monthEntryCounts(monthEntries, range);
-  const partition = partitionMonthAssignments(assignments.map((a) => a.id), counts);
-  const activeAssignments = assignments.filter((a) => partition.activeIds.has(a.id));
-  const deletedRows = assignments
-    .filter((a) => partition.deletedIds.has(a.id))
-    .map((a) => ({
-      assignmentId: a.id,
-      technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
-      band: a.technician.band,
-      deletedDays: partition.deletedCountById.get(a.id) ?? 0,
-    }));
-
-  // Grid cells come from the LIVE entries only.
-  const cellsByAssignmentDate = new Map<string, GridCell>();
-  for (const e of monthEntries) {
-    if (e.deletedAt !== null) continue;
-    const key = `${e.assignmentId}|${fmtIso(e.date)}`;
-    cellsByAssignmentDate.set(key, {
-      hours: e.status ? null : Number(e.hours.toString()),
-      status: e.status,
-    });
-  }
-
-  const gridAssignments: GridAssignment[] = activeAssignments.map((a) => ({
-    assignmentId: a.id,
-    technicianName: `${a.technician.firstName} ${a.technician.lastName}`,
-    category:
-      a.rateCategory === "PROJECT_TM"
-        ? "PROJECT_TM"
-        : a.rateCategory === "SCHEDULED"
-          ? "SCHEDULED"
-          : "DEDICATED",
-    contactNo: a.technician.phone ?? undefined,
-    location: a.technician.postalCode
-      ? `${a.technician.postalCode.city}, ${a.technician.postalCode.state}`
-      : "—",
-    band: a.technician.band,
-    slaTier: a.slaTier,
-  }));
 
   const days: string[] = [];
   for (
@@ -139,6 +73,25 @@ export default async function TimesheetPage({
     timeZone: "UTC",
   });
 
+  const activeTab =
+    view === "all"
+      ? "ALL"
+      : view === "project"
+        ? "PROJECT_TM"
+        : view === "scheduled"
+          ? "SCHEDULED"
+          : "DEDICATED";
+
+  const sectionProps = {
+    accountId,
+    year,
+    month,
+    defaultHours: account.defaultHours,
+    softDeleteEnabled: env.SOFT_DELETE_ENABLED,
+    holidayDates,
+    days,
+  } as const;
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       <header className="flex flex-col gap-1.5">
@@ -149,17 +102,23 @@ export default async function TimesheetPage({
           ← Timesheets
         </Link>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-          {typeLabel} timesheet
+          {view === "all" ? "All categories" : "Timesheet"}
         </span>
         <h1 className="text-3xl font-semibold tracking-tighter2">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
           Default Hours = {account.defaultHours}. Period {fmtIso(range.start)} →{" "}
-          {fmtIso(lastDay)}.
+          {fmtIso(lastDay)}. Cells autosave as you type.
         </p>
 
-        <TimesheetTypeTabs accountId={accountId} year={year} month={month} active={rateCategory} />
+        <TimesheetTypeTabs
+          accountId={accountId}
+          year={year}
+          month={month}
+          active={activeTab}
+          variant={view === "all" ? "scroll" : "navigate"}
+        />
 
         <details className="glass-soft rounded-md p-3 text-xs text-fg-muted">
           <summary className="cursor-pointer font-semibold text-fg">
@@ -186,78 +145,80 @@ export default async function TimesheetPage({
             <li>
               <strong><code>NA</code></strong> — Not Applicable / Terminated.
             </li>
+            <li>
+              <strong>Dedicated</strong> weekdays pre-fill Default Hours and save
+              automatically; <strong>Project</strong> and <strong>Scheduled</strong>{" "}
+              start blank (enter only the days worked).
+            </li>
           </ul>
         </details>
       </header>
 
-      <MonthPicker accountId={accountId} year={year} month={month} type={type} />
+      <TimesheetActionBar
+        accountId={accountId}
+        year={year}
+        month={month}
+        view={view}
+      />
 
       {holidays.length > 0 && (
         <div className="glass-soft rounded-md px-3 py-2 text-xs text-fg-muted">
           <span className="font-semibold text-fg">Holidays this month:</span>{" "}
           {holidays.map((h) => `${fmtIso(h.date)} ${h.name}`).join(" · ")}
-          {prefillHolidaysAsPh
-            ? " — pre-filled as PH (paid) for every technician; type hours over a cell if someone works that day."
-            : ""}
+          {" — pre-filled as PH (paid) on Dedicated; type hours over a cell if someone works that day."}
         </div>
       )}
 
-      {env.SOFT_DELETE_ENABLED && gridAssignments.length > 0 && (
-        <div className="flex justify-end">
-          <DeleteMonthButton
+      {view === "all" ? (
+        <div className="flex flex-col gap-10">
+          <TimesheetCategorySection
+            {...sectionProps}
+            rateCategory="DEDICATED"
+            headingId="sec-dedicated"
+            stickyHeading={false}
+          />
+          <TimesheetCategorySection
+            {...sectionProps}
+            rateCategory="PROJECT_TM"
+            headingId="sec-project"
+            stickyHeading={false}
+          />
+          <TimesheetCategorySection
+            {...sectionProps}
+            rateCategory="SCHEDULED"
+            headingId="sec-scheduled"
+            stickyHeading={false}
+          />
+          <DispatchCategorySection
             accountId={accountId}
-            rateCategories={[rateCategory]}
             year={year}
             month={month}
-            label={typeLabel}
+            softDeleteEnabled={env.SOFT_DELETE_ENABLED}
+            headingId="sec-dispatch"
+            stickyHeading={false}
           />
         </div>
-      )}
-
-      {gridAssignments.length === 0 && deletedRows.length === 0 ? (
-        <div className="glass rounded-lg p-6 text-sm text-fg-muted">
-          No {typeLabel} assignments overlap this month. Add a {typeLabel} assignment
-          to a technician under this account, then return here.
-        </div>
       ) : (
-        <>
-          {gridAssignments.length > 0 && (
-            <TimesheetGrid
-              accountId={accountId}
-              year={year}
-              month={month}
-              defaultHours={account.defaultHours}
-              assignments={gridAssignments}
-              days={days}
-              initialCells={Object.fromEntries(cellsByAssignmentDate)}
-              softDeleteEnabled={env.SOFT_DELETE_ENABLED}
-              holidayDates={holidayDates}
-              prefillHolidaysAsPh={prefillHolidaysAsPh}
-            />
-          )}
-          {env.SOFT_DELETE_ENABLED && deletedRows.length > 0 && (
-            <DeletedRowsSection
-              year={year}
-              month={month}
-              rows={deletedRows}
-            />
-          )}
-        </>
+        <TimesheetCategorySection
+          {...sectionProps}
+          rateCategory={DAY_CATEGORY[view]}
+          showEditLink={false}
+        />
       )}
     </div>
   );
 }
 
-function MonthPicker({
+function TimesheetActionBar({
   accountId,
   year,
   month,
-  type,
+  view,
 }: {
   accountId: string;
   year: number;
   month: number;
-  type: "dedicated" | "project" | "scheduled";
+  view: View;
 }) {
   const months = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -265,62 +226,58 @@ function MonthPicker({
   ];
   const years = [year - 1, year, year + 1];
   const qs = `year=${year}&month=${month}`;
-  const isDedicated = type === "dedicated";
+  const linkCls =
+    "rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2";
+
   return (
-    <form className="flex flex-wrap items-center gap-3 text-sm" method="get">
-      {type !== "dedicated" && <input type="hidden" name="type" value={type} />}
-      <label className="flex items-center gap-2">
-        <span className="text-fg-muted">Month</span>
-        <select name="month" defaultValue={String(month)} className="glass-input rounded-md px-2 py-1">
-          {months.map((m, i) => (
-            <option key={m} value={i + 1}>{m}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-2">
-        <span className="text-fg-muted">Year</span>
-        <select name="year" defaultValue={String(year)} className="glass-input rounded-md px-2 py-1">
-          {years.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="submit"
-        className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover"
-      >
-        Load
-      </button>
-      {isDedicated && (
-        <Link
-          href={`/admin/timesheets/${accountId}/coverage?${qs}`}
-          className="ml-auto rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+    <div className="flex flex-col gap-3">
+      <form className="flex flex-wrap items-center gap-3 text-sm" method="get">
+        {view !== "all" && <input type="hidden" name="type" value={view} />}
+        <label className="flex items-center gap-2">
+          <span className="text-fg-muted">Month</span>
+          <select name="month" defaultValue={String(month)} className="glass-input rounded-md px-2 py-1">
+            {months.map((m, i) => (
+              <option key={m} value={i + 1}>{m}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="text-fg-muted">Year</span>
+          <select name="year" defaultValue={String(year)} className="glass-input rounded-md px-2 py-1">
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover"
         >
-          Backfill log →
-        </Link>
-      )}
-      {type === "dedicated" && (
+          Load
+        </button>
+
+        {view === "dedicated" && (
+          <>
+            <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`ml-auto ${linkCls}`}>
+              Backfill log →
+            </Link>
+            <Link href={`/admin/invoices/generate/${accountId}?${qs}`} className={linkCls}>
+              Generate FTE →
+            </Link>
+          </>
+        )}
+        {view === "project" && (
+          <Link href={`/admin/invoices/generate/${accountId}/project?${qs}`} className={`ml-auto ${linkCls}`}>
+            Generate Project →
+          </Link>
+        )}
         <Link
-          href={`/admin/invoices/generate/${accountId}?${qs}`}
-          className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+          href={`/admin/invoices/generate/${accountId}/combined?${qs}`}
+          className={`${view === "all" || view === "scheduled" ? "ml-auto " : ""}${linkCls}`}
         >
-          Generate FTE →
+          Generate combined →
         </Link>
-      )}
-      {type === "project" && (
-        <Link
-          href={`/admin/invoices/generate/${accountId}/project?${qs}`}
-          className="ml-auto rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
-        >
-          Generate Project →
-        </Link>
-      )}
-      <Link
-        href={`/admin/invoices/generate/${accountId}/combined?${qs}`}
-        className={`rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 ${type === "scheduled" ? "ml-auto" : ""}`}
-      >
-        Generate combined →
-      </Link>
-    </form>
+      </form>
+    </div>
   );
 }

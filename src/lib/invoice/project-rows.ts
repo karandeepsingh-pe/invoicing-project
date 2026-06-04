@@ -58,6 +58,7 @@ export async function loadProjectRows(
     const entries: ProjectTimesheetCell[] = a.timesheetEntries.map((e) => ({
       hours: e.hours,
       status: e.status,
+      date: e.date,
     }));
     const calc = calculateProjectRow({
       defaultHours: account.defaultHours,

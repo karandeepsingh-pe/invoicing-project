@@ -31,6 +31,9 @@ export type TechEditFormProps = {
   isAvailableForDispatch: boolean;
   isRebadged: boolean;
   annualSalary: string | null;
+  rebadgedHourlyRate: string | null;
+  rebadgedDayRate: string | null;
+  rebadgedMonthlyRate: string | null;
   rebadgedOtRate: string | null;
   rebadgedWeekendRate: string | null;
   employerOrgId: string;
@@ -203,6 +206,9 @@ export function TechnicianEditForm(props: TechEditFormProps) {
         defaults={{
           isRebadged: props.isRebadged,
           annualSalary: props.annualSalary,
+          rebadgedHourlyRate: props.rebadgedHourlyRate,
+          rebadgedDayRate: props.rebadgedDayRate,
+          rebadgedMonthlyRate: props.rebadgedMonthlyRate,
           rebadgedOtRate: props.rebadgedOtRate,
           rebadgedWeekendRate: props.rebadgedWeekendRate,
         }}

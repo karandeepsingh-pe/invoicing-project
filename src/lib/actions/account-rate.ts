@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import {
   accountRateCreateSchema,
+  accountRateSetSchema,
   accountRateUpdateAmountSchema,
 } from "@/lib/schemas/account-rate";
 import type { ActionResult } from "./result";
@@ -84,6 +85,63 @@ export async function updateAccountRateAmount(
   });
   revalidatePath(`/admin/accounts/${row.clientAccountId}`);
   return { ok: true };
+}
+
+/**
+ * Upsert one rate cell by its natural key (account, sub-category, band, SLA) at
+ * the fixed always-active window. Powers the rate matrix's per-cell autosave: a
+ * value creates-or-updates the row; a blank amount stores null. No P2002 path —
+ * the upsert resolves the unique-key conflict by updating in place.
+ */
+export async function setAccountRate(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const parsed = accountRateSetSchema.safeParse({
+    clientAccountId: formData.get("clientAccountId"),
+    rateSubCategoryId: formData.get("rateSubCategoryId"),
+    band: formData.get("band"),
+    slaId: formData.get("slaId"),
+    rateAmount: formData.get("rateAmount") || undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+  const { clientAccountId, rateSubCategoryId, band, slaId } = parsed.data;
+  const rateAmount = parsed.data.rateAmount ?? null;
+
+  try {
+    await prisma.accountRate.upsert({
+      where: {
+        clientAccountId_rateSubCategoryId_band_slaId_effectiveFrom: {
+          clientAccountId,
+          rateSubCategoryId,
+          band,
+          slaId,
+          effectiveFrom: ALWAYS_ACTIVE_FROM,
+        },
+      },
+      update: { rateAmount },
+      create: {
+        clientAccountId,
+        rateSubCategoryId,
+        band,
+        slaId,
+        rateAmount,
+        effectiveFrom: ALWAYS_ACTIVE_FROM,
+        effectiveTo: null,
+      },
+    });
+    revalidatePath(`/admin/accounts/${clientAccountId}`);
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      return { ok: false, formError: `Database error: ${err.code}` };
+    }
+    throw err;
+  }
 }
 
 export async function deleteAccountRate(

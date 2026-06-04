@@ -31,7 +31,7 @@ export function BulkUploadDialog() {
     <Dialog
       trigger={
         <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3.5 py-2 text-sm font-medium text-fg-muted shadow-sm transition-colors hover:bg-surface-2 hover:text-fg">
-          Bulk upload (.xlsx)
+          Upload accounts (.xlsx)
         </span>
       }
       title="Bulk upload accounts"

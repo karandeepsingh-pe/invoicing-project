@@ -40,6 +40,9 @@ const optionalDecimal = z.coerce.number().nonnegative().max(99_999_999).optional
 const rebadgedFields = {
   isRebadged: z.coerce.boolean().optional().default(false),
   annualSalary: optionalDecimal,
+  rebadgedHourlyRate: optionalDecimal,
+  rebadgedDayRate: optionalDecimal,
+  rebadgedMonthlyRate: optionalDecimal,
   rebadgedOtRate: optionalDecimal,
   rebadgedWeekendRate: optionalDecimal,
 };
@@ -67,7 +70,18 @@ export const technicianCreateSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
     .optional(),
-});
+  initialEndDate: z
+    .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"), z.literal("").transform(() => undefined)])
+    .optional(),
+}).refine(
+  // A non-Dedicated initial assignment is a bounded engagement and needs an end date.
+  (v) => {
+    if (!v.initialAccountId) return true;
+    const cat = v.initialCategory ?? v.primaryCategory;
+    return cat === RateCategory.DEDICATED || Boolean(v.initialEndDate);
+  },
+  { path: ["initialEndDate"], message: "End date is required for a non-Dedicated initial assignment." },
+);
 
 export type TechnicianCreateInput = z.infer<typeof technicianCreateSchema>;
 

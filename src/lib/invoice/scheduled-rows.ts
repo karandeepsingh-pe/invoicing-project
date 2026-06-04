@@ -59,6 +59,7 @@ export async function loadScheduledRows(
     const entries: ScheduledTimesheetCell[] = a.timesheetEntries.map((e) => ({
       hours: e.hours,
       status: e.status,
+      date: e.date,
     }));
     const calc = calculateScheduledRow({
       defaultHours: account.defaultHours,
@@ -72,6 +73,12 @@ export async function loadScheduledRows(
     const location = a.technician.postalCode
       ? `${a.technician.postalCode.city}, ${a.technician.postalCode.state}`
       : "—";
+
+    const totalHalf = calc.halfDays + calc.weekendHalfDays;
+    const weekendDays = calc.weekendFullDays + calc.weekendHalfDays;
+    const remarkBits: string[] = [];
+    if (totalHalf > 0) remarkBits.push(`${calc.fullDays + calc.weekendFullDays} full + ${totalHalf} half day(s)`);
+    if (weekendDays > 0) remarkBits.push(`${weekendDays} weekend day(s) @ weekend rate`);
 
     rows.push({
       location,
@@ -87,13 +94,10 @@ export async function loadScheduledRows(
       weekendHours: 0,
       weekendRate: 0,
       extendedTotal: Number(calc.extendedTotal.toFixed(2)),
-      // With half-days the Extended is full×fullRate + half×halfRate, which the
-      // dayRate×daysWorked formula cannot reconstruct.
-      literalExtended: calc.halfDays > 0,
-      remarks:
-        calc.halfDays > 0
-          ? `${calc.fullDays} full + ${calc.halfDays} half day(s)`
-          : undefined,
+      // With half-days or weekend-rate days the Extended is a sum of distinct
+      // per-day rates, which dayRate×daysWorked cannot reconstruct.
+      literalExtended: totalHalf > 0 || weekendDays > 0,
+      remarks: remarkBits.length > 0 ? remarkBits.join(" · ") : undefined,
     });
   }
   return rows;

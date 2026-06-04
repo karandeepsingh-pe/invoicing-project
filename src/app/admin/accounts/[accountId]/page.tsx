@@ -4,6 +4,7 @@ import { MiscFeeKind, RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AccountRateCreateDialog, MiscFeeCreateDialog } from "./create-dialogs";
 import { AccountRateRowActions } from "./rate-row-actions";
+import { RateMatrix } from "./rate-matrix";
 import { MiscFeeDeleteButton } from "./misc-fee-row-actions";
 import { AccountAssignmentCreateDialog } from "./create-assignment-dialog";
 import type { TechOption } from "./create-assignment-form";
@@ -123,6 +124,29 @@ export default async function AccountDetailPage({
   }));
   const slaOptions = slas.map((s) => ({ id: s.id, code: s.code, label: s.label }));
 
+  // Matrix inputs: subcategories grouped by category (ordered by sortOrder) and
+  // existing rates flattened to natural-key cells.
+  const matrixSubCatsByCategory = new Map<
+    RateCategory,
+    { id: string; code: string; label: string; isOvertimeVariant: boolean }[]
+  >();
+  for (const c of categoryOrder) matrixSubCatsByCategory.set(c, []);
+  for (const s of subCategories) {
+    matrixSubCatsByCategory.get(s.rateCategory)?.push({
+      id: s.id,
+      code: s.code,
+      label: s.label,
+      isOvertimeVariant: s.isOvertimeVariant,
+    });
+  }
+  const matrixRatesFor = (cat: RateCategory) =>
+    (ratesByCategory.get(cat) ?? []).map((r) => ({
+      rateSubCategoryId: r.rateSubCategoryId,
+      band: r.band,
+      slaId: r.slaId,
+      rateAmount: r.rateAmount?.toString() ?? null,
+    }));
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
@@ -154,10 +178,22 @@ export default async function AccountDetailPage({
             >
               <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold tracking-tight">
                 <span>{categoryLabel[cat]}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-normal text-fg-subtle">
-                    {rows.length} row{rows.length === 1 ? "" : "s"}
-                  </span>
+                <span className="text-xs font-normal text-fg-subtle">
+                  {rows.length} row{rows.length === 1 ? "" : "s"} stored
+                </span>
+              </div>
+              <RateMatrix
+                clientAccountId={account.id}
+                category={cat}
+                subCategories={matrixSubCatsByCategory.get(cat)!}
+                slas={slaOptions}
+                rates={matrixRatesFor(cat)}
+              />
+              <details className="border-t border-border">
+                <summary className="cursor-pointer px-4 py-2 text-xs font-medium text-fg-muted hover:text-fg">
+                  Advanced: individual rate rows (add / delete)
+                </summary>
+                <div className="flex justify-end px-4 py-2">
                   <AccountRateCreateDialog
                     clientAccountId={account.id}
                     subCategories={rateSubCatOptions}
@@ -165,41 +201,41 @@ export default async function AccountDetailPage({
                     lockedCategory={cat}
                   />
                 </div>
-              </div>
-              <table className="w-full text-sm">
-                <thead className="text-xs uppercase tracking-wider text-fg-subtle">
-                  <tr className="border-b border-border">
-                    <th className="px-4 py-2 text-left font-medium">Sub-category</th>
-                    <th className="px-4 py-2 text-left font-medium">Band</th>
-                    <th className="px-4 py-2 text-left font-medium">SLA</th>
-                    <th className="px-4 py-2 text-right font-medium">Rate</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
-                    >
-                      <td className="px-4 py-2.5">{r.rateSubCategory.label}</td>
-                      <td className="px-4 py-2.5 text-fg-muted">Band {r.band}</td>
-                      <td className="px-4 py-2.5 text-fg-muted">{r.sla.code}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{fmtMoney(r.rateAmount, currency)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <AccountRateRowActions id={r.id} currentAmount={r.rateAmount?.toString() ?? ""} />
-                      </td>
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase tracking-wider text-fg-subtle">
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-2 text-left font-medium">Sub-category</th>
+                      <th className="px-4 py-2 text-left font-medium">Band</th>
+                      <th className="px-4 py-2 text-left font-medium">SLA</th>
+                      <th className="px-4 py-2 text-right font-medium">Rate</th>
+                      <th className="px-4 py-2"></th>
                     </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-3 text-sm text-fg-subtle">
-                        No rate rows yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
+                      >
+                        <td className="px-4 py-2.5">{r.rateSubCategory.label}</td>
+                        <td className="px-4 py-2.5 text-fg-muted">Band {r.band}</td>
+                        <td className="px-4 py-2.5 text-fg-muted">{r.sla.code}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{fmtMoney(r.rateAmount, currency)}</td>
+                        <td className="px-4 py-2.5 text-right">
+                          <AccountRateRowActions id={r.id} currentAmount={r.rateAmount?.toString() ?? ""} />
+                        </td>
+                      </tr>
+                    ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 text-sm text-fg-subtle">
+                          No rate rows yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </details>
             </div>
           );
         })}

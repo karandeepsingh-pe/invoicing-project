@@ -13,7 +13,7 @@ import {
   type CoverageContext,
   type CoverageEventInput,
 } from "./coverage";
-import { dedicatedDayRate, pickBandAnnual } from "./billing-basis";
+import { pickBandAnnual, resolveDedicatedDayRate, resolveRebadgedDayRate } from "./billing-basis";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 function slaTierLabel(tier: "BACKFILL" | "NO_BACKFILL" | "NONE"): string {
@@ -107,22 +107,48 @@ export async function loadFteRows(
           r.rateSubCategory.code === "ANNUAL_BACKFILL") &&
         r.sla.code === a.slaTier,
     );
+    // Newer explicit basis rows: a direct per-day DAY_RATE or a MONTHLY rate.
+    const dayRow = techRates.find(
+      (r) => r.rateSubCategory.code === "DAY_RATE" && r.sla.code === a.slaTier,
+    );
+    const monthlyRow = techRates.find(
+      (r) => r.rateSubCategory.code === "MONTHLY" && r.sla.code === a.slaTier,
+    );
 
     // Per-tech annual overrides the band salary (within-band exceptions + rebadged
-    // techs); otherwise the band rate applies.
+    // techs); otherwise the band rate applies. Basis priority (see
+    // resolveDedicatedDayRate): per-tech salary > DAY_RATE > ANNUAL_RATE/legacy > MONTHLY.
     const perTechAnnual = Number(a.technician.annualSalary ?? 0);
     const bandAnnual = pickBandAnnual(
       Number(annualRow?.rateAmount?.toString() ?? 0),
       Number(hourlyRow?.rateAmount?.toString() ?? 0),
     );
-    const annual = perTechAnnual > 0 ? perTechAnnual : bandAnnual;
-    const dayRate = new Prisma.Decimal(dedicatedDayRate(annual, businessDays));
+    const dayRate = new Prisma.Decimal(
+      resolveDedicatedDayRate({
+        perTechAnnual,
+        explicitDayRate: Number(dayRow?.rateAmount?.toString() ?? 0),
+        bandAnnual,
+        monthly: Number(monthlyRow?.rateAmount?.toString() ?? 0),
+        businessDays,
+      }),
+    );
 
-    // OT / weekend: rebadged techs use their own manual hourly rates; everyone
-    // else uses the band rate sheet.
+    // Rebadged techs bill entirely off their OWN per-tech rates (day rate from the
+    // rebadged Day / Monthly / Annual / Hourly fields, in that priority; OT / weekend
+    // from the manual rebadged hourly rates). The account band rate sheet is ignored.
     if (a.technician.isRebadged) {
+      const rebadgedDay = new Prisma.Decimal(
+        resolveRebadgedDayRate({
+          dayRate: Number(a.technician.rebadgedDayRate?.toString() ?? 0),
+          monthlyRate: Number(a.technician.rebadgedMonthlyRate?.toString() ?? 0),
+          annual: Number(a.technician.annualSalary ?? 0),
+          hourlyRate: Number(a.technician.rebadgedHourlyRate?.toString() ?? 0),
+          defaultHours,
+          businessDays,
+        }),
+      );
       return {
-        dayRate,
+        dayRate: rebadgedDay,
         ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
         weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
       };

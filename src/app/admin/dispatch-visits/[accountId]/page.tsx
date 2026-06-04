@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
+import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { DispatchVisitsView } from "./visits-view";
 import { DeleteMonthButton } from "../../timesheets/[accountId]/delete-month-button";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
@@ -32,11 +33,34 @@ export default async function DispatchVisitsPage({
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
-    include: { org: true },
+    include: { org: true, accountRates: { include: { rateSubCategory: true, sla: true } } },
   });
   if (!account) notFound();
 
   const range = monthRange(year, month);
+
+  // Price every visit through the SAME path the dispatch pre-invoice uses, so the
+  // tracker shows exactly what will be billed (rate sheet driven, per the visit's
+  // SLA + hours + after-hours/weekend flags).
+  const pricedRows = await loadDispatchTrackerRows(
+    accountId,
+    range,
+    dispatchRateRows(account.accountRates),
+    account.dispatchPricingModel,
+  );
+  const billingByVisitId: Record<
+    string,
+    { billed: number; totalHrs: number; additionalHours: number; firstHourRate: number; additionalHourRate: number }
+  > = {};
+  for (const r of pricedRows) {
+    billingByVisitId[r.visitId] = {
+      billed: r.billed,
+      totalHrs: r.totalHrs,
+      additionalHours: r.additionalHours,
+      firstHourRate: r.firstHourRate,
+      additionalHourRate: r.additionalHourRate,
+    };
+  }
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -132,6 +156,8 @@ export default async function DispatchVisitsPage({
         accountId={accountId}
         year={year}
         month={month}
+        currency={account.currency ?? account.org.defaultCurrency}
+        billing={billingByVisitId}
         assignments={assignments.map((a) => ({
           id: a.id,
           name: `${a.technician.firstName} ${a.technician.lastName}`,

@@ -29,6 +29,16 @@ enum OutputTemplate {
   PRE_INVOICE
 }
 
+// Per-account dispatch pricing model. STANDARD is the original band + SLA model
+// (first hour + additional, full-day cap). TCS_PRIORITY keys the first-hour charge
+// on the visit's priority tier (P1..MACd), includes the first two hours, rounds
+// onsite hours to the nearest 0.5, and bills a cancellation fee. See
+// src/lib/invoice/dispatch-pricing-profiles.ts for the per-model knobs.
+enum DispatchPricingModel {
+  STANDARD
+  TCS_PRIORITY
+}
+
 // The top-level rate categories on every account's rate sheet.
 enum RateCategory {
   DEDICATED // formerly TechType.FTE
@@ -111,6 +121,9 @@ model ClientAccount {
   clientSpocEmail    String?
   projectDescription String?
   defaultHours       Int      @default(8)
+  // Which dispatch pricing model this account bills under (default keeps every
+  // existing account on the original band + SLA math).
+  dispatchPricingModel DispatchPricingModel @default(STANDARD)
   // Billing / site address shown on generated invoices and dispatch context.
   addressLine1       String?
   city               String?
@@ -251,12 +264,17 @@ model Technician {
   isAvailableForDedicated Boolean @default(false)
   isAvailableForProject   Boolean @default(false)
   isAvailableForDispatch  Boolean @default(false)
-  // Rebadged engagement: a Dedicated tech billed off their annual salary, not the
-  // account's band rate sheet. hourly = annualSalary / 2080; day rate = hourly ×
-  // account Default Hours. OT / weekend hourly rates are entered manually (no fixed
-  // model yet). When isRebadged, band is shown as "Rebadged" in the UI.
+  // Rebadged engagement: a Dedicated tech billed off their OWN per-tech rates, not
+  // the account's band rate sheet. Each rebadged rate type is optional and entered
+  // individually on the technician. The billed day rate prefers, in order:
+  // rebadgedDayRate > rebadgedMonthlyRate/businessDays > annualSalary/12/businessDays
+  // > rebadgedHourlyRate × Default Hours. OT / weekend hourly are manual.
+  // When isRebadged, band is shown as "Rebadged" in the UI.
   isRebadged          Boolean  @default(false)
   annualSalary        Decimal? @db.Decimal(12, 2)
+  rebadgedHourlyRate  Decimal? @db.Decimal(12, 4)
+  rebadgedDayRate     Decimal? @db.Decimal(12, 4)
+  rebadgedMonthlyRate Decimal? @db.Decimal(12, 4)
   rebadgedOtRate      Decimal? @db.Decimal(12, 4)
   rebadgedWeekendRate Decimal? @db.Decimal(12, 4)
   postalCodeId    String?

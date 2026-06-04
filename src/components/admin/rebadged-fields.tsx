@@ -7,6 +7,9 @@ import { monthlyFromAnnual } from "@/lib/invoice/billing-basis";
 export type RebadgedDefaults = {
   isRebadged?: boolean;
   annualSalary?: string | null;
+  rebadgedHourlyRate?: string | null;
+  rebadgedDayRate?: string | null;
+  rebadgedMonthlyRate?: string | null;
   rebadgedOtRate?: string | null;
   rebadgedWeekendRate?: string | null;
 };
@@ -73,43 +76,51 @@ export function RebadgedFields({
           onChange={(e) => setRebadged(e.target.checked)}
           className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent"
         />
-        <span className="font-medium text-fg">Rebadged — bill OT / weekend at custom rates</span>
+        <span className="font-medium text-fg">Rebadged — bill off this technician&apos;s own rates</span>
       </label>
 
       {rebadged && (
         <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-              OT rate / hr (manual)
-              <input
-                name="rebadgedOtRate"
-                type="number"
-                step="0.0001"
-                min="0"
-                defaultValue={defaults?.rebadgedOtRate ?? ""}
-                placeholder="optional"
-                className={inputCls}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-              Weekend rate / hr (manual)
-              <input
-                name="rebadgedWeekendRate"
-                type="number"
-                step="0.0001"
-                min="0"
-                defaultValue={defaults?.rebadgedWeekendRate ?? ""}
-                placeholder="optional"
-                className={inputCls}
-              />
-            </label>
+          <p className="text-xs font-medium text-fg">Rebadged rates (per technician)</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <RebadgedRate label="Hourly Rate" name="rebadgedHourlyRate" value={defaults?.rebadgedHourlyRate} />
+            <RebadgedRate label="Day Rate" name="rebadgedDayRate" value={defaults?.rebadgedDayRate} />
+            <RebadgedRate label="Monthly Rate" name="rebadgedMonthlyRate" value={defaults?.rebadgedMonthlyRate} />
+            <RebadgedRate label="OT Rate / hr" name="rebadgedOtRate" value={defaults?.rebadgedOtRate} />
+            <RebadgedRate label="Weekend Rate / hr" name="rebadgedWeekendRate" value={defaults?.rebadgedWeekendRate} />
           </div>
           <p className="text-xs text-fg-subtle">
-            Overrides the band OT / weekend hourly rates for this technician. The day rate still
-            uses the Annual rate above.
+            All optional. The billed day rate prefers the most specific set:{" "}
+            <span className="font-medium text-fg">Day → Monthly ÷ business days → Annual (above) ÷ 12 ÷ business days → Hourly × Default Hours</span>.
+            OT / Weekend are per-hour. Use the Annual field above for the salary basis.
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+function RebadgedRate({
+  label,
+  name,
+  value,
+}: {
+  label: string;
+  name: string;
+  value?: string | null;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
+      {label}
+      <input
+        name={name}
+        type="number"
+        step="0.0001"
+        min="0"
+        defaultValue={value ?? ""}
+        placeholder="optional"
+        className={inputCls}
+      />
+    </label>
   );
 }

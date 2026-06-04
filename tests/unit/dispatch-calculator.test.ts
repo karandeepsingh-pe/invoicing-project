@@ -119,3 +119,72 @@ describe("flat per-ticket pricing", () => {
     expect(result.charge).toBe(220);
   });
 });
+
+describe("calculateDispatchVisit explicit scenario rates (new per-SLA matrix)", () => {
+  const sla = "8X5X4";
+  // Explicit business / out-of-business / weekend first+additional rates. These
+  // already encode the scenario pricing, so NO multiplier is applied on top.
+  const scenarioRates: DispatchRateRow[] = [
+    { rateAmount: dec(90), band: 2, rateSubCategory: { code: "FIRST_HOUR" }, sla: { code: sla } },
+    { rateAmount: dec(65), band: 2, rateSubCategory: { code: "ADDITIONAL_HOUR" }, sla: { code: sla } },
+    { rateAmount: dec(120), band: 2, rateSubCategory: { code: "FIRST_HOUR_OOB" }, sla: { code: sla } },
+    { rateAmount: dec(80), band: 2, rateSubCategory: { code: "ADDITIONAL_HOUR_OOB" }, sla: { code: sla } },
+    { rateAmount: dec(150), band: 2, rateSubCategory: { code: "FIRST_HOUR_WEEKEND" }, sla: { code: sla } },
+    { rateAmount: dec(100), band: 2, rateSubCategory: { code: "ADDITIONAL_HOUR_WEEKEND" }, sla: { code: sla } },
+  ];
+  const v = (over: Partial<DispatchVisitInput>): DispatchVisitInput => ({
+    ...baseVisit,
+    slaCode: sla,
+    ...over,
+  });
+
+  it("business 3h uses FIRST_HOUR + ADDITIONAL_HOUR, no uplift: 90 + 2x65 = 220", () => {
+    expect(calculateDispatchVisit(v({ hoursOnSite: dec(3) }), scenarioRates).charge).toBe(220);
+  });
+
+  it("after-hours 3h uses explicit OOB rates, no multiplier: 120 + 2x80 = 280", () => {
+    const r = calculateDispatchVisit(v({ hoursOnSite: dec(3), afterHours: true }), scenarioRates);
+    expect(r.charge).toBe(280);
+    expect(r.modifiersApplied).toContain("out-of-business");
+  });
+
+  it("weekend 2h uses explicit weekend rates: 150 + 100 = 250", () => {
+    const r = calculateDispatchVisit(v({ hoursOnSite: dec(2), weekend: true }), scenarioRates);
+    expect(r.charge).toBe(250);
+    expect(r.modifiersApplied).toContain("weekend");
+  });
+
+  it("explicit OOB hourly is capped at FULL_DAY: 120 + 4x80 = 440 -> 300", () => {
+    const withCap = [
+      ...scenarioRates,
+      { rateAmount: dec(300), band: 2, rateSubCategory: { code: "FULL_DAY" }, sla: { code: sla } },
+    ];
+    const r = calculateDispatchVisit(v({ hoursOnSite: dec(5), afterHours: true }), withCap);
+    expect(r.charge).toBe(300);
+    expect(r.modifiersApplied).toContain("full-day cap");
+  });
+
+  it("PER_TICKET_OOB flat takes precedence over hourly OOB", () => {
+    const withFlat = [
+      ...scenarioRates,
+      { rateAmount: dec(500), band: 2, rateSubCategory: { code: "PER_TICKET_OOB" }, sla: { code: sla } },
+    ];
+    const r = calculateDispatchVisit(v({ hoursOnSite: dec(6), afterHours: true }), withFlat);
+    expect(r.charge).toBe(500);
+    expect(r.modifiersApplied).toContain("per-ticket");
+  });
+
+  it("PER_TICKET_BUSINESS flat for a business visit", () => {
+    const withFlat = [
+      ...scenarioRates,
+      { rateAmount: dec(350), band: 2, rateSubCategory: { code: "PER_TICKET_BUSINESS" }, sla: { code: sla } },
+    ];
+    expect(calculateDispatchVisit(v({ hoursOnSite: dec(4) }), withFlat).charge).toBe(350);
+  });
+
+  it("FALLBACK: with no explicit OOB rates, after-hours still uses the legacy x1.5 multiplier", () => {
+    // `rates` (NBD) has only business rates + multipliers -> legacy path unchanged.
+    const r = calculateDispatchVisit({ ...baseVisit, hoursOnSite: dec(3), afterHours: true }, rates);
+    expect(r.charge).toBe(330);
+  });
+});

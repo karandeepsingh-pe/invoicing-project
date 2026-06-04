@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@prisma/client";
+import { Prisma, type TimesheetDayStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
-import { saveTimesheetMonthSchema } from "@/lib/schemas/timesheet";
+import {
+  saveTimesheetMonthSchema,
+  saveTimesheetCellsSchema,
+} from "@/lib/schemas/timesheet";
 import { monthRange } from "@/lib/invoice/period";
 import { isWeekendUtc } from "@/lib/invoice/hours-split";
 import { notDeleted } from "@/lib/domain/soft-delete";
@@ -147,6 +150,114 @@ export async function saveTimesheetMonth(
     revalidatePath("/admin/timesheets");
     revalidatePath(`/admin/invoices/generate/${accountId}`);
     return { ok: true, message: "Timesheet saved." };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      return { ok: false, formError: `Database error: ${err.code}` };
+    }
+    throw err;
+  }
+}
+
+/**
+ * Incremental autosave of a set of individual cells. Each cell either upserts a
+ * value/status or (with `clear: true`) soft-deletes that one live entry. Unlike
+ * `saveTimesheetMonth`, this touches ONLY the submitted cells (no whole-month
+ * completeness gate, no mass soft-delete of unsubmitted cells) and does NOT
+ * revalidate the timesheet page, so the grid can autosave per cell without a
+ * heavy re-render. Used by the grid's per-cell / fill-range / default-commit saves.
+ */
+export async function saveTimesheetCells(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(String(formData.get("payload") ?? ""));
+  } catch {
+    return { ok: false, formError: "Invalid timesheet payload." };
+  }
+  const parsed = saveTimesheetCellsSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, formError: "Validation failed for one or more cells." };
+  }
+  const { accountId, cells } = parsed.data;
+
+  // Security: every assignment in the payload must belong to this account.
+  const assignmentIds = Array.from(new Set(cells.map((c) => c.assignmentId)));
+  const owned = await prisma.assignment.findMany({
+    where: { id: { in: assignmentIds }, clientAccountId: accountId },
+    select: { id: true },
+  });
+  if (owned.length !== assignmentIds.length) {
+    return { ok: false, formError: "One or more assignments do not belong to this account." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const dateObjs = Array.from(new Set(cells.map((c) => c.date))).map(
+        (d) => new Date(`${d}T00:00:00.000Z`),
+      );
+      const live = await tx.timesheetEntry.findMany({
+        where: { assignmentId: { in: assignmentIds }, deletedAt: null, date: { in: dateObjs } },
+        select: { id: true, assignmentId: true, date: true },
+      });
+      const liveId = new Map<string, string>();
+      for (const e of live) liveId.set(`${e.assignmentId}|${isoOf(e.date)}`, e.id);
+
+      const toCreate: {
+        assignmentId: string;
+        date: Date;
+        hours: Prisma.Decimal;
+        status: TimesheetDayStatus | null;
+        enteredById: string;
+      }[] = [];
+      const toUpdate: { id: string; hours: Prisma.Decimal; status: TimesheetDayStatus | null }[] = [];
+      const toSoftDelete: string[] = [];
+
+      for (const c of cells) {
+        const existingId = liveId.get(`${c.assignmentId}|${c.date}`);
+        if (c.clear) {
+          if (existingId) toSoftDelete.push(existingId);
+          continue;
+        }
+        const hours = new Prisma.Decimal(c.status ? 0 : c.hours ?? 0);
+        const status = c.status ?? null;
+        if (existingId) {
+          toUpdate.push({ id: existingId, hours, status });
+        } else {
+          toCreate.push({
+            assignmentId: c.assignmentId,
+            date: new Date(`${c.date}T00:00:00.000Z`),
+            hours,
+            status,
+            enteredById: admin.userId,
+          });
+        }
+      }
+
+      if (toCreate.length > 0) await tx.timesheetEntry.createMany({ data: toCreate });
+      for (const u of toUpdate) {
+        await tx.timesheetEntry.update({
+          where: { id: u.id },
+          data: { hours: u.hours, status: u.status, enteredById: admin.userId },
+        });
+      }
+      if (toSoftDelete.length > 0) {
+        await tx.timesheetEntry.updateMany({
+          where: { id: { in: toSoftDelete } },
+          data: { deletedAt: new Date(), deletedById: admin.userId },
+        });
+      }
+    });
+
+    // Deliberately NO timesheet-page revalidation: the grid keeps its own saved
+    // state, so we avoid a router.refresh per autosave. The invoice-generate views
+    // pick up fresh data on their next load.
+    revalidatePath(`/admin/invoices/generate/${accountId}`);
+    revalidatePath(`/admin/invoices/generate/${accountId}/combined`);
+    return { ok: true };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       return { ok: false, formError: `Database error: ${err.code}` };

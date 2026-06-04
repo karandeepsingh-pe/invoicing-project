@@ -24,6 +24,9 @@ export type AssignmentValidationInput = {
   endDate: Date | null;
   technicianFlags: TechnicianFlags;
   technicianIsRebadged?: boolean;
+  // A per-tech annual salary override prices a Dedicated tech off their own salary
+  // (no band rate card needed), the same way rebadged does. > 0 means "has own rate".
+  technicianAnnualSalary?: number;
   accountRates: RateWithSubCat[];
   existingTechnicianAssignments: Pick<Assignment, "id" | "rateCategory" | "endDate">[];
   // The assignment's billing tier, derived from the technician's backfill trait
@@ -79,10 +82,13 @@ export function validateAssignment(input: AssignmentValidationInput): Assignment
     };
   }
 
-  // Rebadged Dedicated techs bill off their salary, not the account rate sheet —
-  // they don't need a rate-card row to be assignable.
+  // A Dedicated tech that prices off their OWN rate (rebadged, or a per-tech annual
+  // salary override) does not need a band rate-card row to be assignable.
   const rebadgedDedicated =
     Boolean(input.technicianIsRebadged) && input.rateCategory === RateCategory.DEDICATED;
+  const salariedDedicated =
+    input.rateCategory === RateCategory.DEDICATED && (input.technicianAnnualSalary ?? 0) > 0;
+  const hasOwnDedicatedRate = rebadgedDedicated || salariedDedicated;
 
   // Backfill tier rides on the technician now. A DEDICATED assignment must resolve
   // to a real tier (BACKFILL / NO_BACKFILL) or the rate lookup can't pick a row and
@@ -108,7 +114,7 @@ export function validateAssignment(input: AssignmentValidationInput): Assignment
     input.technicianBand,
     input.startDate,
   );
-  if (!rebadgedDedicated && applicable.length === 0) {
+  if (!hasOwnDedicatedRate && applicable.length === 0) {
     return {
       ok: false,
       reason: "NO_RATE_CARD",

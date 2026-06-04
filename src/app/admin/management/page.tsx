@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { ManagementView, type OrgRow } from "./management-view";
 import { OrgCreateDialog } from "@/app/admin/orgs/create-dialog";
+import { BulkUploadDialog as AccountBulkUploadDialog } from "@/app/admin/accounts/bulk-upload-dialog";
+import { TechnicianBulkUploadDialog } from "@/app/admin/technicians/bulk-upload-dialog";
 import type { TechOption } from "@/app/admin/accounts/[accountId]/create-assignment-form";
 
 export default async function ManagementPage() {
@@ -118,9 +120,13 @@ export default async function ManagementPage() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
           Partner Management
         </span>
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-4xl font-semibold tracking-tighter2">Orgs · Accounts · Technicians</h1>
-          <OrgCreateDialog />
+          <div className="flex flex-wrap items-center gap-2">
+            <AccountBulkUploadDialog />
+            <TechnicianBulkUploadDialog />
+            <OrgCreateDialog />
+          </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
           Single workspace for vendor orgs, their client accounts, rate sheets, and technicians.

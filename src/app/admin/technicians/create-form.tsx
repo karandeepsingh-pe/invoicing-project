@@ -239,7 +239,7 @@ export function TechnicianCreateForm({
         </p>
 
         {assignNow && (
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <SelectField
               label="Account"
               name="initialAccountId"
@@ -272,6 +272,13 @@ export function TechnicianCreateForm({
               required={assignNow}
               defaultValue={today}
               errors={fieldErrors?.initialStartDate}
+            />
+            <TextField
+              label="End date"
+              name="initialEndDate"
+              type="date"
+              errors={fieldErrors?.initialEndDate}
+              hint="Required for Project / Scheduled / Dispatch (Dedicated is open-ended)"
             />
           </div>
         )}

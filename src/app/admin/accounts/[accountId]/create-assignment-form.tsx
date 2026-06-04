@@ -139,8 +139,13 @@ export function AccountAssignmentCreateForm({
           label="End date"
           name="endDate"
           type="date"
+          required={category !== RateCategory.DEDICATED}
           errors={fieldErrors?.endDate}
-          hint="Open-ended if blank (typical for DEDICATED)"
+          hint={
+            category === RateCategory.DEDICATED
+              ? "Open-ended if blank (ongoing FTE)"
+              : "Required — this engagement only shows in its active months"
+          }
         />
       </div>
 

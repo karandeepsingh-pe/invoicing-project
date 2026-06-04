@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
-import { renderDispatchInvoice } from "@/lib/invoice/render-dispatch";
+import { renderDispatchPreInvoice } from "@/lib/invoice/render-dispatch-preinvoice";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 
 const schema = z.object({
@@ -69,7 +69,12 @@ export async function generateDispatchInvoice(
   const lastDay = lastDayOfMonth(year, month);
 
   const rateRows = dispatchRateRows(account.accountRates);
-  const rows = await loadDispatchTrackerRows(accountId, range, rateRows);
+  const rows = await loadDispatchTrackerRows(
+    accountId,
+    range,
+    rateRows,
+    account.dispatchPricingModel,
+  );
 
   const retainerFee = account.miscFees
     .filter((m) => m.kind === "RETAINER_FEES")
@@ -83,7 +88,7 @@ export async function generateDispatchInvoice(
     timeZone: "UTC",
   });
 
-  const buffer = await renderDispatchInvoice(
+  const buffer = await renderDispatchPreInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
       clientName: account.org.name,

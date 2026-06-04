@@ -38,6 +38,14 @@ type VisitRow = {
   window: string | null;
 };
 
+type BillingInfo = {
+  billed: number;
+  totalHrs: number;
+  additionalHours: number;
+  firstHourRate: number;
+  additionalHourRate: number;
+};
+
 const statusLabel: Record<string, string> = {
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",
@@ -45,6 +53,12 @@ const statusLabel: Record<string, string> = {
   NO_SHOW: "No-show",
   PENDING: "Pending",
 };
+
+const BILLABLE_STATUSES = new Set(["COMPLETED"]);
+
+function money(n: number, currency: string): string {
+  return `${currency} ${n.toFixed(2)}`;
+}
 
 export function DispatchVisitsView({
   accountId,
@@ -54,6 +68,9 @@ export function DispatchVisitsView({
   slas,
   visitTypes,
   visits,
+  billing = {},
+  currency = "USD",
+  hideMonthPicker = false,
 }: {
   accountId: string;
   year: number;
@@ -62,6 +79,12 @@ export function DispatchVisitsView({
   slas: SlaOpt[];
   visitTypes: VisitTypeOpt[];
   visits: VisitRow[];
+  // Rate-sheet billing per visit id (same numbers the dispatch pre-invoice uses).
+  billing?: Record<string, BillingInfo>;
+  currency?: string;
+  // When embedded in the combined "All categories" view, the page owns the
+  // month picker, so the dispatch block hides its own.
+  hideMonthPicker?: boolean;
 }) {
   const [createState, createAction, createPending] = useActionState(createDispatchVisit, null);
   const [deleteState, deleteAction] = useActionState(deleteDispatchVisit, null);
@@ -88,6 +111,15 @@ export function DispatchVisitsView({
 
   const selected = assignments.find((a) => a.id === assignmentId);
 
+  // Rate-sheet billing summary (identical to what the dispatch pre-invoice bills).
+  const totalBilled = visits.reduce((n, v) => n + (billing[v.id]?.billed ?? 0), 0);
+  const unpricedVisits = visits.filter(
+    (v) =>
+      BILLABLE_STATUSES.has(v.workStatus) &&
+      (billing[v.id]?.billed ?? 0) === 0 &&
+      (billing[v.id]?.firstHourRate ?? 0) === 0,
+  );
+
   function handleDelete(id: string) {
     startTransition(() => {
       const fd = new FormData();
@@ -107,7 +139,7 @@ export function DispatchVisitsView({
 
   return (
     <div className="flex flex-col gap-6">
-      <MonthPicker accountId={accountId} year={year} month={month} />
+      {!hideMonthPicker && <MonthPicker accountId={accountId} year={year} month={month} />}
 
       <section className="glass overflow-hidden rounded-lg">
         <form action={createAction} className="flex flex-col gap-4 border-b border-border p-4">
@@ -239,52 +271,88 @@ export function DispatchVisitsView({
           <SubmitButton>Add visit</SubmitButton>
         </form>
 
+        {unpricedVisits.length > 0 && (
+          <div className="border-b border-border bg-warning-bg/40 px-4 py-2 text-xs text-warning">
+            {unpricedVisits.length} billable visit{unpricedVisits.length === 1 ? "" : "s"} have no rate
+            (no First Hour rate on the rate sheet for that SLA at Band 2) and bill $0. Add the dispatch
+            rates so they price.
+          </div>
+        )}
+
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
             <tr>
               <th className="px-3 py-2 text-left">Date</th>
               <th className="px-3 py-2 text-left">Engineer</th>
               <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Type</th>
               <th className="px-3 py-2 text-left">Location</th>
               <th className="px-3 py-2 text-left">SLA</th>
               <th className="px-3 py-2 text-left">Ticket</th>
-              <th className="px-3 py-2 text-right">Hrs</th>
-              <th className="px-3 py-2 text-left">Window</th>
+              <th className="px-3 py-2 text-right">Total Hrs</th>
+              <th className="px-3 py-2 text-right">After 1st Hr</th>
+              <th className="px-3 py-2 text-right">Billed</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
-            {visits.map((v) => (
-              <tr key={v.id} className="border-t border-border">
-                <td className="px-3 py-2 font-mono text-xs">{v.visitDate}</td>
-                <td className="px-3 py-2">{v.technicianName}</td>
-                <td className="px-3 py-2 text-fg-muted">{statusLabel[v.workStatus] ?? v.workStatus}</td>
-                <td className="px-3 py-2 text-fg-muted">{v.visitTypeLabel ?? "—"}</td>
-                <td className="px-3 py-2 text-fg-muted">
-                  {[v.siteLocation, v.cityState].filter(Boolean).join(" · ") || "—"}
-                </td>
-                <td className="px-3 py-2 text-fg-muted">{v.slaCode}</td>
-                <td className="px-3 py-2 text-fg-muted">{v.ticketNumber ?? "—"}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{v.hoursOnSite.toFixed(2)}</td>
-                <td className="px-3 py-2 font-mono text-xs text-fg-muted">{v.window ?? "—"}</td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => handleDelete(v.id)}
-                    className="text-xs font-medium text-danger hover:text-danger/80"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {visits.map((v) => {
+              const b = billing[v.id];
+              const billable = BILLABLE_STATUSES.has(v.workStatus);
+              const unpriced = billable && (b?.billed ?? 0) === 0 && (b?.firstHourRate ?? 0) === 0;
+              const basis =
+                b && (b.firstHourRate > 0 || b.additionalHourRate > 0)
+                  ? `1st hr ${b.firstHourRate} + ${b.additionalHours.toFixed(2)} × ${b.additionalHourRate}`
+                  : undefined;
+              return (
+                <tr key={v.id} className={"border-t border-border" + (unpriced ? " bg-warning-bg/30" : "")}>
+                  <td className="px-3 py-2 font-mono text-xs">{v.visitDate}</td>
+                  <td className="px-3 py-2">{v.technicianName}</td>
+                  <td className="px-3 py-2 text-fg-muted">{statusLabel[v.workStatus] ?? v.workStatus}</td>
+                  <td className="px-3 py-2 text-fg-muted">
+                    {[v.siteLocation, v.cityState].filter(Boolean).join(" · ") || "—"}
+                  </td>
+                  <td className="px-3 py-2 text-fg-muted">{v.slaCode}</td>
+                  <td className="px-3 py-2 text-fg-muted">{v.ticketNumber ?? "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{v.hoursOnSite.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-fg-muted">
+                    {b ? b.additionalHours.toFixed(2) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums" title={basis}>
+                    {!billable ? (
+                      <span className="text-fg-subtle">—</span>
+                    ) : unpriced ? (
+                      <span className="text-warning">unpriced</span>
+                    ) : (
+                      money(b?.billed ?? 0, currency)
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => handleDelete(v.id)}
+                      className="text-xs font-medium text-danger hover:text-danger/80"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
             {visits.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-3 py-4 text-sm text-fg-subtle">
                   No visits for this month yet.
                 </td>
+              </tr>
+            )}
+            {visits.length > 0 && (
+              <tr className="border-t-2 border-border bg-surface-2 font-semibold">
+                <td className="px-3 py-2" colSpan={8}>
+                  Total billable
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(totalBilled, currency)}</td>
+                <td></td>
               </tr>
             )}
           </tbody>

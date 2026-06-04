@@ -18,8 +18,8 @@ export default async function InvoicesLanding() {
         </span>
         <h1 className="text-4xl font-semibold tracking-tighter2">Invoices</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Generate a Dedicated FTE pre-invoice xlsx for any account once its
-          monthly timesheet is filled in.
+          Open any account to preview every category (FTE, Project / T&amp;M,
+          Dispatch) for the month and download each — or the combined workbook.
         </p>
       </header>
 
@@ -27,7 +27,7 @@ export default async function InvoicesLanding() {
         {accounts.map((a) => (
           <Link
             key={a.id}
-            href={`/admin/invoices/generate/${a.id}` as never}
+            href={`/admin/invoices/generate/${a.id}/combined` as never}
             className="glass group flex flex-col gap-2 rounded-xl p-4 transition-all hover:-translate-y-0.5"
           >
             <span className="text-xs text-fg-subtle">{a.org.name}</span>

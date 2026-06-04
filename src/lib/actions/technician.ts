@@ -50,6 +50,9 @@ export async function createTechnician(
     email: formData.get("email") ?? undefined,
     isRebadged: checkbox(formData.get("isRebadged")),
     annualSalary: formData.get("annualSalary") || undefined,
+    rebadgedHourlyRate: formData.get("rebadgedHourlyRate") || undefined,
+    rebadgedDayRate: formData.get("rebadgedDayRate") || undefined,
+    rebadgedMonthlyRate: formData.get("rebadgedMonthlyRate") || undefined,
     rebadgedOtRate: formData.get("rebadgedOtRate") || undefined,
     rebadgedWeekendRate: formData.get("rebadgedWeekendRate") || undefined,
     isAvailableForDedicated: checkbox(formData.get("isAvailableForDedicated")),
@@ -64,6 +67,7 @@ export async function createTechnician(
     initialAccountId: rawAccount && rawAccount !== "" ? rawAccount : undefined,
     initialCategory: formData.get("initialCategory") || undefined,
     initialStartDate: formData.get("initialStartDate") || undefined,
+    initialEndDate: formData.get("initialEndDate") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -73,6 +77,7 @@ export async function createTechnician(
     initialAccountId,
     initialCategory,
     initialStartDate,
+    initialEndDate,
     zipcode,
     locationCity,
     locationState,
@@ -145,6 +150,7 @@ export async function createTechnician(
       endDate: null,
       technicianFlags: effectiveFlags,
       technicianIsRebadged: techData.isRebadged,
+      technicianAnnualSalary: Number(techData.annualSalary ?? 0),
       accountRates,
       existingTechnicianAssignments: [],
     });
@@ -166,6 +172,7 @@ export async function createTechnician(
             rateCategory: category,
             slaTier,
             startDate: new Date(initialStartDate),
+            endDate: initialEndDate ? new Date(initialEndDate) : null,
           },
         });
         return { kind: "created" as const, tech: created };
@@ -246,6 +253,9 @@ export async function updateTechnician(
     email: formData.get("email") ?? undefined,
     isRebadged: checkbox(formData.get("isRebadged")),
     annualSalary: formData.get("annualSalary") || undefined,
+    rebadgedHourlyRate: formData.get("rebadgedHourlyRate") || undefined,
+    rebadgedDayRate: formData.get("rebadgedDayRate") || undefined,
+    rebadgedMonthlyRate: formData.get("rebadgedMonthlyRate") || undefined,
     rebadgedOtRate: formData.get("rebadgedOtRate") || undefined,
     rebadgedWeekendRate: formData.get("rebadgedWeekendRate") || undefined,
     isAvailableForDedicated: checkbox(formData.get("isAvailableForDedicated")),

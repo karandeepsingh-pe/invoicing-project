@@ -3,6 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { CombinedGenerateForm } from "./generate-form";
+import { FsoGenerateForm } from "./fso-generate-form";
+import {
+  GenerateTypeTabs,
+  GenerateMonthPicker,
+} from "../_sections/generate-type-tabs";
+import { FtePreviewSection } from "../_sections/fte-preview-section";
+import { ProjectPreviewSection } from "../_sections/project-preview-section";
+import { DispatchPreviewSection } from "../_sections/dispatch-preview-section";
 
 export default async function GenerateCombinedPage({
   params,
@@ -34,43 +42,66 @@ export default async function GenerateCombinedPage({
           ← Invoices
         </Link>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-          Generate Combined pre-invoice
+          Generate — all categories
         </span>
         <h1 className="text-3xl font-semibold tracking-tighter2">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          One workbook with <strong>FTE</strong>, <strong>Project / T&amp;M</strong>, and
-          <strong> Dispatch</strong> sheets plus a <strong>Summary</strong> grand total.
+          One Load shows <strong>every category</strong> for this month. Download each
+          category on its own, or the <strong>combined workbook</strong> (FTE + Project / T&amp;M
+          + Dispatch sheets plus a Summary grand total).
           Period {range.start.toISOString().slice(0, 10)} → {lastDay.toISOString().slice(0, 10)}.
         </p>
+        <div className="flex gap-3 text-xs">
+          <Link
+            href={`/admin/timesheets/${accountId}?year=${year}&month=${month}`}
+            className="text-accent hover:text-accent-hover"
+          >
+            Open timesheet →
+          </Link>
+        </div>
       </header>
 
-      <MonthPicker year={year} month={month} />
+      <GenerateTypeTabs accountId={accountId} active="combined" year={year} month={month} variant="scroll" />
+      <GenerateMonthPicker year={year} month={month} />
 
-      <CombinedGenerateForm accountId={accountId} year={year} month={month} />
+      <section className="glass flex flex-col gap-3 rounded-lg p-4">
+        <h2 className="text-sm font-semibold tracking-tightish">Combined workbook</h2>
+        <p className="text-xs text-fg-muted">
+          All categories in a single .xlsx with a Summary grand total.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <CombinedGenerateForm accountId={accountId} year={year} month={month} />
+          {account.org.outputTemplate === "FSO" && (
+            <FsoGenerateForm accountId={accountId} year={year} month={month} />
+          )}
+        </div>
+        {account.org.outputTemplate === "FSO" && (
+          <p className="text-xs text-fg-subtle">
+            This account is on the HCL <strong>FSO</strong> template, so it can also export the
+            FSO workbook (Dedicated / Dispatch / SV / Project sheets).
+          </p>
+        )}
+      </section>
+
+      <div className="flex flex-col gap-10">
+        <FtePreviewSection
+          accountId={accountId}
+          year={year}
+          month={month}
+          defaultHours={account.defaultHours}
+          showHeading
+        />
+        <ProjectPreviewSection
+          accountId={accountId}
+          year={year}
+          month={month}
+          defaultHours={account.defaultHours}
+          showHeading
+        />
+        <DispatchPreviewSection accountId={accountId} year={year} month={month} showHeading />
+      </div>
     </div>
-  );
-}
-
-function MonthPicker({ year, month }: { year: number; month: number }) {
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const years = [year - 1, year, year + 1];
-  return (
-    <form className="flex items-center gap-3 text-sm" method="get">
-      <label className="flex items-center gap-2">
-        <span className="text-fg-muted">Month</span>
-        <select name="month" defaultValue={String(month)} className="glass-input rounded-md px-2 py-1">
-          {months.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-        </select>
-      </label>
-      <label className="flex items-center gap-2">
-        <span className="text-fg-muted">Year</span>
-        <select name="year" defaultValue={String(year)} className="glass-input rounded-md px-2 py-1">
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </label>
-      <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">Load</button>
-    </form>
   );
 }
