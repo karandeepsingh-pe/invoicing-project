@@ -4,9 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-**Phase 1–2 complete.** Internal invoice automation web app. Replaces manual xlsx generation for client billing. Next.js + Postgres, hosted (target: Vercel or cPanel). Bootstrap (Next.js 15 + TS + Tailwind + Vitest + Playwright + Prisma + Zod env validation) and the data-model schema with seed are in place. NextAuth wiring (Phase 3), admin/SDM UIs (Phases 4–5), and the invoice engine (Phase 6) are still to come.
+**Tester-ready (2026-06-05).** Internal invoice automation web app, **live on Vercel + Neon** at
+`invoicing-project-three.vercel.app` (Basic-auth gated). Admin UIs (orgs/accounts/rate cards/technicians),
+timesheets, dispatch visits, the **invoice engine** (combined / dispatch / FSO xlsx), and misc fees are
+**all built and tested** (269 unit tests). **Still pending:** real auth — Microsoft Entra ID + ADMIN/SDM
+RBAC (Phase 3, `docs/auth-rbac-plan.md`); today everyone is the shared admin behind the password gate.
 
 Reference data lives in a gitignored drop at `KD/KD/`.
+
+### Current state & where to look (read before working on billing)
+- **Full session log of the last build:** `docs/SESSION-2026-06-05.md`.
+- **User manual / tester scenarios:** `docs/USER-MANUAL.md`, `docs/TESTING-SCENARIOS.md` (+ `.docx`).
+- **Deploy + git-author gotcha + DB reset:** `docs/SESSION-2026-06-05.md` and `docs/DEPLOY.md`. Deploy with
+  `vercel --prod --yes`, **commit as the team-owner email** (`karandeepstalwar@gmail.com`) or Vercel blocks
+  the build (git-author protection). Dev + prod share one Neon DB.
+- **Billing model (memorize the distinctions):**
+  - **Dedicated** = day-rate basis (`ANNUAL_RATE`/`DAY_RATE`/`MONTHLY`, priority Day>Annual>Monthly) **or**
+    hourly — chosen **per technician** (`Technician.dedicatedBillingBasis`). Plus **OT** (`OT_HOURLY_RATE`,
+    hours > `defaultHours`/day) + weekend. Backfill vs No-Backfill = the slaId **tier toggle**. Rebadged techs
+    bill off their own per-tech rates. Engine: `fte-rows.ts` → `dedicated-fte-calculator.ts`.
+  - **Dispatch** = per-visit first-hour + per-hour split into **business / OOB(after the account's
+    business-hours window end) / weekend**, from In/Out times; manual `oooHrs` fallback; per-ticket flat;
+    full-day cap; TCS priority model. Engine: `dispatch-rows.ts` → `dispatch-calculator.ts` (+
+    `dispatch-pricing-profiles.ts`).
+  - **OT ≠ OOB.** OT = overtime (Dedicated, quantity-based). OOB = after-hours (Dispatch, time-of-day). Never
+    conflate them.
+  - **Project / Scheduled** = per-band day/half/weekend/hourly (+ Project weekly/monthly + monthly cap).
+  - **Misc fees** = % on subtotal + flat, via `assemble.ts`.
+- **DB is masters-only after a handoff reset** (`KD/reset-to-masters.ts`). Demo data is rebuildable from the
+  gitignored `KD/seed-*.ts` fixtures.
 
 ## Goal
 
@@ -150,11 +176,11 @@ For local Postgres in this remote container, the system `postgresql` service is 
 
 1. ✅ **Bootstrap**: `CLAUDE.md`, `.gitignore`, `README.md`, Next.js 15 + TS + Tailwind, Vitest + Playwright, Zod env validation, Prisma client singleton
 2. ✅ **Data model**: rate-sheet-v2 schema — RateCategory enum (3), Band 0..4, master tables for Sla and RateSubCategory, per-account AccountRate matrix, MiscFee, Technician (firstName/lastName/band/primaryCategory), Assignment.rateCategory, DEDICATED partial-unique index, idempotent seed including masters
-3. **Auth + role middleware**: NextAuth (Microsoft Entra ID, restricted to `@ovationwps.com`) + ADMIN/SDM RBAC + `UserAccountAccess` scoping
-4. **Admin CRUD UI**: orgs / accounts / rate cards / technicians / users
-5. **SDM timesheet UI**: per-account monthly grid; tech × day cells; account auto-tagged
-6. **Invoice generation engine**: template-driven xlsx via ExcelJS; FSO + Pre-Invoice templates extracted from `KD/KD/` reference files
-7. **Polish**: audit log, exports, multi-currency activation, E2E test of full flow
+3. **Auth + role middleware** (⏳ PENDING — only remaining major phase): NextAuth (Microsoft Entra ID, restricted to `@ovationwps.com`) + ADMIN/SDM RBAC + `UserAccountAccess` scoping. Today: shared admin behind a Basic-auth gate (`src/middleware.ts`).
+4. ✅ **Admin CRUD UI**: orgs / accounts / rate cards / technicians (users come with Phase 3)
+5. ✅ **Timesheet + dispatch UI**: per-account monthly grid (autosave); dispatch visit log with In/Out split + edit/delete
+6. ✅ **Invoice generation engine**: ExcelJS — combined / dispatch / FSO pre-invoices; rate-sheet-driven (Dedicated day/hourly, Project, Scheduled, Dispatch, misc fees)
+7. **Polish** (partial): soft-delete + restore done; multi-currency field present; audit via InvoiceRun. E2E full-flow + Entra auth still to come.
 
 Full build plan with verification steps: `~/.claude/plans/mighty-scribbling-music.md` (also includes interview transcript appendix).
 
