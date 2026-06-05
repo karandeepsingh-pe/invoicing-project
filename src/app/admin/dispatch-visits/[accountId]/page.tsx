@@ -212,6 +212,36 @@ export default async function DispatchVisitsPage({
             v.startDateTime && v.endDateTime
               ? `${fmtHM(v.startDateTime)}–${fmtHM(v.endDateTime)}`
               : null,
+          edit: {
+            id: v.id,
+            assignmentId: v.assignmentId,
+            slaId: v.slaId,
+            visitTypeId: v.visitTypeId,
+            workStatus: v.workStatus,
+            ticketNumber: v.ticketNumber,
+            hoursOnSite: Number(v.hoursOnSite.toString()),
+            oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
+            afterHours: v.afterHours,
+            weekend: v.weekend,
+            inTime: v.startDateTime ? fmtHM(v.startDateTime) : null,
+            outTime: v.endDateTime ? fmtHM(v.endDateTime) : null,
+            visitDate: v.visitDate.toISOString().slice(0, 10),
+            requestReceivedDate: v.requestReceivedDate ? v.requestReceivedDate.toISOString().slice(0, 10) : null,
+            proposedOnsiteDate: v.proposedOnsiteDate ? v.proposedOnsiteDate.toISOString().slice(0, 10) : null,
+            visitTime: v.visitTime,
+            siteCode: v.siteCode,
+            siteLocation: v.siteLocation,
+            zipcode: v.postalCode?.zipcode ?? null,
+            city: v.postalCode?.city ?? null,
+            state: v.postalCode?.state ?? null,
+            country: v.postalCode?.country ?? null,
+            postalCodeId: v.postalCodeId,
+            travelHours: v.travelHours ? Number(v.travelHours.toString()) : null,
+            travelMiles: v.travelMiles ? Number(v.travelMiles.toString()) : null,
+            partsAmount: v.partsAmount ? Number(v.partsAmount.toString()) : null,
+            reimbursementNotes: v.reimbursementNotes,
+            notes: v.notes,
+          },
         }))}
       />
     </div>

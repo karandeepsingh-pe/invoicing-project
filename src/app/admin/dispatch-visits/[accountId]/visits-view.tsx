@@ -18,6 +18,7 @@ import {
 } from "@/components/admin/field";
 import { LocationFields } from "@/components/admin/location-fields";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
+import { EditDispatchVisitDialog, type EditVisitData } from "./edit-visit-dialog";
 
 type AssignmentOpt = {
   id: string;
@@ -40,6 +41,7 @@ type VisitRow = {
   cityState: string | null;
   visitTypeLabel: string | null;
   window: string | null;
+  edit: EditVisitData;
 };
 
 type BillingInfo = {
@@ -463,14 +465,23 @@ export function DispatchVisitsView({
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => handleDelete(v.id)}
-                      className="text-xs font-medium text-danger hover:text-danger/80"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <EditDispatchVisitDialog
+                        visit={v.edit}
+                        assignments={assignments}
+                        slas={slas}
+                        visitTypes={visitTypes}
+                        businessHours={businessHours}
+                      />
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleDelete(v.id)}
+                        className="text-xs font-medium text-danger hover:text-danger/80"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
