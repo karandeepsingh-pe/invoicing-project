@@ -32,7 +32,6 @@ function normalizeName(first: string, last: string): string {
 
 export function TechnicianCreateForm({
   orgs,
-  accounts = [],
   existingTechs = [],
   onSuccess,
   accountContext,
@@ -48,7 +47,6 @@ export function TechnicianCreateForm({
   defaultEmployerOrgId?: string;
 }) {
   const [state, action] = useActionState(createTechnician, null);
-  const [assignNow, setAssignNow] = useState(false);
   const [primaryCategory, setPrimaryCategory] = useState<RateCategory>(RateCategory.DEDICATED);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -203,7 +201,7 @@ export function TechnicianCreateForm({
         </div>
       )}
 
-      {accountContext ? (
+      {accountContext && (
         <div className="glass-soft rounded-md p-4">
           <p className="text-sm text-fg">
             This technician will be assigned to{" "}
@@ -218,76 +216,11 @@ export function TechnicianCreateForm({
           <input type="hidden" name="initialCategory" value={RateCategory.DEDICATED} />
           <input type="hidden" name="initialStartDate" value={today} />
         </div>
-      ) : (
-        <div className="glass-soft rounded-md p-4">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={assignNow}
-            onChange={(e) => setAssignNow(e.target.checked)}
-            disabled={accounts.length === 0}
-            className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent"
-          />
-          <span className="font-medium text-fg">Assign to an account immediately</span>
-          {accounts.length === 0 && (
-            <span className="text-xs text-fg-subtle">(no accounts available)</span>
-          )}
-        </label>
-        <p className="mt-1 pl-6 text-xs text-fg-subtle">
-          Creates the technician and an active assignment in one step. Rates are inherited from
-          the chosen account at the picked category and the tech&rsquo;s band.
-        </p>
-
-        {assignNow && (
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <SelectField
-              label="Account"
-              name="initialAccountId"
-              required={assignNow}
-              errors={fieldErrors?.initialAccountId}
-            >
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Assignment category"
-              name="initialCategory"
-              defaultValue={primaryCategory}
-              errors={fieldErrors?.initialCategory}
-              hint="Defaults to primary category; override if this engagement differs."
-            >
-              {Object.values(RateCategory).map((c) => (
-                <option key={c} value={c}>
-                  {categoryLabel[c]}
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label="Start date"
-              name="initialStartDate"
-              type="date"
-              required={assignNow}
-              defaultValue={today}
-              errors={fieldErrors?.initialStartDate}
-            />
-            <TextField
-              label="End date"
-              name="initialEndDate"
-              type="date"
-              errors={fieldErrors?.initialEndDate}
-              hint="Required for Project / Scheduled / Dispatch (Dedicated is open-ended)"
-            />
-          </div>
-        )}
-        </div>
       )}
 
       <div>
         <SubmitButton>
-          {accountContext || assignNow ? "Create + assign" : "Add technician"}
+          {accountContext ? "Create + assign" : "Add technician"}
         </SubmitButton>
         {state && state.ok && !onSuccess && <span className="ml-3 text-sm text-success">Added.</span>}
       </div>
