@@ -64,6 +64,16 @@ function money(n: number, currency: string): string {
   return `${currency} ${n.toFixed(2)}`;
 }
 
+/** Hours between two "HH:mm" times (same day, out > in), else null. */
+function diffHours(inT: string, outT: string): string | null {
+  const a = /^(\d{2}):(\d{2})$/.exec(inT);
+  const b = /^(\d{2}):(\d{2})$/.exec(outT);
+  if (!a || !b) return null;
+  const mins = (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
+  if (mins <= 0) return null;
+  return String(mins / 60);
+}
+
 export function DispatchVisitsView({
   accountId,
   year,
@@ -267,9 +277,14 @@ export function DispatchVisitsView({
               type="time"
               required={!!businessHours}
               value={inTime}
-              onChange={(e) => setInTime(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInTime(val);
+                const h = diffHours(val, outTime);
+                if (h) setHoursOnSite(h);
+              }}
               errors={fieldErrors?.inTime}
-              hint={businessHours ? "Required — drives the business/after-hours split." : "Feeds the overlap calendar."}
+              hint={businessHours ? "Required — drives the business/after-hours split + total hours." : "Feeds the overlap calendar."}
             />
             <TextField
               label="Out-Time"
@@ -277,7 +292,12 @@ export function DispatchVisitsView({
               type="time"
               required={!!businessHours}
               value={outTime}
-              onChange={(e) => setOutTime(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setOutTime(val);
+                const h = diffHours(inTime, val);
+                if (h) setHoursOnSite(h);
+              }}
               errors={fieldErrors?.outTime}
             />
             <TextField
@@ -292,7 +312,7 @@ export function DispatchVisitsView({
               value={hoursOnSite}
               onChange={(e) => setHoursOnSite(e.target.value)}
               errors={fieldErrors?.hoursOnSite}
-              hint="Manual. Billed = 1st-hr + (Total−1)×add'l."
+              hint="Auto-fills from In/Out (editable for breaks). Billed = 1st-hr + (Total−1)×add'l."
             />
             <SelectField
               label="SLA"
