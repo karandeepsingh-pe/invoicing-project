@@ -30,6 +30,7 @@ export async function createClientAccount(
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
     dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    dedicatedBillingBasis: formData.get("dedicatedBillingBasis") || undefined,
     businessHoursStart: formData.get("businessHoursStart") ?? undefined,
     businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
   });
@@ -76,6 +77,7 @@ export async function updateClientAccount(
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
     dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    dedicatedBillingBasis: formData.get("dedicatedBillingBasis") || undefined,
     businessHoursStart: formData.get("businessHoursStart") ?? undefined,
     businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
   });

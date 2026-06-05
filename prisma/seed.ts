@@ -98,6 +98,9 @@ const subCategorySeeds: SubCatSeed[] = [
   // (Annual / Day / Monthly — priority Day > Annual > Monthly) + the per-hour
   // OT / Weekend adders. Rebadged* are per-technician (Technician.rebadged*
   // columns), billed off salary — NOT rate-sheet rows.
+  // HOURLY basis: regular hours × this rate (used when the account's
+  // dedicatedBillingBasis = HOURLY). Annual/Day/Monthly are the day-rate basis.
+  { rateCategory: RateCategory.DEDICATED, code: "HOURLY", label: "Hourly Rate", sortOrder: 5 },
   { rateCategory: RateCategory.DEDICATED, code: "ANNUAL_RATE", label: "Annual Rate", sortOrder: 10 },
   { rateCategory: RateCategory.DEDICATED, code: "DAY_RATE", label: "Day Rate", sortOrder: 12 },
   { rateCategory: RateCategory.DEDICATED, code: "MONTHLY", label: "Monthly Rate", sortOrder: 14 },

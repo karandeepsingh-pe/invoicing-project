@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DispatchPricingModel } from "@prisma/client";
+import { DispatchPricingModel, DedicatedBillingBasis } from "@prisma/client";
 
 const currencyField = z
   .string()
@@ -41,6 +41,7 @@ const hhmmOrNull = z
 // programmatic fixtures that omit them keep the window null (auto-split off).
 const dispatchBillingFields = {
   dispatchPricingModel: z.nativeEnum(DispatchPricingModel).optional(),
+  dedicatedBillingBasis: z.nativeEnum(DedicatedBillingBasis).optional(),
   businessHoursStart: hhmmOrNull,
   businessHoursEnd: hhmmOrNull,
 };

@@ -24,6 +24,7 @@ export type DayCell = {
 
 export type SplitTotals = {
   regularDays: DecimalLike;
+  regularHours: DecimalLike;
   otHours: DecimalLike;
   weekendHours: DecimalLike;
 };
@@ -107,13 +108,15 @@ export function splitEntries(
   defaultHours: number,
 ): SplitTotals {
   let regularDays = new Decimal(0);
+  let regularHours = new Decimal(0);
   let otHours = new Decimal(0);
   let weekendHours = new Decimal(0);
   for (const cell of entries) {
     const s = splitCell(cell, defaultHours);
     regularDays = regularDays.plus(s.regularDays);
+    regularHours = regularHours.plus(s.regularHours);
     otHours = otHours.plus(s.otHours);
     weekendHours = weekendHours.plus(s.weekendHours);
   }
-  return { regularDays, otHours, weekendHours };
+  return { regularDays, regularHours, otHours, weekendHours };
 }

@@ -28,6 +28,7 @@ export type AccountCard = {
   postalCode: string | null;
   country: string | null;
   dispatchPricingModel: string;
+  dedicatedBillingBasis: string;
   businessHoursStart: string | null;
   businessHoursEnd: string | null;
 };
@@ -130,6 +131,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 postalCode={a.postalCode}
                 country={a.country}
                 dispatchPricingModel={a.dispatchPricingModel}
+                dedicatedBillingBasis={a.dedicatedBillingBasis}
                 businessHoursStart={a.businessHoursStart}
                 businessHoursEnd={a.businessHoursEnd}
               />

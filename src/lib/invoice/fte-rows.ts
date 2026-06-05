@@ -52,12 +52,16 @@ export async function loadFteRows(
     where: { id: accountId },
     select: {
       defaultHours: true,
+      dedicatedBillingBasis: true,
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
   });
   if (!account) return { rows: [], unpriced: [] };
   const defaultHours = account.defaultHours;
   const accountRates = account.accountRates;
+  // HOURLY basis bills regular HOURS × the Hourly Rate; DAY_RATE bills regular
+  // DAYS × the day rate. OT + weekend stay per-hour either way.
+  const isHourly = account.dedicatedBillingBasis === "HOURLY";
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -123,30 +127,40 @@ export async function loadFteRows(
       Number(annualRow?.rateAmount?.toString() ?? 0),
       Number(hourlyRow?.rateAmount?.toString() ?? 0),
     );
-    const dayRate = new Prisma.Decimal(
-      resolveDedicatedDayRate({
-        perTechAnnual,
-        explicitDayRate: Number(dayRow?.rateAmount?.toString() ?? 0),
-        bandAnnual,
-        monthly: Number(monthlyRow?.rateAmount?.toString() ?? 0),
-        businessDays,
-      }),
+    // HOURLY basis: the regular rate is the per-hour HOURLY row (billed × regular
+    // hours by the calculator). DAY_RATE: resolve a per-day rate from the basis rows.
+    const hourlyBasisRow = techRates.find(
+      (r) => r.rateSubCategory.code === "HOURLY" && r.sla.code === a.slaTier,
     );
+    const dayRate = isHourly
+      ? new Prisma.Decimal(Number(hourlyBasisRow?.rateAmount?.toString() ?? 0))
+      : new Prisma.Decimal(
+          resolveDedicatedDayRate({
+            perTechAnnual,
+            explicitDayRate: Number(dayRow?.rateAmount?.toString() ?? 0),
+            bandAnnual,
+            monthly: Number(monthlyRow?.rateAmount?.toString() ?? 0),
+            businessDays,
+          }),
+        );
 
     // Rebadged techs bill entirely off their OWN per-tech rates (day rate from the
     // rebadged Day / Monthly / Annual / Hourly fields, in that priority; OT / weekend
     // from the manual rebadged hourly rates). The account band rate sheet is ignored.
     if (a.technician.isRebadged) {
-      const rebadgedDay = new Prisma.Decimal(
-        resolveRebadgedDayRate({
-          dayRate: Number(a.technician.rebadgedDayRate?.toString() ?? 0),
-          monthlyRate: Number(a.technician.rebadgedMonthlyRate?.toString() ?? 0),
-          annual: Number(a.technician.annualSalary ?? 0),
-          hourlyRate: Number(a.technician.rebadgedHourlyRate?.toString() ?? 0),
-          defaultHours,
-          businessDays,
-        }),
-      );
+      // HOURLY basis: bill the rebadged per-hour rate × regular hours directly.
+      const rebadgedDay = isHourly
+        ? new Prisma.Decimal(a.technician.rebadgedHourlyRate?.toString() ?? "0")
+        : new Prisma.Decimal(
+            resolveRebadgedDayRate({
+              dayRate: Number(a.technician.rebadgedDayRate?.toString() ?? 0),
+              monthlyRate: Number(a.technician.rebadgedMonthlyRate?.toString() ?? 0),
+              annual: Number(a.technician.annualSalary ?? 0),
+              hourlyRate: Number(a.technician.rebadgedHourlyRate?.toString() ?? 0),
+              defaultHours,
+              businessDays,
+            }),
+          );
       return {
         dayRate: rebadgedDay,
         ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
@@ -232,6 +246,7 @@ export async function loadFteRows(
       entries,
       rates,
       slaTier: a.slaTier,
+      basis: account.dedicatedBillingBasis,
       coverageDaysDelta: coverage.daysDeltaByAssignment.get(a.id),
       coverageOtDelta: coverage.otDeltaByAssignment.get(a.id),
       coverageWeekendDelta: coverage.weekendDeltaByAssignment.get(a.id),
@@ -264,6 +279,9 @@ export async function loadFteRows(
       : "—";
 
     const remarkParts: string[] = coverage.remarksByAssignment.get(a.id) ?? [];
+    if (isHourly) {
+      remarkParts.push(`Hourly basis: ${daysWorkedNum.toFixed(2)}h @ $${Number(calc.dayRate.toFixed(2))}/hr`);
+    }
     const breakdownBits: string[] = [];
     if (otHoursNum > 0) {
       breakdownBits.push(`OT ${otHoursNum.toFixed(2)}h @ $${Number(calc.otRate.toFixed(2))}`);

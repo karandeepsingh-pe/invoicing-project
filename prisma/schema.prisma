@@ -39,6 +39,14 @@ enum DispatchPricingModel {
   TCS_PRIORITY
 }
 
+// How a Dedicated account bills regular work: a per-day rate (Annual/Day/Monthly
+// basis) or a per-hour rate (regular hours × Hourly Rate). OT + weekend are
+// per-hour either way.
+enum DedicatedBillingBasis {
+  DAY_RATE
+  HOURLY
+}
+
 // The top-level rate categories on every account's rate sheet.
 enum RateCategory {
   DEDICATED // formerly TechType.FTE
@@ -124,6 +132,9 @@ model ClientAccount {
   // Which dispatch pricing model this account bills under (default keeps every
   // existing account on the original band + SLA math).
   dispatchPricingModel DispatchPricingModel @default(STANDARD)
+  // How Dedicated regular work bills: DAY_RATE (Annual/Day/Monthly basis) or HOURLY
+  // (regular hours × Hourly Rate). OT + weekend stay per-hour either way.
+  dedicatedBillingBasis DedicatedBillingBasis @default(DAY_RATE)
   // Business-hours window ("HH:mm", wall-clock) for dispatch auto-split billing.
   // When BOTH are set, a weekday visit with In/Out times bills its hours across
   // business vs after-hours (anything after businessHoursEnd) at the matching
