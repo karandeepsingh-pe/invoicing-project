@@ -27,6 +27,9 @@ export type AccountCard = {
   state: string | null;
   postalCode: string | null;
   country: string | null;
+  dispatchPricingModel: string;
+  businessHoursStart: string | null;
+  businessHoursEnd: string | null;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -126,6 +129,9 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 state={a.state}
                 postalCode={a.postalCode}
                 country={a.country}
+                dispatchPricingModel={a.dispatchPricingModel}
+                businessHoursStart={a.businessHoursStart}
+                businessHoursEnd={a.businessHoursEnd}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

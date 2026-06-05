@@ -51,6 +51,7 @@ export async function loadDispatchTrackerRows(
   range: { start: Date; end: Date },
   rateRows: DispatchRateRow[],
   pricingModel?: string | null,
+  businessWindow?: { start: string; end: string } | null,
 ): Promise<DispatchTrackerRow[]> {
   const profile = profileFor(pricingModel);
   const [visits, holidays] = await Promise.all([
@@ -97,6 +98,10 @@ export async function loadDispatchTrackerRows(
         technicianBand: tech.band,
         location: "",
         notes: v.notes,
+        inTime: v.startDateTime ? hhmm(v.startDateTime) : null,
+        outTime: v.endDateTime ? hhmm(v.endDateTime) : null,
+        businessWindow: businessWindow ?? null,
+        oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
       },
       rateRows,
       profile,

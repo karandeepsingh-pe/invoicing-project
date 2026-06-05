@@ -96,6 +96,21 @@ export async function createDispatchVisit(
   });
   if (!assignment) return { ok: false, formError: "Assignment not found." };
 
+  // Auto-split accounts (a business-hours window is configured) require In/Out so
+  // the visit's hours can be split across business vs after-hours windows.
+  const acct = await prisma.clientAccount.findUnique({
+    where: { id: assignment.clientAccountId },
+    select: { businessHoursStart: true, businessHoursEnd: true },
+  });
+  if (acct?.businessHoursStart && acct.businessHoursEnd && (!d.inTime || !d.outTime)) {
+    return {
+      ok: false,
+      fieldErrors: {
+        outTime: ["In-Time and Out-Time are required for this account (business-hours auto-split)."],
+      },
+    };
+  }
+
   const isWeekend = d.weekend || isWeekendDate(d.visitDate);
   const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
   const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;

@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
+import { dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
 import { DispatchVisitsView } from "./visits-view";
 import { DeleteMonthButton } from "../../timesheets/[accountId]/delete-month-button";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
@@ -39,14 +40,21 @@ export default async function DispatchVisitsPage({
 
   const range = monthRange(year, month);
 
+  // Auto-split business-hours window (both ends set = on).
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
+
   // Price every visit through the SAME path the dispatch pre-invoice uses, so the
   // tracker shows exactly what will be billed (rate sheet driven, per the visit's
-  // SLA + hours + after-hours/weekend flags).
+  // SLA + hours + after-hours/weekend flags, and the business-hours split).
   const pricedRows = await loadDispatchTrackerRows(
     accountId,
     range,
     dispatchRateRows(account.accountRates),
     account.dispatchPricingModel,
+    businessWindow,
   );
   const billingByVisitId: Record<
     string,
@@ -96,6 +104,27 @@ export default async function DispatchVisitsPage({
     where: { active: true },
     orderBy: { sortOrder: "asc" },
   });
+
+  // Scope the SLA dropdown to this account's rate sheet. "Priced" = the SLA has a
+  // DISPATCH_SCHED First Hour rate on the account. STANDARD shows the full set of
+  // response SLAs (unpriced ones disabled so the gap is visible); TCS shows only
+  // the priority tiers actually configured. Priced first.
+  const isTcs = account.dispatchPricingModel === "TCS_PRIORITY";
+  const dispatchCodeSet = new Set<string>(dispatchSlaCodes);
+  const pricedCodes = new Set(
+    account.accountRates
+      .filter(
+        (r) =>
+          r.rateSubCategory.rateCategory === "DISPATCH_SCHED" &&
+          r.rateSubCategory.code === "FIRST_HOUR" &&
+          r.rateAmount != null,
+      )
+      .map((r) => r.sla.code),
+  );
+  const slaOpts = slas
+    .filter((s) => (isTcs ? pricedCodes.has(s.code) : dispatchCodeSet.has(s.code) || pricedCodes.has(s.code)))
+    .map((s) => ({ id: s.id, code: s.code, label: s.label, priced: pricedCodes.has(s.code) }))
+    .sort((a, b) => Number(b.priced) - Number(a.priced) || a.code.localeCompare(b.code));
 
   const monthName = range.start.toLocaleString("en-US", {
     month: "long",
@@ -165,7 +194,8 @@ export default async function DispatchVisitsPage({
           phone: a.technician.phone,
           email: a.technician.email,
         }))}
-        slas={slas.map((s) => ({ id: s.id, code: s.code, label: s.label }))}
+        slas={slaOpts}
+        businessHours={businessWindow}
         visitTypes={visitTypes.map((t) => ({ id: t.id, code: t.code, label: t.label }))}
         visits={visits.map((v) => ({
           id: v.id,

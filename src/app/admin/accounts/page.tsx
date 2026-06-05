@@ -53,6 +53,9 @@ export default async function AccountsPage() {
     state: a.state,
     postalCode: a.postalCode,
     country: a.country,
+    dispatchPricingModel: a.dispatchPricingModel,
+    businessHoursStart: a.businessHoursStart,
+    businessHoursEnd: a.businessHoursEnd,
   }));
 
   return (

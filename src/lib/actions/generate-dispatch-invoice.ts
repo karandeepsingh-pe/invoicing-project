@@ -69,11 +69,16 @@ export async function generateDispatchInvoice(
   const lastDay = lastDayOfMonth(year, month);
 
   const rateRows = dispatchRateRows(account.accountRates);
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
   const rows = await loadDispatchTrackerRows(
     accountId,
     range,
     rateRows,
     account.dispatchPricingModel,
+    businessWindow,
   );
 
   const retainerFee = account.miscFees

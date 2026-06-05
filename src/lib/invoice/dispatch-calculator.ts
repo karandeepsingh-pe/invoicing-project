@@ -72,6 +72,18 @@ export type DispatchVisitInput = {
   technicianBand: number;
   location: string;
   notes: string | null;
+  // Wall-clock onsite times ("HH:mm"), and the account's business-hours window.
+  // When all three are present (and the visit is a weekday), the band_sla path
+  // splits the visit's hours across BUSINESS / after-hours (OOB) windows and bills
+  // each at its own rate. Absent any of them, billing falls back to the single
+  // scenario picked from the afterHours/weekend flags (unchanged legacy behavior).
+  inTime?: string | null;
+  outTime?: string | null;
+  businessWindow?: { start: string; end: string } | null;
+  // Manual after-hours fallback: when the visit has no In/Out times, this many of
+  // the total hours are billed at the after-hours (OOB) rate and the rest at the
+  // business rate (first hour still billed once, at the leading window's rate).
+  oooHrs?: number | null;
 };
 
 export type DispatchRow = {
@@ -125,6 +137,99 @@ function roundHours(hours: DecimalLike, profile: DispatchPricingProfile): Decima
     return r.lessThan(1) ? new Decimal(1) : r;
   }
   return hours;
+}
+
+/** Parse "HH:mm" to minutes since midnight, or null when malformed. */
+function toMinutes(hhmm: string | null | undefined): number | null {
+  if (!hhmm) return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+type HourSegment = { scenario: Scenario; hours: DecimalLike };
+
+/**
+ * Split a weekday onsite interval [inM, outM) against the business window
+ * [startM, endM) into chronological BUSINESS / OOB segments, then scale the
+ * segment hours so they sum to `total` (the profile-rounded billable hours, kept
+ * authoritative so the split never drifts from the entered total). Returns null
+ * when the interval is non-positive (caller falls back to the single-scenario path).
+ */
+function weekdaySegments(
+  inM: number,
+  outM: number,
+  startM: number,
+  endM: number,
+  total: DecimalLike,
+): HourSegment[] | null {
+  if (outM <= inM) return null;
+  const span = outM - inM;
+  const seg = (scenario: Scenario, fromM: number, toM: number): HourSegment | null => {
+    const mins = Math.max(0, Math.min(outM, toM) - Math.max(inM, fromM));
+    return mins > 0 ? { scenario, hours: new Decimal(mins) } : null;
+  };
+  const raw = [
+    seg("OOB", -Infinity, startM), // before the window opens
+    seg("BUSINESS", startM, endM), // within business hours
+    seg("OOB", endM, Infinity), // after the window closes (after 5pm)
+  ].filter((s): s is HourSegment => s !== null);
+  if (raw.length === 0) return null;
+  // Scale minute-based hours to the authoritative total billable hours.
+  return raw.map((s) => ({
+    scenario: s.scenario,
+    hours: s.hours.dividedBy(span).times(total),
+  }));
+}
+
+/**
+ * Manual after-hours fallback (no In/Out times): `ooo` of the total hours bill at
+ * the after-hours (OOB) rate, the rest at business. Business leads (so the first
+ * hour is a business hour unless the whole visit is after-hours).
+ */
+function manualSegments(total: DecimalLike, ooo: DecimalLike): HourSegment[] | null {
+  if (total.lessThanOrEqualTo(0)) return null;
+  const oob = ooo.greaterThan(total) ? total : ooo;
+  const biz = total.minus(oob);
+  const segs: HourSegment[] = [];
+  if (biz.greaterThan(0)) segs.push({ scenario: "BUSINESS", hours: biz });
+  if (oob.greaterThan(0)) segs.push({ scenario: "OOB", hours: oob });
+  return segs.length > 0 ? segs : null;
+}
+
+/**
+ * Walk the chronological segments: the first-hour charge is billed once at the
+ * leading segment's window (FIRST_HOUR / _OOB / _WEEKEND), `freeHoursIncluded`
+ * hours are then consumed across segments, and every remaining hour bills at its
+ * own window's ADDITIONAL rate. Returns the (uncapped) base + reporting fields.
+ */
+function chargeFromSegments(
+  segments: HourSegment[],
+  rates: DispatchRateRow[],
+  band: number,
+  sla: string,
+  free: DecimalLike,
+): { firstRate: DecimalLike; startScenario: Scenario; base: DecimalLike; hasBusiness: boolean; hasOob: boolean } {
+  const startScenario = segments[0].scenario;
+  const firstRate = pick(rates, band, sla, SCENARIO_CODES[startScenario].first);
+  let remainingFree = free;
+  let additionalBase = ZERO;
+  for (const s of segments) {
+    const used = Decimal.min(remainingFree, s.hours);
+    remainingFree = remainingFree.minus(used);
+    const billable = s.hours.minus(used);
+    if (billable.greaterThan(0)) {
+      const addl = pick(rates, band, sla, SCENARIO_CODES[s.scenario].additional);
+      additionalBase = additionalBase.plus(addl.times(billable));
+    }
+  }
+  return {
+    firstRate,
+    startScenario,
+    base: firstRate.plus(additionalBase),
+    hasBusiness: segments.some((s) => s.scenario === "BUSINESS"),
+    hasOob: segments.some((s) => s.scenario === "OOB"),
+  };
 }
 
 export function calculateDispatchVisit(
@@ -223,7 +328,9 @@ function calcBandSla(
   profile: DispatchPricingProfile,
 ): DispatchRow {
   const rounded = roundHours(new Decimal(visit.hoursOnSite.toString()), profile);
-  const band = visit.technicianBand;
+  // Dispatch rates are stored flat at the profile's rateBand (2), not the
+  // technician's own band — look up there so the matrix always drives the charge.
+  const band = profile.rateBand;
   const sla = visit.slaCode;
   const scenario: Scenario =
     visit.weekend || visit.isPublicHoliday ? "WEEKEND" : visit.afterHours ? "OOB" : "BUSINESS";
@@ -266,6 +373,36 @@ function calcBandSla(
     }
     return base;
   };
+
+  // 1a) Hour-split paths (WEEKDAY only — a weekend/holiday day bills the whole
+  // visit at the WEEKEND scenario in the single-scenario branches below). The first
+  // hour is billed once at the leading window's FIRST_HOUR rate; each additional
+  // hour bills at its own window's ADDITIONAL rate. Two ways to obtain the segments:
+  //   (i) clock split  — In/Out times against the account business-hours window;
+  //   (ii) manual OOO   — when there are no In/Out times, `oooHrs` of the total are
+  //                       after-hours and the rest business.
+  const dayIsWeekend = visit.weekend || visit.isPublicHoliday;
+  if (!dayIsWeekend) {
+    const startM = toMinutes(visit.businessWindow?.start);
+    const endM = toMinutes(visit.businessWindow?.end);
+    const inM = toMinutes(visit.inTime);
+    const outM = toMinutes(visit.outTime);
+    let segments: HourSegment[] | null = null;
+    if (startM !== null && endM !== null && inM !== null && outM !== null) {
+      segments = weekdaySegments(inM, outM, startM, endM, rounded);
+    } else if (visit.oooHrs != null && visit.oooHrs > 0) {
+      segments = manualSegments(rounded, new Decimal(visit.oooHrs));
+    }
+    if (segments && segments.length > 0) {
+      const r = chargeFromSegments(segments, rates, band, sla, free);
+      const base = capBase(r.base);
+      modifiers.push(
+        r.hasBusiness && r.hasOob ? "split business/after-hours" : r.hasOob ? "out-of-business" : "business",
+      );
+      const startAddl = pick(rates, band, sla, SCENARIO_CODES[r.startScenario].additional);
+      return row(Number(r.firstRate.toFixed(2)), Number(startAddl.toFixed(2)), Number(base.toFixed(2)));
+    }
+  }
 
   // 2) Explicit scenario hourly rates, when present, price the scenario directly
   // (no multiplier on top).

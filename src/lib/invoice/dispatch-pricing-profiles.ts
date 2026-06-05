@@ -6,6 +6,8 @@
 // The string keys match the Prisma `DispatchPricingModel` enum values, so an
 // account's `dispatchPricingModel` maps straight to a profile via `profileFor`.
 
+import { DISPATCH_BAND } from "@/lib/domain/rate-dimensions";
+
 export type HoursRounding = "none" | "nearest_half_min1";
 export type DispatchRateKey = "band_sla" | "priority";
 
@@ -23,6 +25,11 @@ export type DispatchPricingProfile = {
   //   band_sla  -> (technician band, visit SLA)            [JLL]
   //   priority  -> (visit SLA used as the priority tier)   [TCS]; band ignored
   rateKey: DispatchRateKey;
+  // The band the band_sla lookup keys on. Dispatch rates are stored flat at
+  // DISPATCH_BAND (2) regardless of the technician's own band, so the lookup must
+  // use this fixed band — not the tech's band — or off-band techs would silently
+  // resolve to $0. Ignored by the priority path (which ignores band entirely).
+  rateBand: number;
   // First-hour-charge multipliers for weekend scenarios (TCS rate card: weekend
   // x1.5, weekend-after-hours x2). null = no multiplier (the band_sla path uses
   // its own legacy uplift instead and ignores these).
@@ -43,6 +50,7 @@ export const STANDARD_PROFILE: DispatchPricingProfile = {
   freeHoursIncluded: 1,
   fullDayCap: true,
   rateKey: "band_sla",
+  rateBand: DISPATCH_BAND,
   weekendFirstHourMultiplier: null,
   weekendAfterFirstHourMultiplier: null,
   cancelledBillsFirstHour: false,
@@ -58,6 +66,7 @@ export const TCS_PRIORITY_PROFILE: DispatchPricingProfile = {
   freeHoursIncluded: 2,
   fullDayCap: false,
   rateKey: "priority",
+  rateBand: DISPATCH_BAND,
   weekendFirstHourMultiplier: 1.5,
   weekendAfterFirstHourMultiplier: 2,
   cancelledBillsFirstHour: true,

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
+import { dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
 import { DispatchVisitsView } from "@/app/admin/dispatch-visits/[accountId]/visits-view";
 import { DeleteMonthButton } from "./delete-month-button";
 
@@ -79,14 +80,38 @@ export async function DispatchCategorySection({
     include: { org: true, accountRates: { include: { rateSubCategory: true, sla: true } } },
   });
   const currency = account ? account.currency ?? account.org.defaultCurrency : "USD";
+  const businessWindow =
+    account && account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
   const pricedRows = account
     ? await loadDispatchTrackerRows(
         accountId,
         range,
         dispatchRateRows(account.accountRates),
         account.dispatchPricingModel,
+        businessWindow,
       )
     : [];
+
+  // Scope the SLA dropdown to the account's rate sheet (priced first), mirroring
+  // the standalone dispatch page.
+  const isTcs = account?.dispatchPricingModel === "TCS_PRIORITY";
+  const dispatchCodeSet = new Set<string>(dispatchSlaCodes);
+  const pricedCodes = new Set(
+    (account?.accountRates ?? [])
+      .filter(
+        (r) =>
+          r.rateSubCategory.rateCategory === "DISPATCH_SCHED" &&
+          r.rateSubCategory.code === "FIRST_HOUR" &&
+          r.rateAmount != null,
+      )
+      .map((r) => r.sla.code),
+  );
+  const slaOpts = slas
+    .filter((s) => (isTcs ? pricedCodes.has(s.code) : dispatchCodeSet.has(s.code) || pricedCodes.has(s.code)))
+    .map((s) => ({ id: s.id, code: s.code, label: s.label, priced: pricedCodes.has(s.code) }))
+    .sort((a, b) => Number(b.priced) - Number(a.priced) || a.code.localeCompare(b.code));
   const billingByVisitId: Record<
     string,
     { billed: number; totalHrs: number; additionalHours: number; firstHourRate: number; additionalHourRate: number }
@@ -146,7 +171,8 @@ export async function DispatchCategorySection({
           phone: a.technician.phone,
           email: a.technician.email,
         }))}
-        slas={slas.map((s) => ({ id: s.id, code: s.code, label: s.label }))}
+        slas={slaOpts}
+        businessHours={businessWindow}
         visitTypes={visitTypes.map((t) => ({ id: t.id, code: t.code, label: t.label }))}
         visits={visits.map((v) => ({
           id: v.id,

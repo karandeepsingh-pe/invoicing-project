@@ -101,6 +101,31 @@ export function ClientAccountCreateAnywhereForm({
       <TextField label="State / Region" name="state" errors={fieldErrors?.state} />
       <TextField label="Zip / Postal code" name="postalCode" errors={fieldErrors?.postalCode} />
       <TextField label="Country" name="country" errors={fieldErrors?.country} />
+      <SelectField
+        label="Dispatch pricing model"
+        name="dispatchPricingModel"
+        defaultValue="STANDARD"
+        errors={fieldErrors?.dispatchPricingModel}
+        hint="Standard = band + SLA hourly. TCS = priority-keyed."
+      >
+        <option value="STANDARD">Standard (band + SLA)</option>
+        <option value="TCS_PRIORITY">TCS priority</option>
+      </SelectField>
+      <TextField
+        label="Business hours start"
+        name="businessHoursStart"
+        type="time"
+        defaultValue="09:00"
+        errors={fieldErrors?.businessHoursStart}
+        hint="Dispatch auto-split: hours after the end time bill after-hours. Blank both = off."
+      />
+      <TextField
+        label="Business hours end"
+        name="businessHoursEnd"
+        type="time"
+        defaultValue="17:00"
+        errors={fieldErrors?.businessHoursEnd}
+      />
       <div className="md:col-span-3">
         <SubmitButton>Create account</SubmitButton>
         {state && state.ok && !onSuccess && <span className="ml-3 text-sm text-success">Created.</span>}

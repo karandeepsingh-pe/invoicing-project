@@ -67,6 +67,10 @@ export async function generateCombinedInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
   const businessDays = businessDaysInRange(range, []);
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
 
   const [fteResult, projectRows, scheduledRows, dispatchDetail] = await Promise.all([
     loadFteRows(accountId, range),
@@ -77,6 +81,7 @@ export async function generateCombinedInvoice(
       range,
       dispatchRateRows(account.accountRates),
       account.dispatchPricingModel,
+      businessWindow,
     ),
   ]);
 

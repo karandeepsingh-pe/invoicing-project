@@ -29,6 +29,9 @@ export async function createClientAccount(
     state: formData.get("state") ?? undefined,
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
+    dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    businessHoursStart: formData.get("businessHoursStart") ?? undefined,
+    businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -72,6 +75,9 @@ export async function updateClientAccount(
     state: formData.get("state") ?? undefined,
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
+    dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    businessHoursStart: formData.get("businessHoursStart") ?? undefined,
+    businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

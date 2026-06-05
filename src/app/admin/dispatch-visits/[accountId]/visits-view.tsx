@@ -1,11 +1,15 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { DispatchWorkStatus } from "@prisma/client";
 import {
   createDispatchVisit,
   deleteDispatchVisit,
 } from "@/lib/actions/dispatch-visit";
+import {
+  previewDispatchCharge,
+  type DispatchPreviewResult,
+} from "@/lib/actions/dispatch-preview";
 import {
   FormError,
   SelectField,
@@ -22,7 +26,7 @@ type AssignmentOpt = {
   phone: string | null;
   email: string | null;
 };
-type SlaOpt = { id: string; code: string; label: string };
+type SlaOpt = { id: string; code: string; label: string; priced: boolean };
 type VisitTypeOpt = { id: string; code: string; label: string };
 type VisitRow = {
   id: string;
@@ -71,6 +75,7 @@ export function DispatchVisitsView({
   billing = {},
   currency = "USD",
   hideMonthPicker = false,
+  businessHours = null,
 }: {
   accountId: string;
   year: number;
@@ -85,11 +90,54 @@ export function DispatchVisitsView({
   // When embedded in the combined "All categories" view, the page owns the
   // month picker, so the dispatch block hides its own.
   hideMonthPicker?: boolean;
+  // Account business-hours window ("HH:mm"); set = auto-split on (In/Out required).
+  businessHours?: { start: string; end: string } | null;
 }) {
   const [createState, createAction, createPending] = useActionState(createDispatchVisit, null);
   const [deleteState, deleteAction] = useActionState(deleteDispatchVisit, null);
   const [pending, startTransition] = useTransition();
   const [assignmentId, setAssignmentId] = useState(assignments[0]?.id ?? "");
+
+  // Controlled fields that drive the live charge preview. Default the SLA to the
+  // first priced option so the preview is meaningful on first render.
+  const firstPricedSla = slas.find((s) => s.priced) ?? slas[0];
+  const [slaId, setSlaId] = useState(firstPricedSla?.id ?? "");
+  const [hoursOnSite, setHoursOnSite] = useState("1");
+  const [visitDate, setVisitDate] = useState("");
+  const [inTime, setInTime] = useState("");
+  const [outTime, setOutTime] = useState("");
+  const [oooHrs, setOooHrs] = useState("");
+  const [afterHours, setAfterHours] = useState(false);
+  const [weekend, setWeekend] = useState(false);
+  const [preview, setPreview] = useState<DispatchPreviewResult | null>(null);
+  const [previewPending, startPreview] = useTransition();
+
+  // Debounced live preview: reuses the real calculator server-side, so the number
+  // shown equals what the visit will bill.
+  useEffect(() => {
+    if (!assignmentId || !slaId) {
+      setPreview(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      startPreview(async () => {
+        const res = await previewDispatchCharge({
+          accountId,
+          assignmentId,
+          slaId,
+          hoursOnSite: Number(hoursOnSite) || 0,
+          visitDate: visitDate || "2000-01-01",
+          inTime: inTime || null,
+          outTime: outTime || null,
+          oooHrs: oooHrs ? Number(oooHrs) : null,
+          afterHours,
+          weekend,
+        });
+        setPreview(res);
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [accountId, assignmentId, slaId, hoursOnSite, visitDate, inTime, outTime, oooHrs, afterHours, weekend]);
 
   useActionToast(createState, {
     success: { title: "Visit added" },
@@ -204,9 +252,34 @@ export function DispatchVisitsView({
 
           {/* Visit date + in/out + hours + SLA */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <TextField label="Visit date" name="visitDate" type="date" required errors={fieldErrors?.visitDate} />
-            <TextField label="In-Time" name="inTime" type="time" errors={fieldErrors?.inTime} hint="Feeds the overlap calendar." />
-            <TextField label="Out-Time" name="outTime" type="time" errors={fieldErrors?.outTime} />
+            <TextField
+              label="Visit date"
+              name="visitDate"
+              type="date"
+              required
+              value={visitDate}
+              onChange={(e) => setVisitDate(e.target.value)}
+              errors={fieldErrors?.visitDate}
+            />
+            <TextField
+              label="In-Time"
+              name="inTime"
+              type="time"
+              required={!!businessHours}
+              value={inTime}
+              onChange={(e) => setInTime(e.target.value)}
+              errors={fieldErrors?.inTime}
+              hint={businessHours ? "Required — drives the business/after-hours split." : "Feeds the overlap calendar."}
+            />
+            <TextField
+              label="Out-Time"
+              name="outTime"
+              type="time"
+              required={!!businessHours}
+              value={outTime}
+              onChange={(e) => setOutTime(e.target.value)}
+              errors={fieldErrors?.outTime}
+            />
             <TextField
               label="Total Hrs"
               name="hoursOnSite"
@@ -216,25 +289,68 @@ export function DispatchVisitsView({
               max={24}
               inputMode="decimal"
               required
-              defaultValue="1"
+              value={hoursOnSite}
+              onChange={(e) => setHoursOnSite(e.target.value)}
               errors={fieldErrors?.hoursOnSite}
               hint="Manual. Billed = 1st-hr + (Total−1)×add'l."
             />
-            <SelectField label="SLA" name="slaId" required errors={fieldErrors?.slaId}>
+            <SelectField
+              label="SLA"
+              name="slaId"
+              required
+              value={slaId}
+              onChange={(e) => setSlaId(e.target.value)}
+              errors={fieldErrors?.slaId}
+            >
+              {slas.length === 0 && <option value="">No dispatch rates configured</option>}
               {slas.map((s) => (
-                <option key={s.id} value={s.id}>{s.code} — {s.label}</option>
+                <option key={s.id} value={s.id} disabled={!s.priced}>
+                  {s.code} — {s.label}
+                  {s.priced ? "" : " (no rate)"}
+                </option>
               ))}
             </SelectField>
-            <TextField label="OOO Hrs" name="oooHrs" type="number" step="0.25" min={0} max={24} errors={fieldErrors?.oooHrs} />
+            <TextField
+              label="OOO Hrs"
+              name="oooHrs"
+              type="number"
+              step="0.25"
+              min={0}
+              max={24}
+              value={oooHrs}
+              onChange={(e) => setOooHrs(e.target.value)}
+              errors={fieldErrors?.oooHrs}
+              hint="After-hours hours when no In/Out time is given."
+            />
             <label className="flex items-end gap-2 text-sm">
-              <input type="checkbox" name="afterHours" className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent" />
-              <span className="text-fg-muted">After-hours uplift</span>
+              <input
+                type="checkbox"
+                name="afterHours"
+                checked={afterHours}
+                onChange={(e) => setAfterHours(e.target.checked)}
+                className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent"
+              />
+              <span className="text-fg-muted">After-hours uplift{businessHours ? " (auto from time)" : ""}</span>
             </label>
             <label className="flex items-end gap-2 text-sm">
-              <input type="checkbox" name="weekend" className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent" />
-              <span className="text-fg-muted">Weekend uplift</span>
+              <input
+                type="checkbox"
+                name="weekend"
+                checked={weekend}
+                onChange={(e) => setWeekend(e.target.checked)}
+                className="h-4 w-4 rounded border-border-strong text-accent accent-accent focus:ring-accent"
+              />
+              <span className="text-fg-muted">Weekend uplift{businessHours ? " (auto from date)" : ""}</span>
             </label>
           </div>
+
+          {/* Live charge preview — reuses the real billing engine. */}
+          <DispatchChargePreview
+            preview={preview}
+            pending={previewPending}
+            currency={currency}
+            businessHours={businessHours}
+          />
 
           {/* Travel + parts + notes */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -358,6 +474,57 @@ export function DispatchVisitsView({
           </tbody>
         </table>
       </section>
+    </div>
+  );
+}
+
+function DispatchChargePreview({
+  preview,
+  pending,
+  currency,
+  businessHours,
+}: {
+  preview: DispatchPreviewResult | null;
+  pending: boolean;
+  currency: string;
+  businessHours: { start: string; end: string } | null;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-surface-2/40 px-3 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="font-semibold text-fg-muted">Live preview</span>
+        {pending && <span className="text-fg-subtle">calculating…</span>}
+        {!pending && preview?.ok && (
+          <>
+            <span className="text-base font-semibold tabular-nums text-fg">
+              {money(preview.charge, currency)}
+            </span>
+            <span className="text-fg-subtle">
+              1st hr {preview.firstHourRate} + {preview.additionalHours.toFixed(2)} × {preview.additionalHourRate}
+              {" · "}
+              {preview.billableHrs.toFixed(2)} hrs
+            </span>
+            {preview.modifiers.length > 0 && (
+              <span className="text-fg-subtle">[{preview.modifiers.join(", ")}]</span>
+            )}
+          </>
+        )}
+        {!pending && preview && !preview.ok && (
+          <span className="text-fg-subtle">{preview.error}</span>
+        )}
+      </div>
+      {!pending && preview?.ok && !preview.hasRate && (
+        <p className="mt-1 rounded bg-warning-bg/40 px-2 py-1 text-warning">
+          No rate on the sheet for this SLA — this visit will bill $0. Add the dispatch First Hour rate
+          (and after-hours / weekend rates) before saving.
+        </p>
+      )}
+      {businessHours && (
+        <p className="mt-1 text-fg-subtle">
+          Auto-split on: weekday hours after {businessHours.end} bill at after-hours rates; a weekend date
+          bills the whole visit at weekend rates.
+        </p>
+      )}
     </div>
   );
 }

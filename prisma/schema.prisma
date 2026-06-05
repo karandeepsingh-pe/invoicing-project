@@ -124,6 +124,12 @@ model ClientAccount {
   // Which dispatch pricing model this account bills under (default keeps every
   // existing account on the original band + SLA math).
   dispatchPricingModel DispatchPricingModel @default(STANDARD)
+  // Business-hours window ("HH:mm", wall-clock) for dispatch auto-split billing.
+  // When BOTH are set, a weekday visit with In/Out times bills its hours across
+  // business vs after-hours (anything after businessHoursEnd) at the matching
+  // rates. Null = auto-split off (single scenario from the manual after-hours flag).
+  businessHoursStart String?
+  businessHoursEnd   String?
   // Billing / site address shown on generated invoices and dispatch context.
   addressLine1       String?
   city               String?
