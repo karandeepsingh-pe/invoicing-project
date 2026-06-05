@@ -25,6 +25,7 @@ export type TechEditFormProps = {
   primaryCategory: RateCategory;
   band: number;
   defaultSlaTier: AssignmentSlaTier;
+  dedicatedBillingBasis: string;
   active: boolean;
   isAvailableForDedicated: boolean;
   isAvailableForProject: boolean;
@@ -176,6 +177,18 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             </option>
             <option value="BACKFILL">Backfill (replacement guaranteed)</option>
             <option value="NO_BACKFILL">No Backfill</option>
+          </SelectField>
+        )}
+        {primaryCategory === RateCategory.DEDICATED && (
+          <SelectField
+            label="Billing basis"
+            name="dedicatedBillingBasis"
+            defaultValue={props.dedicatedBillingBasis}
+            errors={fieldErrors?.dedicatedBillingBasis}
+            hint="Day rate (Annual/Day/Monthly × days) or Hourly (regular hours × Hourly Rate)."
+          >
+            <option value="DAY_RATE">Day rate</option>
+            <option value="HOURLY">Hourly</option>
           </SelectField>
         )}
         <label className="flex flex-col gap-1.5">

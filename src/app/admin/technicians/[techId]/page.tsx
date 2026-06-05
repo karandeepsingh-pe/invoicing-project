@@ -161,6 +161,7 @@ export default async function TechnicianDetailPage({
             primaryCategory={tech.primaryCategory}
             band={tech.band}
             defaultSlaTier={tech.defaultSlaTier}
+            dedicatedBillingBasis={tech.dedicatedBillingBasis}
             active={tech.active}
             isAvailableForDedicated={tech.isAvailableForDedicated}
             isAvailableForProject={tech.isAvailableForProject}

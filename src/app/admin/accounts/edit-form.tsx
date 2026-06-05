@@ -19,7 +19,6 @@ export function ClientAccountEditForm({
   postalCode,
   country,
   dispatchPricingModel,
-  dedicatedBillingBasis,
   businessHoursStart,
   businessHoursEnd,
 }: {
@@ -37,7 +36,6 @@ export function ClientAccountEditForm({
   postalCode: string | null;
   country: string | null;
   dispatchPricingModel: string;
-  dedicatedBillingBasis: string;
   businessHoursStart: string | null;
   businessHoursEnd: string | null;
 }) {
@@ -136,18 +134,8 @@ export function ClientAccountEditForm({
       <TextField label="Country" name="country" defaultValue={country ?? ""} errors={fieldErrors?.country} />
 
       <div className="mt-1 border-t border-border pt-2">
-        <span className="text-xs font-semibold tracking-tightish text-fg-muted">Billing</span>
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">Dispatch billing</span>
       </div>
-      <SelectField
-        label="Dedicated billing basis"
-        name="dedicatedBillingBasis"
-        defaultValue={dedicatedBillingBasis}
-        errors={fieldErrors?.dedicatedBillingBasis}
-        hint="Day-rate = Annual/Day/Monthly × days. Hourly = regular hours × Hourly Rate. OT + weekend per-hour either way."
-      >
-        <option value="DAY_RATE">Day rate (Annual / Day / Monthly)</option>
-        <option value="HOURLY">Hourly (regular hours × Hourly Rate)</option>
-      </SelectField>
       <SelectField
         label="Dispatch pricing model"
         name="dispatchPricingModel"

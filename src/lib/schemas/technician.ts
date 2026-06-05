@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AssignmentSlaTier, RateCategory } from "@prisma/client";
+import { AssignmentSlaTier, RateCategory, DedicatedBillingBasis } from "@prisma/client";
 
 const employeeIdField = z
   .string()
@@ -55,6 +55,7 @@ export const technicianCreateSchema = z.object({
   primaryCategory: z.nativeEnum(RateCategory),
   band: z.coerce.number().int().min(0).max(4),
   defaultSlaTier: z.nativeEnum(AssignmentSlaTier).optional(),
+  dedicatedBillingBasis: z.nativeEnum(DedicatedBillingBasis).optional(),
   phone: phoneOptional,
   email: emailOptional,
   ...availabilityFlags,
@@ -94,6 +95,7 @@ export const technicianUpdateSchema = z.object({
   primaryCategory: z.nativeEnum(RateCategory),
   band: z.coerce.number().int().min(0).max(4),
   defaultSlaTier: z.nativeEnum(AssignmentSlaTier).optional(),
+  dedicatedBillingBasis: z.nativeEnum(DedicatedBillingBasis).optional(),
   active: z.coerce.boolean().optional().default(true),
   phone: phoneOptional,
   email: emailOptional,

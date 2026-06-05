@@ -102,16 +102,6 @@ export function ClientAccountCreateAnywhereForm({
       <TextField label="Zip / Postal code" name="postalCode" errors={fieldErrors?.postalCode} />
       <TextField label="Country" name="country" errors={fieldErrors?.country} />
       <SelectField
-        label="Dedicated billing basis"
-        name="dedicatedBillingBasis"
-        defaultValue="DAY_RATE"
-        errors={fieldErrors?.dedicatedBillingBasis}
-        hint="Day-rate or hourly (regular hours × Hourly Rate)."
-      >
-        <option value="DAY_RATE">Day rate (Annual / Day / Monthly)</option>
-        <option value="HOURLY">Hourly (regular hours × Hourly Rate)</option>
-      </SelectField>
-      <SelectField
         label="Dispatch pricing model"
         name="dispatchPricingModel"
         defaultValue="STANDARD"

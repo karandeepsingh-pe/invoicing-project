@@ -54,7 +54,6 @@ export default async function AccountsPage() {
     postalCode: a.postalCode,
     country: a.country,
     dispatchPricingModel: a.dispatchPricingModel,
-    dedicatedBillingBasis: a.dedicatedBillingBasis,
     businessHoursStart: a.businessHoursStart,
     businessHoursEnd: a.businessHoursEnd,
   }));

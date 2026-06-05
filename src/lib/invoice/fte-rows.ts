@@ -52,16 +52,12 @@ export async function loadFteRows(
     where: { id: accountId },
     select: {
       defaultHours: true,
-      dedicatedBillingBasis: true,
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
   });
   if (!account) return { rows: [], unpriced: [] };
   const defaultHours = account.defaultHours;
   const accountRates = account.accountRates;
-  // HOURLY basis bills regular HOURS × the Hourly Rate; DAY_RATE bills regular
-  // DAYS × the day rate. OT + weekend stay per-hour either way.
-  const isHourly = account.dedicatedBillingBasis === "HOURLY";
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -92,6 +88,9 @@ export async function loadFteRows(
   // weekend are always per-hour from the sheet (rebadged uses its own).
   type AssignmentWithTech = (typeof assignments)[number];
   function resolveRates(a: AssignmentWithTech) {
+    // HOURLY (per-tech): regular HOURS × the band's Hourly Rate; DAY_RATE: regular
+    // DAYS × the day rate. OT + weekend stay per-hour either way.
+    const isHourly = a.technician.dedicatedBillingBasis === "HOURLY";
     const techRates = ratesForTechnicianInRange(
       accountRates,
       "DEDICATED",
@@ -246,7 +245,7 @@ export async function loadFteRows(
       entries,
       rates,
       slaTier: a.slaTier,
-      basis: account.dedicatedBillingBasis,
+      basis: a.technician.dedicatedBillingBasis,
       coverageDaysDelta: coverage.daysDeltaByAssignment.get(a.id),
       coverageOtDelta: coverage.otDeltaByAssignment.get(a.id),
       coverageWeekendDelta: coverage.weekendDeltaByAssignment.get(a.id),
@@ -279,7 +278,7 @@ export async function loadFteRows(
       : "—";
 
     const remarkParts: string[] = coverage.remarksByAssignment.get(a.id) ?? [];
-    if (isHourly) {
+    if (a.technician.dedicatedBillingBasis === "HOURLY") {
       remarkParts.push(`Hourly basis: ${daysWorkedNum.toFixed(2)}h @ $${Number(calc.dayRate.toFixed(2))}/hr`);
     }
     const breakdownBits: string[] = [];

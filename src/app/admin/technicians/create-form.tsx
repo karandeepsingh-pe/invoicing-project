@@ -161,6 +161,18 @@ export function TechnicianCreateForm({
             <option value="NO_BACKFILL">No Backfill</option>
           </SelectField>
         )}
+        {primaryCategory === RateCategory.DEDICATED && (
+          <SelectField
+            label="Billing basis"
+            name="dedicatedBillingBasis"
+            defaultValue="DAY_RATE"
+            errors={fieldErrors?.dedicatedBillingBasis}
+            hint="Day rate (Annual/Day/Monthly × days) or Hourly (regular hours × Hourly Rate). OT + weekend per-hour either way."
+          >
+            <option value="DAY_RATE">Day rate</option>
+            <option value="HOURLY">Hourly</option>
+          </SelectField>
+        )}
       </div>
 
       <AvailabilityFlagsField />

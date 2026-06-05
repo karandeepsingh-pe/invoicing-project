@@ -132,9 +132,6 @@ model ClientAccount {
   // Which dispatch pricing model this account bills under (default keeps every
   // existing account on the original band + SLA math).
   dispatchPricingModel DispatchPricingModel @default(STANDARD)
-  // How Dedicated regular work bills: DAY_RATE (Annual/Day/Monthly basis) or HOURLY
-  // (regular hours × Hourly Rate). OT + weekend stay per-hour either way.
-  dedicatedBillingBasis DedicatedBillingBasis @default(DAY_RATE)
   // Business-hours window ("HH:mm", wall-clock) for dispatch auto-split billing.
   // When BOTH are set, a weekday visit with In/Out times bills its hours across
   // business vs after-hours (anything after businessHoursEnd) at the matching
@@ -272,6 +269,10 @@ model Technician {
   // (BACKFILL vs NO_BACKFILL AccountRate rows), so this rides on the technician and
   // seeds the slaTier of any assignment they take. NONE for non-Dedicated techs.
   defaultSlaTier  AssignmentSlaTier @default(NONE)
+  // How a DEDICATED tech bills regular work: DAY_RATE (Annual/Day/Monthly basis) or
+  // HOURLY (regular hours × the band's Hourly Rate). OT + weekend stay per-hour.
+  // Ignored for non-Dedicated techs.
+  dedicatedBillingBasis DedicatedBillingBasis @default(DAY_RATE)
   active          Boolean      @default(true)
   // Pool availability flags. Opt-in (default false): a technician must be flagged
   // for a category before they appear in that category's new-assignment picker.
