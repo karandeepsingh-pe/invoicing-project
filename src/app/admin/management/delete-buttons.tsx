@@ -10,7 +10,7 @@ import { useActionToast } from "@/lib/hooks/use-action-toast";
 import type { ActionResult } from "@/lib/actions/result";
 
 const baseButton =
-  "inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50";
+  "inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-bg disabled:opacity-50";
 
 function GuardedDelete({
   id,

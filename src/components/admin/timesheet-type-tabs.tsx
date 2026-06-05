@@ -42,7 +42,7 @@ export function TimesheetTypeTabs({
       { key: "DISPATCH", label: "Dispatch" },
     ];
     return (
-      <div className="sticky top-0 z-30 -mx-1 flex flex-wrap gap-1.5 bg-bg/80 px-1 py-2 text-xs backdrop-blur">
+      <div className="sticky top-0 z-30 -mx-1 flex flex-wrap gap-1.5 bg-bg px-1 py-2 text-xs">
         {scrollTabs.map((t) => (
           <a
             key={t.key}

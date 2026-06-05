@@ -137,7 +137,7 @@ export function FillRangeDialog({
             <button
               type="button"
               onClick={close}
-              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted backdrop-blur transition-colors hover:bg-surface hover:text-fg"
+              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
             >
               Cancel
             </button>

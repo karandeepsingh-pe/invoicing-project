@@ -33,7 +33,7 @@ export function GenerateTypeTabs({
       { key: "dispatch", label: "Dispatch" },
     ];
     return (
-      <nav className="sticky top-0 z-30 flex flex-wrap gap-1 border-b border-border bg-bg/80 py-1 backdrop-blur">
+      <nav className="sticky top-0 z-30 flex flex-wrap gap-1 border-b border-border bg-bg py-1">
         {scrollTabs.map((t) => (
           <a
             key={t.key}

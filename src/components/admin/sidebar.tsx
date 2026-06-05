@@ -92,7 +92,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
                   className={
                     "group relative flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all " +
                     (active
-                      ? "bg-surface/60 text-fg shadow-sm backdrop-blur"
+                      ? "bg-surface/60 text-fg shadow-sm"
                       : "text-fg-muted hover:bg-surface/40 hover:text-fg")
                   }
                 >
@@ -136,7 +136,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
                           className={
                             "relative flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-all " +
                             (active
-                              ? "bg-surface/60 text-fg shadow-sm backdrop-blur"
+                              ? "bg-surface/60 text-fg shadow-sm"
                               : "text-fg-muted hover:bg-surface/40 hover:text-fg")
                           }
                         >

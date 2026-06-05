@@ -193,7 +193,7 @@ export function ManagementView({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-3 bg-bg/80 px-1 pb-2 pt-1 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-3 bg-bg px-1 pb-2 pt-1">
         {/* Tabs (with total counts) */}
         <div className="flex flex-wrap gap-1.5 text-sm">
           {tabs.map((t) => (

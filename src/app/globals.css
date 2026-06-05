@@ -86,22 +86,29 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    background:
-      radial-gradient(at 12% 10%, rgb(var(--orb-1) / 0.20), transparent 45%),
-      radial-gradient(at 88% 18%, rgb(var(--orb-2) / 0.18), transparent 48%),
-      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%),
-      linear-gradient(180deg, rgb(var(--bg)), rgb(var(--bg)));
-    background-attachment: fixed;
+    background-color: rgb(var(--bg));
     min-height: 100vh;
   }
 
-  .dark body {
+  /* Static orb backdrop on ONE fixed, GPU-composited layer. Replaces
+     background-attachment: fixed on <body>, which forced a full-viewport repaint
+     of the gradients on every scroll frame (the main scroll-jank cause). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(at 12% 10%, rgb(var(--orb-1) / 0.20), transparent 45%),
+      radial-gradient(at 88% 18%, rgb(var(--orb-2) / 0.18), transparent 48%),
+      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%);
+  }
+  .dark body::before {
     background:
       radial-gradient(at 12% 10%, rgb(var(--orb-1) / 0.22), transparent 45%),
       radial-gradient(at 88% 18%, rgb(var(--orb-2) / 0.20), transparent 48%),
-      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%),
-      linear-gradient(180deg, rgb(var(--bg)), rgb(var(--bg)));
-    background-attachment: fixed;
+      radial-gradient(at 50% 95%, rgb(var(--orb-3) / 0.16), transparent 50%);
   }
 
   h1, h2, h3, h4 {
@@ -117,12 +124,14 @@
 
 @layer components {
   /* Primary translucent card */
+  /* NOTE: glass surfaces are intentionally blur-FREE. backdrop-filter: blur on
+     ~87 elements over the page background re-blurred every scroll frame and made
+     scrolling lag. We keep the frosted look with higher background opacity (cheap
+     to composite) instead of a live blur. */
   .glass {
-    background-color: rgb(var(--glass-bg) / var(--glass-bg-alpha));
+    background-color: rgb(var(--glass-bg) / 0.90);
     border: 1px solid rgb(var(--glass-border) / var(--glass-border-alpha));
     box-shadow: var(--glass-shadow);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    backdrop-filter: blur(18px) saturate(140%);
   }
   .glass:hover {
     box-shadow: var(--glass-shadow-lg);
@@ -133,10 +142,8 @@
 
   /* Subtler glass (sub-sections, inner panels) */
   .glass-soft {
-    background-color: rgb(var(--glass-bg) / var(--glass-bg-2-alpha));
+    background-color: rgb(var(--glass-bg) / 0.80);
     border: 1px solid rgb(var(--glass-border) / 0.30);
-    -webkit-backdrop-filter: blur(14px) saturate(135%);
-    backdrop-filter: blur(14px) saturate(135%);
   }
   .dark .glass-soft {
     border-color: rgb(var(--glass-border) / 0.06);
@@ -144,33 +151,27 @@
 
   /* Strong glass for sidebar / hero panels */
   .glass-strong {
-    background-color: rgb(var(--glass-bg) / 0.75);
+    background-color: rgb(var(--glass-bg) / 0.94);
     border: 1px solid rgb(var(--glass-border) / 0.55);
     box-shadow: var(--glass-shadow-lg);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
-    backdrop-filter: blur(22px) saturate(150%);
   }
   .dark .glass-strong {
-    background-color: rgb(var(--glass-bg) / 0.65);
+    background-color: rgb(var(--glass-bg) / 0.92);
     border-color: rgb(var(--glass-border) / 0.10);
   }
 
   /* Headed table area where we want a slightly more opaque tint */
   .glass-header {
-    background-color: rgb(var(--glass-bg) / 0.55);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    backdrop-filter: blur(14px) saturate(140%);
+    background-color: rgb(var(--glass-bg) / 0.88);
   }
   .dark .glass-header {
-    background-color: rgb(var(--glass-bg) / 0.45);
+    background-color: rgb(var(--glass-bg) / 0.85);
   }
 
   /* Input field treatment */
   .glass-input {
-    background-color: rgb(var(--glass-bg) / 0.65);
+    background-color: rgb(var(--glass-bg) / 0.95);
     border: 1px solid rgb(var(--border-strong));
-    -webkit-backdrop-filter: blur(10px) saturate(130%);
-    backdrop-filter: blur(10px) saturate(130%);
   }
   .glass-input:focus {
     border-color: rgb(var(--accent));
