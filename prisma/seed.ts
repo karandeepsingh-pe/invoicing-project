@@ -94,22 +94,15 @@ const subCategorySeeds: SubCatSeed[] = [
 
   // DEDICATED — bands 0..4. Tier-neutral base codes; the Backfill / No Backfill
   // distinction rides on AccountRate.slaId (BACKFILL vs NO_BACKFILL Sla code).
-  // Rebadged* are their own subcategories (billed off salary), SLA = NA.
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY", label: "Hourly Rate", sortOrder: 10 },
+  // Only the codes fte-rows.ts actually reads are kept: the day-rate basis
+  // (Annual / Day / Monthly — priority Day > Annual > Monthly) + the per-hour
+  // OT / Weekend adders. Rebadged* are per-technician (Technician.rebadged*
+  // columns), billed off salary — NOT rate-sheet rows.
+  { rateCategory: RateCategory.DEDICATED, code: "ANNUAL_RATE", label: "Annual Rate", sortOrder: 10 },
   { rateCategory: RateCategory.DEDICATED, code: "DAY_RATE", label: "Day Rate", sortOrder: 12 },
   { rateCategory: RateCategory.DEDICATED, code: "MONTHLY", label: "Monthly Rate", sortOrder: 14 },
-  // Annual rate basis: stores the annual figure; day rate = annual / 260.
-  { rateCategory: RateCategory.DEDICATED, code: "ANNUAL_RATE", label: "Annual Rate", sortOrder: 16 },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BUSINESS", label: "Hourly (Business Hours)", sortOrder: 20 },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_OOB", label: "Hourly (Out of Business)", sortOrder: 22 },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_WEEKEND", label: "Hourly (Weekend)", sortOrder: 24 },
   { rateCategory: RateCategory.DEDICATED, code: "OT_HOURLY_RATE", label: "OT Hourly Rate", sortOrder: 30, isOvertimeVariant: true },
   { rateCategory: RateCategory.DEDICATED, code: "WEEKEND_HOURLY_RATE", label: "Weekend Hourly Rate", sortOrder: 40, isOvertimeVariant: true },
-  // Rebadged rates are per-technician (Technician.rebadged* columns), NOT account
-  // rate-sheet rows — see RebadgedFields + resolveRebadgedDayRate.
-  // Legacy dedicated codes (still resolved by the calculators' fallbacks).
-  { rateCategory: RateCategory.DEDICATED, code: "MONTHLY_DAY_RATE", label: "Hourly Rate (legacy)", sortOrder: 200 },
-  { rateCategory: RateCategory.DEDICATED, code: "HOURLY_BACKFILL", label: "Hourly With Backfill (legacy)", sortOrder: 210 },
 ];
 
 const visitTypeSeeds: { code: string; label: string; sortOrder: number }[] = [
