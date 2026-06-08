@@ -21,6 +21,7 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import {
   normalizeCellText,
   parseCellText,
+  statusDayCredit,
   type CellParse,
 } from "@/lib/validation/cell";
 import { daysInFillRange } from "@/lib/domain/timesheet-month";
@@ -356,8 +357,16 @@ export function TimesheetGrid({
       let weekendHours = 0;
       for (const d of days) {
         const p = parsedByKey[cellKey(a.assignmentId, d)];
-        if (p.kind === "status" && p.status === "HALF_DAY") {
-          regularDays += 0.5;
+        if (p.kind === "status") {
+          // Mirror the invoice engine (hours-split.ts) so the displayed "Days"
+          // matches what is billed. For Dedicated (prefillDefaultHours) PH/PTO
+          // credit a full paid day, HALF_DAY 0.5, AB/NA 0. For Project/Scheduled
+          // the "Days" column is informational and unchanged (HALF_DAY only).
+          if (prefillDefaultHours) {
+            regularDays += statusDayCredit(p.status);
+          } else if (p.status === "HALF_DAY") {
+            regularDays += 0.5;
+          }
           continue;
         }
         if (p.kind !== "value") continue;
@@ -374,7 +383,7 @@ export function TimesheetGrid({
       }
       return { assignmentId: a.assignmentId, regularDays, otHours, weekendHours };
     });
-  }, [assignments, days, defaultHours, parsedByKey]);
+  }, [assignments, days, defaultHours, parsedByKey, prefillDefaultHours]);
 
   function handleChange(
     assignmentId: string,

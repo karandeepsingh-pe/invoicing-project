@@ -55,11 +55,10 @@ describe("splitCell", () => {
     expect(s.weekendHours.toNumber()).toBe(8);
   });
 
-  it("AB/NA/PTO -> all zeros regardless of hours value", () => {
+  it("AB/NA -> all zeros regardless of hours value", () => {
     const ab = splitCell({ date: TUE_APR_14, hours: dec(0), status: "AB" }, 8);
     const na = splitCell({ date: SAT_APR_4, hours: dec(8), status: "NA" }, 8);
-    const pto = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PTO" }, 8);
-    for (const s of [ab, na, pto]) {
+    for (const s of [ab, na]) {
       expect(s.regularDays.toNumber()).toBe(0);
       expect(s.otHours.toNumber()).toBe(0);
       expect(s.weekendHours.toNumber()).toBe(0);
@@ -68,6 +67,14 @@ describe("splitCell", () => {
 
   it("PH (public holiday) -> 1 full paid day (defaultHours regular), no OT/weekend", () => {
     const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PH" }, 8);
+    expect(s.regularDays.toNumber()).toBe(1);
+    expect(s.regularHours.toNumber()).toBe(8);
+    expect(s.otHours.toNumber()).toBe(0);
+    expect(s.weekendHours.toNumber()).toBe(0);
+  });
+
+  it("PTO (paid time off) -> 1 full paid day, like PH (salaried resource billed)", () => {
+    const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PTO" }, 8);
     expect(s.regularDays.toNumber()).toBe(1);
     expect(s.regularHours.toNumber()).toBe(8);
     expect(s.otHours.toNumber()).toBe(0);

@@ -41,14 +41,10 @@ export async function FtePreviewSection({
     ],
   });
 
-  const phDateSet = new Set<string>();
-  for (const a of assignments) {
-    for (const e of a.timesheetEntries) {
-      if (e.status === "PH") phDateSet.add(e.date.toISOString().slice(0, 10));
-    }
-  }
-  const phDates = Array.from(phDateSet).map((iso) => new Date(`${iso}T00:00:00.000Z`));
-  const businessDays = businessDaysInRange(range, phDates);
+  // PH / PTO bill as paid working days (see hours-split.ts), so the informational
+  // "Business Days" reference is simply the month's weekday count — matching the
+  // engine in fte-rows.ts. (Was previously subtracting PH dates, which diverged.)
+  const businessDays = businessDaysInRange(range, []);
 
   const previews: AssignmentPreview[] = assignments.map((a) => {
     const split = splitEntries(

@@ -8,6 +8,31 @@ export type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_SET = new Set<string>(STATUS_CODES);
 
+// Statuses that bill as a FULL PAID day for a Dedicated (salaried) technician:
+// the client pays for the allocated resource regardless of attendance.
+//   PH  — public holiday
+//   PTO — paid time off
+// AB (absent) and NA (terminated / not active) credit zero; HALF_DAY credits 0.5.
+//
+// Single source of truth for the status -> day-credit rule, shared by the
+// invoice engine (hours-split.ts) and the timesheet grid summary so the two
+// cannot drift. Dependency-free (no Decimal) so both client and server import it.
+export const PAID_LEAVE_STATUSES: readonly StatusCode[] = ["PH", "PTO"] as const;
+
+const PAID_LEAVE_SET = new Set<StatusCode>(PAID_LEAVE_STATUSES);
+
+/** Paid days credited for a status cell: 1 for PH/PTO, 0.5 for HALF_DAY, 0 for AB/NA. */
+export function statusDayCredit(status: StatusCode): number {
+  if (PAID_LEAVE_SET.has(status)) return 1;
+  if (status === "HALF_DAY") return 0.5;
+  return 0; // AB, NA
+}
+
+/** Paid (regular) hours credited for a status cell = day credit × the account's defaultHours. */
+export function statusHourCredit(status: StatusCode, defaultHours: number): number {
+  return statusDayCredit(status) * defaultHours;
+}
+
 // Allow whole or decimal hours, max two decimals, up to two digits before
 // the dot. Range bound is enforced separately so we can give a precise
 // error reason.

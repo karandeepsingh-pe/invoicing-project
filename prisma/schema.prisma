@@ -72,9 +72,11 @@ enum MiscFeeKind {
   OTHER
 }
 
-// Status codes for a TimesheetEntry day cell. PH / AB / NA / PTO count as 0
-// days worked; HALF_DAY counts as 0.5 of a day. PH dates additionally reduce
-// account-wide Business Days for the pre-invoice calculation.
+// Status codes for a TimesheetEntry day cell (Dedicated billing). PH (public
+// holiday) and PTO (paid time off) each bill as 1 full PAID day — a salaried
+// resource is billed regardless of attendance. HALF_DAY counts as 0.5 of a day.
+// AB (absent) and NA (terminated / not active) count as 0. The day-credit rule
+// is centralised in src/lib/validation/cell.ts (statusDayCredit).
 enum TimesheetDayStatus {
   PH
   AB

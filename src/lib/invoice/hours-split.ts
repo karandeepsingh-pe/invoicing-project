@@ -5,13 +5,18 @@
 //   weekday  -> regular = min(hours, defaultHours)
 //               OT      = max(0, hours - defaultHours)
 //   weekend  -> weekend = hours (no day credit, no OT)
-//   PH/AB/NA/PTO -> 0 across all buckets (status overrides numeric value)
+//   PH/PTO   -> 1 full PAID day (defaultHours regular hours) — salaried resource
 //   HALF_DAY -> 0.5 regular days, no OT, no weekend
+//   AB/NA    -> 0 across all buckets (status overrides numeric value)
+//
+// The status -> day-credit rule lives in validation/cell.ts (statusDayCredit) so
+// this engine and the timesheet grid summary share one source of truth.
 //
 // `regularDays` accumulates `regular / defaultHours` per cell, so a 6-hour
 // weekday adds 0.75 days and a 10-hour weekday adds 1 day + 2 OT.
 
 import { Prisma, type TimesheetDayStatus } from "@prisma/client";
+import { statusDayCredit } from "@/lib/validation/cell";
 
 const Decimal = Prisma.Decimal;
 type DecimalLike = InstanceType<typeof Decimal>;
@@ -50,16 +55,11 @@ export function splitCell(cell: DayCell, defaultHours: number): PerCellSplit {
     throw new Error("splitCell: defaultHours must be > 0");
   }
   if (cell.status !== null) {
-    // PH (public holiday) bills as a full PAID day; HALF_DAY counts as half a
-    // worked day; AB / NA / PTO count as zero.
-    const isPh = cell.status === "PH";
-    const isHalf = cell.status === "HALF_DAY";
-    const regularDays = isPh ? new Decimal(1) : isHalf ? new Decimal("0.5") : ZERO;
-    const regularHours = isPh
-      ? new Decimal(defaultHours)
-      : isHalf
-        ? new Decimal(defaultHours).times("0.5")
-        : ZERO;
+    // PH / PTO bill as a full PAID day; HALF_DAY counts as half a worked day;
+    // AB / NA count as zero. Rule lives in validation/cell.ts (shared with grid).
+    const dayCredit = statusDayCredit(cell.status);
+    const regularDays = new Decimal(dayCredit);
+    const regularHours = regularDays.times(defaultHours);
     return {
       date: cell.date,
       regularHours,

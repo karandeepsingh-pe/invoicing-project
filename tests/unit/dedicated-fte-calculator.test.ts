@@ -33,7 +33,7 @@ function workedCell(date: Date, h: number): TimesheetCell {
 }
 function statusCell(
   date: Date,
-  status: "PH" | "AB" | "NA",
+  status: "PH" | "AB" | "NA" | "PTO" | "HALF_DAY",
 ): TimesheetCell {
   return { date, hours: dec(0), status };
 }
@@ -129,6 +129,24 @@ describe("calculateDedicatedFteRow", () => {
     });
     expect(result.daysWorked.toNumber()).toBe(21);
     expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+  });
+
+  it("PTO bills as a paid day: 20 worked + 1 PTO + 1 PH = dayRate × 22", () => {
+    // Salaried Dedicated resource: PTO no longer reduces the invoice (like PH).
+    const entries: TimesheetCell[] = weekdays.map((d, i) => {
+      if (i === 0) return statusCell(d, "PH");
+      if (i === 1) return statusCell(d, "PTO");
+      return workedCell(d, 8);
+    });
+    const result = calculateDedicatedFteRow({
+      defaultHours: 8,
+      businessDays: 22,
+      entries,
+      rates,
+      slaTier: "BACKFILL",
+    });
+    expect(result.daysWorked.toNumber()).toBe(22);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22, 2);
   });
 
   it("holiday worked: a PH date overridden with 10h bills 1 day + 2 OT, not a paid PH day", () => {
