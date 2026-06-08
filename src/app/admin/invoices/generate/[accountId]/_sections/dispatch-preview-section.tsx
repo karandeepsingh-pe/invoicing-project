@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { monthRange } from "@/lib/invoice/period";
+import { notDeleted } from "@/lib/domain/soft-delete";
 import { DispatchGenerateForm } from "../dispatch/generate-form";
 
 /** Dispatch preview + generate block (visits for the month + .xlsx button). */
@@ -18,6 +19,7 @@ export async function DispatchPreviewSection({
 
   const visits = await prisma.dispatchVisit.findMany({
     where: {
+      ...notDeleted,
       visitDate: { gte: range.start, lt: range.end },
       assignment: { clientAccountId: accountId },
     },

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { businessDaysInRange, monthRange } from "@/lib/invoice/period";
 import { splitEntries } from "@/lib/invoice/hours-split";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { notDeleted } from "@/lib/domain/soft-delete";
 import { GenerateForm, type AssignmentPreview } from "../generate-form";
 
 /**
@@ -33,7 +34,7 @@ export async function FtePreviewSection({
     },
     include: {
       technician: { include: { postalCode: true } },
-      timesheetEntries: { where: { date: { gte: range.start, lt: range.end } } },
+      timesheetEntries: { where: { ...notDeleted, date: { gte: range.start, lt: range.end } } },
     },
     orderBy: [
       { technician: { lastName: "asc" } },

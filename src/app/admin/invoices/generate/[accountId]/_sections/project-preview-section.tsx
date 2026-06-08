@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { monthRange } from "@/lib/invoice/period";
 import { computeDaysWorked } from "@/lib/invoice/dedicated-fte-calculator";
+import { notDeleted } from "@/lib/domain/soft-delete";
 import { ProjectGenerateForm } from "../project/generate-form";
 
 /**
@@ -32,7 +33,7 @@ export async function ProjectPreviewSection({
     },
     include: {
       technician: true,
-      timesheetEntries: { where: { date: { gte: range.start, lt: range.end } } },
+      timesheetEntries: { where: { ...notDeleted, date: { gte: range.start, lt: range.end } } },
     },
     orderBy: [
       { technician: { lastName: "asc" } },
