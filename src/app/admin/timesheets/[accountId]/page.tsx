@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { TimesheetCategorySection } from "./category-section";
 import { DispatchCategorySection } from "./dispatch-section";
+import { DownloadTimesheetButton } from "./download-timesheet-button";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
 
 type View = "all" | "dedicated" | "project" | "scheduled";
@@ -135,8 +136,9 @@ export default async function TimesheetPage({
               separate Weekend Hours bucket (no day count, no OT).
             </li>
             <li>
-              <strong><code>PH</code></strong> — Public Holiday. Reduces
-              account-wide Business Days for the month.
+              <strong><code>PH</code></strong> — Public Holiday. Bills to the
+              client as a full paid day. (<code>PTO</code> is paid to the
+              technician but <strong>not billed</strong>.)
             </li>
             <li>
               <strong><code>AB</code></strong> — Absent. On a <code>BACKFILL</code>
@@ -165,7 +167,7 @@ export default async function TimesheetPage({
         <div className="glass-soft rounded-md px-3 py-2 text-xs text-fg-muted">
           <span className="font-semibold text-fg">Holidays this month:</span>{" "}
           {holidays.map((h) => `${fmtIso(h.date)} ${h.name}`).join(" · ")}
-          {" — pre-filled as PH (paid) on Dedicated; type hours over a cell if someone works that day."}
+          {" — pre-filled as PH (a billed paid day) on Dedicated; type hours over a cell if someone works that day."}
         </div>
       )}
 
@@ -255,6 +257,8 @@ function TimesheetActionBar({
         >
           Load
         </button>
+
+        <DownloadTimesheetButton accountId={accountId} year={year} month={month} />
 
         {view === "dedicated" && (
           <>
