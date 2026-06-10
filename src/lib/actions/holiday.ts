@@ -13,8 +13,10 @@ function toUtcDate(iso: string): Date {
 
 function revalidateHolidays() {
   revalidatePath("/admin/masters/holidays");
-  // Holidays drive the Dedicated timesheet PH prefill, so refresh those pages too.
-  revalidatePath("/admin/timesheets", "layout");
+  // Holidays drive the Dedicated timesheet PH overlay, so bust every account's
+  // timesheet page. The bracketed dynamic-route form is required here (no concrete
+  // accountId in scope, and there is no layout segment under /admin/timesheets).
+  revalidatePath("/admin/timesheets/[accountId]", "page");
 }
 
 export async function createHoliday(_prev: ActionResult, formData: FormData): Promise<ActionResult> {

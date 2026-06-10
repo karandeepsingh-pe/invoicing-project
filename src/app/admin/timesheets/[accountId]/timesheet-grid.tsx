@@ -24,13 +24,16 @@ import {
   statusDayCredit,
   type CellParse,
 } from "@/lib/validation/cell";
+import {
+  cellToText,
+  isWeekend,
+  reconcileDedicatedCellText,
+  type GridCell,
+} from "@/lib/validation/cell-display";
 import { daysInFillRange } from "@/lib/domain/timesheet-month";
 import { FillRangeDialog } from "./fill-range-dialog";
 
-export type GridCell = {
-  hours: number | null;
-  status: "PH" | "AB" | "NA" | "PTO" | "HALF_DAY" | null;
-};
+export type { GridCell };
 
 export type GridAssignment = {
   assignmentId: string;
@@ -64,24 +67,6 @@ type RawText = Record<string, string>;
 
 function cellKey(assignmentId: string, date: string): string {
   return `${assignmentId}|${date}`;
-}
-
-function cellToText(cell: GridCell | undefined): string {
-  if (!cell) return "";
-  if (cell.status) return cell.status;
-  if (cell.hours === null) return "";
-  return Number.isInteger(cell.hours)
-    ? String(cell.hours)
-    : cell.hours.toFixed(2).replace(/\.?0+$/, "");
-}
-
-function dayOfWeekUtc(date: string): number {
-  return new Date(`${date}T00:00:00.000Z`).getUTCDay();
-}
-
-function isWeekend(date: string): boolean {
-  const d = dayOfWeekUtc(date);
-  return d === 0 || d === 6;
 }
 
 export function TimesheetGrid({
@@ -119,12 +104,20 @@ export function TimesheetGrid({
       for (const d of days) {
         const key = cellKey(a.assignmentId, d);
         const saved = initialCells[key];
-        if (saved !== undefined) {
+        if (prefillHolidaysAsPh) {
+          // Dedicated: the live holiday master is authoritative over an untouched
+          // snapshot (so PH tracks add/move/delete), but real work wins.
+          out[key] = reconcileDedicatedCellText({
+            saved,
+            isHoliday: holidaySet.has(d),
+            weekend: isWeekend(d),
+            defaultHours,
+            prefillDefaultHours,
+          });
+        } else if (saved !== undefined) {
           out[key] = cellToText(saved);
         } else if (isWeekend(d)) {
           out[key] = "";
-        } else if (holidaySet.has(d)) {
-          out[key] = "PH";
         } else if (prefillDefaultHours) {
           out[key] = String(defaultHours);
         } else {
@@ -192,9 +185,12 @@ export function TimesheetGrid({
     [accountId],
   );
 
-  // On load, commit any pre-filled defaults that are not yet persisted (Dedicated:
-  // the default hours + holiday PH). Project/Scheduled have no defaults, so this is
-  // a no-op for them. Runs once.
+  // On load, converge the DB to the reconciled display: commit pre-filled defaults
+  // (Dedicated default hours + holiday PH) AND heal stale holiday snapshots — a cell
+  // whose reconciled text differs from what is persisted (e.g. a deleted holiday's
+  // leftover PH reverting to default, or a newly-added holiday flipping a default-8
+  // day to PH). Project/Scheduled have no defaults/holidays, so this stays a no-op
+  // for them. Runs once.
   const didInitialPersist = useRef(false);
   useEffect(() => {
     if (didInitialPersist.current) return;
@@ -204,13 +200,15 @@ export function TimesheetGrid({
     for (const a of assignments) {
       for (const d of days) {
         const key = cellKey(a.assignmentId, d);
-        if ((savedText[key] ?? "") !== "") continue;
         const norm = normalizeCellText(text[key] ?? "");
+        if (norm === (savedText[key] ?? "")) continue; // already in sync with the DB
         const p = parseCellText(norm);
         if (p.kind === "value") {
           cells.push({ assignmentId: a.assignmentId, date: d, hours: p.hours, status: null });
         } else if (p.kind === "status") {
           cells.push({ assignmentId: a.assignmentId, date: d, hours: null, status: p.status });
+        } else if (p.kind === "blank" && (savedText[key] ?? "") !== "") {
+          cells.push({ assignmentId: a.assignmentId, date: d, clear: true });
         } else {
           continue;
         }
