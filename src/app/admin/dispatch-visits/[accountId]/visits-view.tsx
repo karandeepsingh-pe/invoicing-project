@@ -11,6 +11,11 @@ import {
   type DispatchPreviewResult,
 } from "@/lib/actions/dispatch-preview";
 import {
+  getDispatchBusyWindows,
+  type TechBusyWindow,
+} from "@/lib/actions/booking-availability";
+import { bookingEnvelope, rangesOverlap } from "@/lib/domain/booking-overlap";
+import {
   FormError,
   SelectField,
   SubmitButton,
@@ -22,6 +27,7 @@ import { EditDispatchVisitDialog, type EditVisitData } from "./edit-visit-dialog
 
 type AssignmentOpt = {
   id: string;
+  technicianId: string;
   name: string;
   band: number;
   phone: string | null;
@@ -124,6 +130,50 @@ export function DispatchVisitsView({
   const [preview, setPreview] = useState<DispatchPreviewResult | null>(null);
   const [previewPending, startPreview] = useTransition();
 
+  // Live availability: existing booking windows for this account's technicians on
+  // the chosen date. Refetched per date; conflicts are computed client-side against
+  // the whole-hour envelope of In/Out, mirroring the server's booking rule.
+  const [busyWindows, setBusyWindows] = useState<TechBusyWindow[]>([]);
+  useEffect(() => {
+    if (!visitDate) {
+      setBusyWindows([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      void (async () => {
+        const res = await getDispatchBusyWindows({ accountId, visitDate });
+        if (!cancelled) setBusyWindows(res.ok ? res.windows : []);
+      })();
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [accountId, visitDate]);
+
+  // technicianId -> busy windows overlapping the entered slot (whole-hour envelope).
+  const slot =
+    visitDate && inTime && outTime && outTime > inTime
+      ? bookingEnvelope(visitDate, inTime, outTime)
+      : null;
+  const busyByTech = new Map<string, TechBusyWindow[]>();
+  if (slot) {
+    for (const w of busyWindows) {
+      if (rangesOverlap(slot.start, slot.end, new Date(w.startIso), new Date(w.endIso))) {
+        const list = busyByTech.get(w.technicianId) ?? [];
+        busyByTech.set(w.technicianId, [...list, w]);
+      }
+    }
+  }
+  const busyLabel = (techId: string): string | null => {
+    const wins = busyByTech.get(techId);
+    if (!wins || wins.length === 0) return null;
+    return wins
+      .map((w) => `${w.startIso.slice(11, 16)}–${w.endIso.slice(11, 16)}`)
+      .join(", ");
+  };
+
   // Debounced live preview: reuses the real calculator server-side, so the number
   // shown equals what the visit will bill.
   useEffect(() => {
@@ -216,16 +266,22 @@ export function DispatchVisitsView({
               onChange={(e) => setAssignmentId(e.target.value)}
               errors={fieldErrors?.assignmentId}
               hint={
-                selected && (selected.phone || selected.email)
-                  ? [selected.phone, selected.email].filter(Boolean).join(" · ")
-                  : undefined
+                selected && busyLabel(selected.technicianId)
+                  ? `⚠ Busy ${busyLabel(selected.technicianId)} — pick a free slot or another engineer (override possible on save).`
+                  : selected && (selected.phone || selected.email)
+                    ? [selected.phone, selected.email].filter(Boolean).join(" · ")
+                    : undefined
               }
             >
-              {assignments.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} · Band {a.band}
-                </option>
-              ))}
+              {assignments.map((a) => {
+                const busy = busyLabel(a.technicianId);
+                return (
+                  <option key={a.id} value={a.id} disabled={busy !== null && a.id !== assignmentId}>
+                    {a.name} · Band {a.band}
+                    {busy ? ` — busy ${busy}` : ""}
+                  </option>
+                );
+              })}
             </SelectField>
             <TextField label="Vantage Ticket" name="ticketNumber" placeholder="e.g. HCL-ZF-26-04-010035" maxLength={60} errors={fieldErrors?.ticketNumber} />
             <SelectField label="Work Status" name="workStatus" defaultValue={DispatchWorkStatus.COMPLETED} errors={fieldErrors?.workStatus}>

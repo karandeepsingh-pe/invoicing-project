@@ -189,6 +189,7 @@ export default async function DispatchVisitsPage({
         billing={billingByVisitId}
         assignments={assignments.map((a) => ({
           id: a.id,
+          technicianId: a.technicianId,
           name: `${a.technician.firstName} ${a.technician.lastName}`,
           band: a.technician.band,
           phone: a.technician.phone,

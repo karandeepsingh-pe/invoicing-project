@@ -10,6 +10,7 @@ import {
   dispatchVisitUpdateSchema,
   dispatchVisitDeleteSchema,
 } from "@/lib/schemas/dispatch-visit";
+import { bookingEnvelope } from "@/lib/domain/booking-overlap";
 import { resolvePostalCodeId } from "./postal-code-resolve";
 import type { ActionResult } from "./result";
 
@@ -115,16 +116,19 @@ export async function createDispatchVisit(
   const isWeekend = d.weekend || isWeekendDate(d.visitDate);
   const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
   const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  // The booking holds the whole-hour ENVELOPE of In/Out (floor/ceil) so techs are
+  // reserved in hour slots; the visit row keeps the raw minutes for billing.
+  const slot = d.inTime && d.outTime ? bookingEnvelope(d.visitDate, d.inTime, d.outTime) : null;
 
   // Time-slot overlap (half-open [start,end)) against the tech's other live bookings.
   let conflicts: DispatchConflict[] = [];
-  if (start && end) {
+  if (slot) {
     const overlapping = await prisma.technicianBooking.findMany({
       where: {
         technicianId: assignment.technicianId,
         deletedAt: null,
-        startDateTime: { lt: end },
-        endDateTime: { gt: start },
+        startDateTime: { lt: slot.end },
+        endDateTime: { gt: slot.start },
       },
       select: { assignmentId: true, kind: true, startDateTime: true, endDateTime: true },
     });
@@ -194,14 +198,14 @@ export async function createDispatchVisit(
         },
       });
 
-      if (start && end) {
+      if (slot) {
         await tx.technicianBooking.create({
           data: {
             technicianId: assignment.technicianId,
             assignmentId: assignment.id,
             kind: BookingKind.DISPATCH,
-            startDateTime: start,
-            endDateTime: end,
+            startDateTime: slot.start,
+            endDateTime: slot.end,
             dispatchVisitId: created.id,
             isOverride: hasConflict && d.override,
             overrideReason: hasConflict && d.override ? (d.overrideReason ?? null) : null,
@@ -217,8 +221,8 @@ export async function createDispatchVisit(
               assignmentId: assignment.id,
               detail: {
                 dispatchVisitId: created.id,
-                start: start.toISOString(),
-                end: end.toISOString(),
+                start: slot.start.toISOString(),
+                end: slot.end.toISOString(),
                 reason: d.overrideReason ?? null,
                 conflicts: conflicts as unknown as Prisma.InputJsonValue,
               },
@@ -312,17 +316,19 @@ export async function updateDispatchVisit(
   const isWeekend = d.weekend || isWeekendDate(d.visitDate);
   const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
   const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  // Whole-hour booking envelope of In/Out (see createDispatchVisit).
+  const slot = d.inTime && d.outTime ? bookingEnvelope(d.visitDate, d.inTime, d.outTime) : null;
 
   // Conflict check excludes THIS visit's own booking (so it never clashes with itself).
   let conflicts: DispatchConflict[] = [];
-  if (start && end) {
+  if (slot) {
     const overlapping = await prisma.technicianBooking.findMany({
       where: {
         technicianId: assignment.technicianId,
         deletedAt: null,
         dispatchVisitId: { not: d.id },
-        startDateTime: { lt: end },
-        endDateTime: { gt: start },
+        startDateTime: { lt: slot.end },
+        endDateTime: { gt: slot.start },
       },
       select: { assignmentId: true, kind: true, startDateTime: true, endDateTime: true },
     });
@@ -397,14 +403,14 @@ export async function updateDispatchVisit(
         where: { dispatchVisitId: d.id, deletedAt: null },
         data: { deletedAt: new Date(), deletedById: admin.userId },
       });
-      if (start && end) {
+      if (slot) {
         await tx.technicianBooking.create({
           data: {
             technicianId: assignment.technicianId,
             assignmentId: assignment.id,
             kind: BookingKind.DISPATCH,
-            startDateTime: start,
-            endDateTime: end,
+            startDateTime: slot.start,
+            endDateTime: slot.end,
             dispatchVisitId: d.id,
             isOverride: hasConflict && d.override,
             overrideReason: hasConflict && d.override ? (d.overrideReason ?? null) : null,
@@ -420,8 +426,8 @@ export async function updateDispatchVisit(
               assignmentId: assignment.id,
               detail: {
                 dispatchVisitId: d.id,
-                start: start.toISOString(),
-                end: end.toISOString(),
+                start: slot.start.toISOString(),
+                end: slot.end.toISOString(),
                 reason: d.overrideReason ?? null,
                 conflicts: conflicts as unknown as Prisma.InputJsonValue,
               },
