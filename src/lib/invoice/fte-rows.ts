@@ -290,6 +290,12 @@ export async function loadFteRows(
     }
     if (breakdownBits.length > 0) remarkParts.push(breakdownBits.join(" · "));
 
+    // PTO is paid to the technician but not billed to the client (0 billable
+    // days). Surface the count so the lower day total is explained. PH bills
+    // as a paid day, so it needs no exclusion note.
+    const ptoCount = a.timesheetEntries.filter((e) => e.status === "PTO").length;
+    if (ptoCount > 0) remarkParts.push(`${ptoCount} PTO — paid, not billed`);
+
     rows.push({
       location,
       technicianName: `${a.technician.firstName} ${a.technician.lastName}`,

@@ -237,7 +237,7 @@ An **Excel file downloads**. Open it — the line items and totals match what yo
 - **Tier** — Dedicated only: Backfill vs No Backfill rate columns.
 - **Basis** — Dedicated only: Day-rate vs Hourly (set on the technician).
 - **SLA** — dispatch response level (e.g. NBD = next business day) that keys the dispatch rate.
-- **PH / AB / NA / PTO / Half Day** — timesheet day statuses. PH bills as a paid day; AB/NA/PTO = 0; Half Day = half.
+- **PH / AB / NA / PTO / Half Day** — timesheet day statuses. **PH bills to the client as a full paid day. PTO is paid to the technician but NOT billed** (Ovation's cost); AB/NA = 0; Half Day = half a billed day.
 - **Pre-invoice** — the generated Excel for internal/client review before final billing.
 - **Rebadged** — a Dedicated tech billed off their own salary, not the account card.
 

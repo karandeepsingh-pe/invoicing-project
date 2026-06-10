@@ -92,7 +92,7 @@ describe("computeDaysWorked (legacy, used by Project flow)", () => {
 });
 
 describe("calculateDedicatedFteRow", () => {
-  // 22 weekdays in April 2026; PH is a paid day, so a month with 1 PH bills 22.
+  // 22 weekdays in April 2026; PH bills as a paid day, so a month with 1 PH bills 22.
   const weekdays = aprilWeekdays();
   expect(weekdays.length).toBe(22);
 
@@ -131,8 +131,9 @@ describe("calculateDedicatedFteRow", () => {
     expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });
 
-  it("PTO bills as a paid day: 20 worked + 1 PTO + 1 PH = dayRate × 22", () => {
-    // Salaried Dedicated resource: PTO no longer reduces the invoice (like PH).
+  it("PH bills, PTO does not: 20 worked + 1 PTO + 1 PH = dayRate × 21", () => {
+    // PTO is paid to the technician by Ovation but not charged to the client;
+    // PH bills as a full paid day.
     const entries: TimesheetCell[] = weekdays.map((d, i) => {
       if (i === 0) return statusCell(d, "PH");
       if (i === 1) return statusCell(d, "PTO");
@@ -145,8 +146,8 @@ describe("calculateDedicatedFteRow", () => {
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(22);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22, 2);
+    expect(result.daysWorked.toNumber()).toBe(21);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });
 
   it("holiday worked: a PH date overridden with 10h bills 1 day + 2 OT, not a paid PH day", () => {
@@ -193,6 +194,7 @@ describe("calculateDedicatedFteRow", () => {
       rates,
       slaTier: "BACKFILL",
     });
+    // 20 at 8h + 1 at 10h (1 day + 2 OT) + 1 PH paid = 22 billable days.
     expect(result.daysWorked.toNumber()).toBe(22);
     expect(result.otHours.toNumber()).toBe(2);
     expect(result.otPortion.toNumber()).toBeCloseTo(2 * 75, 2);
@@ -216,6 +218,7 @@ describe("calculateDedicatedFteRow", () => {
     });
     expect(result.weekendHours.toNumber()).toBe(8);
     expect(result.weekendPortion.toNumber()).toBe(800);
+    // 21 worked + 1 PH(paid) = 22 billable days, + 8h weekend @ 100.
     expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 800, 2);
   });
 
@@ -259,6 +262,7 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "NO_BACKFILL",
     });
     expect(result.dayRate.toNumber()).toBe(200);
+    // 21 worked + 1 PH(paid) = 22 billable days.
     expect(result.extendedTotal.toNumber()).toBeCloseTo(200 * 22, 2);
   });
 
@@ -274,6 +278,7 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "BACKFILL",
       coverageDaysDelta: dec(-1),
     });
+    // 21 worked + 1 PH(paid) = 22, minus 1 covered day = 21.
     expect(result.daysWorked.toNumber()).toBe(21);
     expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });

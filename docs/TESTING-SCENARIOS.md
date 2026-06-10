@@ -136,7 +136,7 @@ First Hour Weekend = 160, Additional Hour Weekend = 110.
 - 9.2 **Invalid timesheet cell** (e.g. "abc" or 30) → red ring, not saved.
 - 9.3 **Soft-delete + restore** a timesheet cell / dispatch visit (testing-phase affordance) → removes then restores.
 - 9.4 **Two band-2 Dedicated techs, one Day-rate + one Hourly**, same account → each bills by its own basis.
-- 9.5 **Mid-month / partial month** Dedicated → bills only worked days (PH counts as a paid day; AB/NA/PTO = 0).
+- 9.5 **Mid-month / partial month** Dedicated → PH bills as a paid day; PTO is paid to the tech but NOT billed to the client; AB/NA = 0. A row with PTO shows a "N PTO — paid, not billed" remark.
 
 ---
 

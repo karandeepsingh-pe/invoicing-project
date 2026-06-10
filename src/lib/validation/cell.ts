@@ -8,27 +8,27 @@ export type StatusCode = (typeof STATUS_CODES)[number];
 
 const STATUS_SET = new Set<string>(STATUS_CODES);
 
-// Statuses that bill as a FULL PAID day for a Dedicated (salaried) technician:
-// the client pays for the allocated resource regardless of attendance.
-//   PH  — public holiday
-//   PTO — paid time off
-// AB (absent) and NA (terminated / not active) credit zero; HALF_DAY credits 0.5.
+// BILLABLE day credit for a status cell — what the CLIENT is charged.
+//   PH  — public holiday  -> 1 (billed to the client as a full paid day)
+//   PTO — paid time off    -> 0 (paid to the technician by Ovation, NOT billed)
+//   AB  — absent           -> 0
+//   NA  — terminated / N/A  -> 0
+//   HALF_DAY               -> 0.5 (a worked half-day)
+// PTO is an Ovation cost, not a client charge. PH bills as a paid day (the client
+// pays for public holidays on a Dedicated allocation). User-confirmed 2026-06-10.
 //
-// Single source of truth for the status -> day-credit rule, shared by the
+// Single source of truth for the status -> billable-day rule, shared by the
 // invoice engine (hours-split.ts) and the timesheet grid summary so the two
 // cannot drift. Dependency-free (no Decimal) so both client and server import it.
-export const PAID_LEAVE_STATUSES: readonly StatusCode[] = ["PH", "PTO"] as const;
 
-const PAID_LEAVE_SET = new Set<StatusCode>(PAID_LEAVE_STATUSES);
-
-/** Paid days credited for a status cell: 1 for PH/PTO, 0.5 for HALF_DAY, 0 for AB/NA. */
+/** Billable days credited for a status cell: 1 for PH, 0.5 for HALF_DAY, 0 for PTO/AB/NA. */
 export function statusDayCredit(status: StatusCode): number {
-  if (PAID_LEAVE_SET.has(status)) return 1;
+  if (status === "PH") return 1; // billed to the client
   if (status === "HALF_DAY") return 0.5;
-  return 0; // AB, NA
+  return 0; // PTO, AB, NA — not billed to the client
 }
 
-/** Paid (regular) hours credited for a status cell = day credit × the account's defaultHours. */
+/** Billable (regular) hours credited for a status cell = day credit × the account's defaultHours. */
 export function statusHourCredit(status: StatusCode, defaultHours: number): number {
   return statusDayCredit(status) * defaultHours;
 }

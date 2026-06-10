@@ -65,7 +65,7 @@ describe("splitCell", () => {
     }
   });
 
-  it("PH (public holiday) -> 1 full paid day (defaultHours regular), no OT/weekend", () => {
+  it("PH (public holiday) -> 1 full paid day (defaultHours regular), billed", () => {
     const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PH" }, 8);
     expect(s.regularDays.toNumber()).toBe(1);
     expect(s.regularHours.toNumber()).toBe(8);
@@ -73,10 +73,10 @@ describe("splitCell", () => {
     expect(s.weekendHours.toNumber()).toBe(0);
   });
 
-  it("PTO (paid time off) -> 1 full paid day, like PH (salaried resource billed)", () => {
+  it("PTO (paid time off) -> 0 billable (paid to tech, not billed to client)", () => {
     const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PTO" }, 8);
-    expect(s.regularDays.toNumber()).toBe(1);
-    expect(s.regularHours.toNumber()).toBe(8);
+    expect(s.regularDays.toNumber()).toBe(0);
+    expect(s.regularHours.toNumber()).toBe(0);
     expect(s.otHours.toNumber()).toBe(0);
     expect(s.weekendHours.toNumber()).toBe(0);
   });
@@ -125,7 +125,7 @@ describe("splitEntries", () => {
       .concat([{ date: SAT_APR_4, hours: dec(6), status: null }]);
 
     const totals = splitEntries(cells, 8);
-    // 22 weekdays, all billed (PH is a paid day now):
+    // 22 weekdays, all billed (PH bills as a paid day):
     //   20 at 8h = 20 regularDays; Apr 14 at 10h = +1 regularDay + 2 OT;
     //   Apr 3 PH = +1 paid day. Total regularDays = 22; OT = 2; Weekend = 6.
     expect(totals.regularDays.toNumber()).toBe(22);

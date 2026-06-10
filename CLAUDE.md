@@ -29,6 +29,10 @@ Reference data lives in a gitignored drop at `KD/KD/`.
     `dispatch-pricing-profiles.ts`).
   - **OT ≠ OOB.** OT = overtime (Dedicated, quantity-based). OOB = after-hours (Dispatch, time-of-day). Never
     conflate them.
+  - **PH bills; PTO does not.** PH = 1 billable paid day (client pays for public holidays). PTO is paid to the
+    technician but **not charged to the client** — 0 billable days (`statusDayCredit` in `cell.ts`; HALF_DAY =
+    0.5, AB/NA = 0). A Dedicated row with PTO carries a "N PTO — paid, not billed" remark. (User-confirmed
+    2026-06-10, superseding the brief both-non-billable rule.)
   - **Project / Scheduled** = per-band day/half/weekend/hourly (+ Project weekly/monthly + monthly cap).
   - **Misc fees** = % on subtotal + flat, via `assemble.ts`.
 - **DB is masters-only after a handoff reset** (`KD/reset-to-masters.ts`). Demo data is rebuildable from the

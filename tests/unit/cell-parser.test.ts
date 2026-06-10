@@ -111,9 +111,9 @@ describe("normalizeCellText", () => {
 });
 
 describe("statusDayCredit", () => {
-  it("PH and PTO bill as a full paid day", () => {
+  it("PH bills as a full paid day; PTO is not billed to the client", () => {
     expect(statusDayCredit("PH")).toBe(1);
-    expect(statusDayCredit("PTO")).toBe(1);
+    expect(statusDayCredit("PTO")).toBe(0);
   });
 
   it("HALF_DAY credits half a day", () => {
@@ -129,7 +129,7 @@ describe("statusDayCredit", () => {
 describe("statusHourCredit", () => {
   it("= day credit × defaultHours", () => {
     expect(statusHourCredit("PH", 8)).toBe(8);
-    expect(statusHourCredit("PTO", 8)).toBe(8);
+    expect(statusHourCredit("PTO", 8)).toBe(0);
     expect(statusHourCredit("HALF_DAY", 8)).toBe(4);
     expect(statusHourCredit("AB", 8)).toBe(0);
     expect(statusHourCredit("NA", 7)).toBe(0);
