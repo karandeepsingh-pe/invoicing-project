@@ -65,6 +65,8 @@ export async function bulkUploadTechnicians(
   let created = 0;
   let skipped = 0;
   const orgIdByName = new Map<string, string | null>();
+  // (org|first|last) -> first row number seen, for within-file duplicate detection.
+  const seenNames = new Map<string, number>();
 
   for (const { rowNumber, row } of dataRows) {
     const raw: Record<string, string> = {};
@@ -96,6 +98,33 @@ export async function bulkUploadTechnicians(
     }
     if (!orgId) {
       errors.push({ row: rowNumber, message: `Org "${r.orgName}" does not exist. Create it first (or via the account upload).` });
+      continue;
+    }
+
+    // Duplicate guards. The (employerOrgId, employeeId) unique key cannot catch
+    // techs without a real Employee ID (Postgres treats NULLs as distinct), so
+    // dedupe by name: first within this file, then against the database. Matches
+    // are skipped with a per-row message, mirroring the P2002 skip behavior.
+    const nameKey = `${orgKey}|${r.firstName.toLowerCase()}|${r.lastName.toLowerCase()}`;
+    const firstRow = seenNames.get(nameKey);
+    if (firstRow !== undefined) {
+      skipped += 1;
+      errors.push({ row: rowNumber, message: `"${r.firstName} ${r.lastName}" duplicates row ${firstRow} in this file — skipped.` });
+      continue;
+    }
+    seenNames.set(nameKey, rowNumber);
+
+    const existingByName = await prisma.technician.findFirst({
+      where: {
+        employerOrgId: orgId,
+        firstName: { equals: r.firstName, mode: "insensitive" },
+        lastName: { equals: r.lastName, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (existingByName) {
+      skipped += 1;
+      errors.push({ row: rowNumber, message: `"${r.firstName} ${r.lastName}" already exists under "${r.orgName}" (name match) — skipped.` });
       continue;
     }
 

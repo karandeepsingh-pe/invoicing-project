@@ -24,6 +24,19 @@ const boolField = z.preprocess((v) => {
   return ["yes", "y", "true", "1", "x"].includes(v.trim().toLowerCase());
 }, z.boolean());
 
+// Employee ID with placeholder normalization: "NA", "N/A", "-", "NONE" (any case)
+// and blanks all mean "no ID" -> null. A literal "NA" must never act as a real ID:
+// the Technician unique key is (employerOrgId, employeeId) and Postgres treats
+// NULLs as distinct, so placeholder IDs silently bypass duplicate detection.
+const EMPLOYEE_ID_PLACEHOLDERS = new Set(["", "NA", "N/A", "-", "NONE", "NIL", "NULL"]);
+const employeeIdField = z
+  .string()
+  .trim()
+  .max(50)
+  .transform((v) => (EMPLOYEE_ID_PLACEHOLDERS.has(v.toUpperCase()) ? null : v))
+  .nullable()
+  .optional();
+
 // Optional non-negative money/number cell. Blank -> undefined.
 const optionalNumber = z.preprocess(
   (v) => (v === "" || v === null || v === undefined ? undefined : v),
@@ -55,7 +68,7 @@ const tierField = z.preprocess((v) => {
 
 export const bulkTechnicianRowSchema = z.object({
   orgName: z.string().trim().min(2).max(80),
-  employeeId: optionalText(50),
+  employeeId: employeeIdField,
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
   primaryCategory: categoryField,

@@ -49,4 +49,15 @@ describe("bulkTechnicianRowSchema", () => {
     expect(bulkTechnicianRowSchema.safeParse({ ...base, primaryCategory: "Nope" }).success).toBe(false);
     expect(bulkTechnicianRowSchema.safeParse({ ...base, firstName: "" }).success).toBe(false);
   });
+
+  it("normalizes placeholder Employee IDs to null (NA / N/A / - / none / blank)", () => {
+    for (const v of ["NA", "n/a", "N/A", "-", "none", "NIL", "null", "", "  na  "]) {
+      expect(bulkTechnicianRowSchema.parse({ ...base, employeeId: v }).employeeId).toBeNull();
+    }
+  });
+
+  it("keeps a real Employee ID verbatim (trimmed)", () => {
+    expect(bulkTechnicianRowSchema.parse({ ...base, employeeId: " ACME-001 " }).employeeId).toBe("ACME-001");
+    expect(bulkTechnicianRowSchema.parse({ ...base, employeeId: "NA-7" }).employeeId).toBe("NA-7");
+  });
 });
