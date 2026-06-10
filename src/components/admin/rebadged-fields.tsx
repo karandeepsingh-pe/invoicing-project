@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { monthlyFromAnnual } from "@/lib/invoice/billing-basis";
+import { ANNUAL_WORK_HOURS } from "@/lib/invoice/rebadged-rates";
 
 export type RebadgedDefaults = {
   isRebadged?: boolean;
@@ -18,13 +19,18 @@ const inputCls =
   "rounded-md border border-border-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
 
 /**
- * Dedicated FTE rate fields for the technician forms:
- *  - "Annual rate override" (annualSalary), an OPTIONAL per-tech salary. Blank =
- *    use the account's band salary. Set it only for a tech who differs from their
- *    band. Billing spreads the annual across the month's business days (annual /
- *    12 / businessDays), so a fully worked month bills exactly annual / 12.
- *  - A "Rebadged" toggle that ONLY swaps the OT/weekend source to custom per-tech
- *    hourly rates (the day rate always uses the override above, else the band salary).
+ * Dedicated FTE rate fields for the technician forms. Annual salary is the ONLY
+ * billing basis (2026-06-10): billing = annual / 12 / businessDays × daysWorked,
+ * so a fully-worked month bills exactly annual / 12 and a 21-day + 2-hour month
+ * bills 21.25 × the derived day rate.
+ *  - "Annual rate override" (annualSalary): optional per-tech salary; blank = the
+ *    account's band annual. REQUIRED in practice for rebadged techs (they bypass
+ *    the band sheet entirely).
+ *  - "Rebadged" toggle: bill entirely off this technician's own annual + own
+ *    OT/weekend hourly rates; the account rate sheet is ignored.
+ *  - Legacy rebadged Day/Monthly/Hourly values display greyed, read-only ("not
+ *    billed"); they are not submitted, so saving the form preserves them in the
+ *    DB without ever billing from them.
  */
 export function RebadgedFields({
   primaryCategory,
@@ -38,14 +44,22 @@ export function RebadgedFields({
 
   const isDedicated = primaryCategory === RateCategory.DEDICATED;
   const salaryNum = Number(salary);
-  const monthly = monthlyFromAnnual(Number.isFinite(salaryNum) ? salaryNum : 0);
+  const annual = Number.isFinite(salaryNum) ? salaryNum : 0;
+  const monthly = monthlyFromAnnual(annual);
+  const hourly = annual > 0 ? annual / ANNUAL_WORK_HOURS : 0;
+
+  const legacyValues = [
+    { label: "Day Rate", value: defaults?.rebadgedDayRate },
+    { label: "Monthly Rate", value: defaults?.rebadgedMonthlyRate },
+    { label: "Hourly Rate", value: defaults?.rebadgedHourlyRate },
+  ].filter((l) => l.value != null && Number(l.value) > 0);
 
   return (
     <div className="flex flex-col gap-3">
       {isDedicated && (
         <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
           <label className="flex flex-col gap-1 text-xs font-medium text-fg-muted">
-            Annual rate override (optional)
+            Annual rate override (optional; required for rebadged)
             <input
               name="annualSalary"
               type="number"
@@ -53,17 +67,16 @@ export function RebadgedFields({
               min="0"
               value={salary}
               onChange={(e) => setSalary(e.target.value)}
-              placeholder="e.g. 74100"
+              placeholder="e.g. 66000"
               className={inputCls}
             />
           </label>
           <p className="text-xs text-fg-subtle">
-            Leave blank to use this account&apos;s band salary. Set only for a tech who differs from
-            their band. When set, it is billed as the monthly salary spread over the month&apos;s
-            business days. Monthly = annual ÷ 12 ={" "}
-            <span className="font-medium text-fg">${monthly.toFixed(2)}</span>; day rate ≈{" "}
-            <span className="font-medium text-fg">${(monthly / 22).toFixed(2)}</span> at 22 business
-            days (varies by month). A fully-worked month bills exactly annual ÷ 12.
+            Leave blank to use the account&apos;s band annual. Billing = annual ÷ 12 ÷ business days
+            × days worked. Monthly = <span className="font-medium text-fg">${monthly.toFixed(2)}</span>
+            {" · "}hourly ≈ <span className="font-medium text-fg">${hourly.toFixed(2)}</span>
+            {" · "}day rate varies by month (e.g. ${monthly > 0 ? (monthly / 22).toFixed(2) : "0.00"} at
+            22 business days). A fully-worked month bills exactly annual ÷ 12.
           </p>
         </div>
       )}
@@ -82,18 +95,26 @@ export function RebadgedFields({
       {rebadged && (
         <div className="flex flex-col gap-2 rounded-md border border-border-strong bg-surface/40 p-3">
           <p className="text-xs font-medium text-fg">Rebadged rates (per technician)</p>
+          <p className="text-xs text-fg-subtle">
+            The day-rate basis is the <span className="font-medium text-fg">Annual rate above</span>{" "}
+            (annual ÷ 12 ÷ business days — the account rate sheet is ignored). Only OT and Weekend
+            hourly rates are entered here. A rebadged tech without an annual shows as{" "}
+            <span className="font-medium text-fg">unpriced</span> on the pre-invoice.
+          </p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <RebadgedRate label="Hourly Rate" name="rebadgedHourlyRate" value={defaults?.rebadgedHourlyRate} />
-            <RebadgedRate label="Day Rate" name="rebadgedDayRate" value={defaults?.rebadgedDayRate} />
-            <RebadgedRate label="Monthly Rate" name="rebadgedMonthlyRate" value={defaults?.rebadgedMonthlyRate} />
             <RebadgedRate label="OT Rate / hr" name="rebadgedOtRate" value={defaults?.rebadgedOtRate} />
             <RebadgedRate label="Weekend Rate / hr" name="rebadgedWeekendRate" value={defaults?.rebadgedWeekendRate} />
           </div>
-          <p className="text-xs text-fg-subtle">
-            All optional. The billed day rate prefers the most specific set:{" "}
-            <span className="font-medium text-fg">Day → Monthly ÷ business days → Annual (above) ÷ 12 ÷ business days → Hourly × Default Hours</span>.
-            OT / Weekend are per-hour. Use the Annual field above for the salary basis.
-          </p>
+          {legacyValues.length > 0 && (
+            <div className="rounded-md border border-border bg-surface/60 p-2">
+              <p className="text-[11px] font-medium text-fg-subtle">
+                Legacy — not billed (kept for reference; annual above is the basis):
+              </p>
+              <p className="text-[11px] text-fg-subtle">
+                {legacyValues.map((l) => `${l.label}: ${l.value}`).join(" · ")}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { setAccountRate } from "@/lib/actions/account-rate";
 import { BANDS, DISPATCH_BAND, dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
+import { DedicatedRateSection } from "./dedicated-rate-section";
 
 type SubCat = { id: string; code: string; label: string; isOvertimeVariant: boolean };
 type Sla = { id: string; code: string; label: string };
@@ -26,13 +27,6 @@ function cellKey(subcatId: string, band: number, slaId: string): string {
   return `${subcatId}|${band}|${slaId}`;
 }
 
-// Rebadged is a per-technician property (set on the technician, not the account
-// rate sheet), so the Dedicated matrix only carries the two backfill tiers.
-const DEDICATED_TIERS = [
-  { code: "NO_BACKFILL", label: "No Backfill" },
-  { code: "BACKFILL", label: "Backfill" },
-] as const;
-
 // Legacy dispatch uplift multipliers, superseded by the explicit OOB / Weekend
 // scenario rows. Hidden from the matrix grid (still editable under "Advanced").
 const HIDDEN_DISPATCH_CODES = new Set(["OOBH_MULTIPLIER", "WEEKEND_PH_MULTIPLIER"]);
@@ -46,6 +40,43 @@ const HIDDEN_DISPATCH_CODES = new Set(["OOBH_MULTIPLIER", "WEEKEND_PH_MULTIPLIER
  * A blank cell stores null (no rate yet). Saves go through setAccountRate (upsert).
  */
 export function RateMatrix({
+  clientAccountId,
+  category,
+  subCategories,
+  slas,
+  rates,
+}: {
+  clientAccountId: string;
+  category: RateCategory;
+  subCategories: SubCat[];
+  slas: Sla[];
+  rates: ExistingRate[];
+}) {
+  // Dedicated has its own annual-only editor (one editable basis + derived
+  // monthly/hourly references + greyed legacy rows). Other categories keep the
+  // generic sub-category × band/SLA grid below.
+  if (category === RateCategory.DEDICATED) {
+    return (
+      <DedicatedRateSection
+        clientAccountId={clientAccountId}
+        subCategories={subCategories}
+        slas={slas}
+        rates={rates}
+      />
+    );
+  }
+  return (
+    <GenericRateMatrix
+      clientAccountId={clientAccountId}
+      category={category}
+      subCategories={subCategories}
+      slas={slas}
+      rates={rates}
+    />
+  );
+}
+
+function GenericRateMatrix({
   clientAccountId,
   category,
   subCategories,
@@ -74,8 +105,6 @@ export function RateMatrix({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const isDispatch = category === RateCategory.DISPATCH_SCHED;
-  const isDedicated = category === RateCategory.DEDICATED;
-  const [tier, setTier] = useState<"NO_BACKFILL" | "BACKFILL">("NO_BACKFILL");
 
   const persist = useCallback(
     (subcatId: string, band: number, slaId: string, key: string, value: string) => {
@@ -126,21 +155,12 @@ export function RateMatrix({
       const rows = subCategories.filter((s) => !HIDDEN_DISPATCH_CODES.has(s.code));
       return { columns: cols, rows };
     }
-    if (isDedicated) {
-      const tierSla = slaByCode.get(tier);
-      const cols = tierSla
-        ? BANDS.map((b) => ({ key: `b${b}`, label: `Band ${b}`, band: b, slaId: tierSla.id }))
-        : [];
-      // Rebadged subcategories live on the technician, not the rate sheet.
-      const r = subCategories.filter((s) => !s.code.startsWith("REBADGED"));
-      return { columns: cols, rows: r };
-    }
     const naSla = slaByCode.get("NA");
     const cols = naSla
       ? BANDS.map((b) => ({ key: `b${b}`, label: `Band ${b}`, band: b, slaId: naSla.id }))
       : [];
     return { columns: cols, rows: subCategories };
-  }, [isDispatch, isDedicated, tier, slaByCode, subCategories]);
+  }, [isDispatch, slaByCode, subCategories]);
 
   const dirtyCount = useMemo(() => {
     let n = 0;
@@ -180,27 +200,7 @@ export function RateMatrix({
               Flat per SLA (stored at Band {DISPATCH_BAND}) · enter rates as you go, autosaves
             </span>
           )}
-          {isDedicated && (
-            <div className="flex items-center gap-1 text-xs">
-              <span className="text-fg-subtle">Tier:</span>
-              {DEDICATED_TIERS.map((t) => (
-                <button
-                  key={t.code}
-                  type="button"
-                  onClick={() => setTier(t.code)}
-                  className={
-                    "rounded-md px-2 py-0.5 font-medium transition-colors " +
-                    (tier === t.code
-                      ? "bg-accent text-accent-fg"
-                      : "border border-border-strong bg-surface text-fg-muted hover:bg-surface-2")
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {!isDispatch && !isDedicated && (
+          {!isDispatch && (
             <span className="text-xs text-fg-subtle">Per band · autosaves</span>
           )}
         </div>

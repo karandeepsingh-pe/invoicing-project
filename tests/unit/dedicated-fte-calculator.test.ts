@@ -311,42 +311,22 @@ describe("calculateDedicatedFteRow", () => {
   });
 });
 
-describe("calculateDedicatedFteRow — HOURLY basis", () => {
+describe("calculateDedicatedFteRow — annual-only basis", () => {
   const weekdays = aprilWeekdays();
-  // In HOURLY mode fte-rows passes the per-hour rate via the MONTHLY_DAY_RATE row.
-  const hourlyRates: RateRow[] = [
-    { rateAmount: dec(30), rateSubCategory: { code: "MONTHLY_DAY_RATE" }, sla: { code: "BACKFILL" } },
-    { rateAmount: dec(75), rateSubCategory: { code: "OT_HOURLY_RATE" }, sla: { code: "BACKFILL" } },
-    { rateAmount: dec(100), rateSubCategory: { code: "WEEKEND_HOURLY_RATE" }, sla: { code: "BACKFILL" } },
-  ];
 
-  it("bills regular HOURS × hourly rate (+ OT): 24h×30 + 2 OT×75 = 870", () => {
-    const entries: TimesheetCell[] = [
-      workedCell(weekdays[0], 8),
-      workedCell(weekdays[1], 8),
-      workedCell(weekdays[2], 10), // 8 regular + 2 OT
-    ];
-    const r = calculateDedicatedFteRow({
-      defaultHours: 8, businessDays: 22, entries, rates: hourlyRates, slaTier: "BACKFILL", basis: "HOURLY",
-    });
-    expect(r.daysWorked.toNumber()).toBe(24); // reported quantity = regular HOURS
-    expect(r.otHours.toNumber()).toBe(2);
-    expect(r.extendedTotal.toNumber()).toBeCloseTo(24 * 30 + 2 * 75, 2);
-  });
-
-  it("weekend hours bill at the weekend rate in hourly mode too", () => {
-    const sat = utc(2026, 4, 4); // Sat
+  // The HOURLY per-tech basis is retired (2026-06-10): every Dedicated tech
+  // bills days × the annual-derived day rate. These cases pin the day model.
+  it("partial days pro-rate: 2h on an 8h day = 0.25 days", () => {
     const r = calculateDedicatedFteRow({
       defaultHours: 8, businessDays: 22,
-      entries: [workedCell(weekdays[0], 8), workedCell(sat, 5)],
-      rates: hourlyRates, slaTier: "BACKFILL", basis: "HOURLY",
+      entries: [workedCell(weekdays[0], 8), workedCell(weekdays[1], 2)],
+      rates, slaTier: "BACKFILL",
     });
-    expect(r.daysWorked.toNumber()).toBe(8); // 8 regular hours
-    expect(r.weekendHours.toNumber()).toBe(5);
-    expect(r.extendedTotal.toNumber()).toBeCloseTo(8 * 30 + 5 * 100, 2);
+    expect(r.daysWorked.toNumber()).toBe(1.25);
+    expect(r.extendedTotal.toNumber()).toBeCloseTo(250 * 1.25, 2);
   });
 
-  it("DAY_RATE basis (default) is unaffected: 3 days × 250 = 750", () => {
+  it("day model: 3 full days × 250 = 750", () => {
     const r = calculateDedicatedFteRow({
       defaultHours: 8, businessDays: 22,
       entries: [workedCell(weekdays[0], 8), workedCell(weekdays[1], 8), workedCell(weekdays[2], 8)],

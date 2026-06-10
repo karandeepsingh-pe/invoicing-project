@@ -46,55 +46,39 @@ export function pickBandAnnual(
 }
 
 /**
- * Resolve the per-day rate for a Dedicated FTE line, choosing the basis from
- * whichever rate sources are present, in priority order:
+ * Resolve the per-day rate for a Dedicated FTE line. ANNUAL is the only billing
+ * basis (user-confirmed 2026-06-10): the salary spreads as annual / 12 /
+ * businessDays, so a fully-worked month bills exactly annual / 12 and partial
+ * months scale by daysWorked. Priority:
  *
- *   1. perTechAnnual   — a technician-level salary override (annual / 12 / bd)
- *   2. explicitDayRate — an explicit DAY_RATE row, billed directly per day
- *   3. bandAnnual      — the band ANNUAL_RATE (or legacy hourly × 2080), / 12 / bd
- *   4. monthly         — a MONTHLY row, billed as monthly / bd (= monthly×12 / 12 / bd)
+ *   1. perTechAnnual — a technician-level salary override
+ *   2. bandAnnual    — the band ANNUAL_RATE (or legacy hourly × 2080 bridge)
  *
- * This is additive: accounts that only have an ANNUAL_RATE (or per-tech salary)
- * resolve exactly as before, since explicitDayRate / monthly are 0 for them.
+ * The retired DAY_RATE / MONTHLY / HOURLY rate-sheet rows no longer bill; the
+ * matrix shows them greyed as "legacy — not billed".
  */
 export function resolveDedicatedDayRate(input: {
   perTechAnnual: number;
-  explicitDayRate: number;
   bandAnnual: number;
-  monthly: number;
   businessDays: number;
 }): number {
-  const { perTechAnnual, explicitDayRate, bandAnnual, monthly, businessDays } = input;
+  const { perTechAnnual, bandAnnual, businessDays } = input;
   if (perTechAnnual > 0) return dedicatedDayRate(perTechAnnual, businessDays);
-  if (explicitDayRate > 0) return explicitDayRate;
   if (bandAnnual > 0) return dedicatedDayRate(bandAnnual, businessDays);
-  if (monthly > 0) return dedicatedDayRate(monthly * 12, businessDays);
   return 0;
 }
 
 /**
- * Resolve the per-day rate for a REBADGED technician from their own per-tech rates,
- * in priority order (most specific wins):
- *   1. dayRate     — an explicit per-day rebadged rate, billed directly
- *   2. monthlyRate — billed as monthly / businessDays (full month = monthly)
- *   3. annual      — the annual override, annual / 12 / businessDays (current behavior)
- *   4. hourlyRate  — hourly × the account's Default Hours
- *
- * When only `annual` is set (today's data), this returns exactly
- * dedicatedDayRate(annual, businessDays), so existing rebadged techs are unchanged.
+ * Per-day rate for a REBADGED technician: their own `annualSalary` through the
+ * same annual / 12 / businessDays formula (full override of the account band
+ * sheet; OT/weekend bill from the rebadged hourly rates). The legacy rebadged
+ * day/monthly/hourly fields no longer bill — a rebadged tech without an annual
+ * salary resolves to 0 and surfaces in the unpriced bucket rather than billing
+ * silently off a stale flat rate.
  */
 export function resolveRebadgedDayRate(input: {
-  dayRate: number;
-  monthlyRate: number;
   annual: number;
-  hourlyRate: number;
-  defaultHours: number;
   businessDays: number;
 }): number {
-  const { dayRate, monthlyRate, annual, hourlyRate, defaultHours, businessDays } = input;
-  if (dayRate > 0) return dayRate;
-  if (monthlyRate > 0) return dedicatedDayRate(monthlyRate * 12, businessDays);
-  if (annual > 0) return dedicatedDayRate(annual, businessDays);
-  if (hourlyRate > 0 && defaultHours > 0) return hourlyRate * defaultHours;
-  return 0;
+  return dedicatedDayRate(input.annual, input.businessDays);
 }

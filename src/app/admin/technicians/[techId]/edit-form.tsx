@@ -179,18 +179,9 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             <option value="NO_BACKFILL">No Backfill</option>
           </SelectField>
         )}
-        {primaryCategory === RateCategory.DEDICATED && (
-          <SelectField
-            label="Billing basis"
-            name="dedicatedBillingBasis"
-            defaultValue={props.dedicatedBillingBasis}
-            errors={fieldErrors?.dedicatedBillingBasis}
-            hint="Day rate (Annual/Day/Monthly × days) or Hourly (regular hours × Hourly Rate)."
-          >
-            <option value="DAY_RATE">Day rate</option>
-            <option value="HOURLY">Hourly</option>
-          </SelectField>
-        )}
+        {/* Billing-basis selector retired (2026-06-10): Dedicated bills on annual
+            salary only. The stored value is ignored by billing; the column drops
+            after a clean prod month. */}
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-fg-muted">Active</span>
           <label className="inline-flex items-center gap-2 rounded-md border border-border-strong bg-surface px-3 py-2 text-sm">

@@ -26,13 +26,6 @@ export type CalcInput = {
   rates: RateRow[];
   slaTier: SlaTier;
 
-  /**
-   * Regular-work billing basis. DAY_RATE (default): regular DAYS × day rate.
-   * HOURLY: regular HOURS × the rate (the MONTHLY_DAY_RATE row carries the hourly
-   * rate in this mode — fte-rows resolves it). OT + weekend stay per-hour either way.
-   */
-  basis?: "DAY_RATE" | "HOURLY";
-
   /** Days delta from coverage events (negative for covered tech, positive for covering). */
   coverageDaysDelta?: DecimalLike;
   /** OT hours delta from coverage events (positive for covering tech). */
@@ -140,24 +133,19 @@ export function calculateDedicatedFteRow(input: CalcInput): CalcOutput {
   const coverageOt = input.coverageOtDelta ?? ZERO;
   const coverageWe = input.coverageWeekendDelta ?? ZERO;
 
-  const isHourly = (input.basis ?? "DAY_RATE") === "HOURLY";
   const otHours = split.otHours.plus(coverageOt);
   const weekendHours = split.weekendHours.plus(coverageWe);
 
-  // The billed "regular" quantity: DAY_RATE → days (regularDays + coverage days);
-  // HOURLY → hours (regularHours + coverage days converted to hours). Reported as
-  // `daysWorked` so the pre-invoice quantity column matches the rate unit.
-  const daysWorked = isHourly
-    ? split.regularHours.plus(coverageDays.times(input.defaultHours))
-    : split.regularDays.plus(coverageDays);
+  // The billed "regular" quantity: days (regularDays + coverage days). The day
+  // rate is the annual-derived per-day rate resolved by fte-rows.
+  const daysWorked = split.regularDays.plus(coverageDays);
 
   const effectiveDayRate = input.overrideDayRate ?? dayRate;
   const effectiveOtRate = input.overrideOtRate ?? otRate;
   const effectiveWeekendRate = input.overrideWeekendRate ?? weekendRate;
 
-  // DAY_RATE: per-day rate × days. HOURLY: per-hour rate × regular hours.
-  // (businessDays is informational; it does not scale either.) OT + weekend
-  // are per-hour in both modes.
+  // Per-day rate × days (businessDays is informational; it does not scale the
+  // portion). OT + weekend are per-hour.
   const daysWorkedPortion = effectiveDayRate.times(daysWorked);
   const otPortion = effectiveOtRate.times(otHours);
   const weekendPortion = effectiveWeekendRate.times(weekendHours);

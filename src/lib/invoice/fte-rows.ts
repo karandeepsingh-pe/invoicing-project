@@ -82,15 +82,30 @@ export async function loadFteRows(
   // Business Days reference is simply the weekday count for the month.
   const businessDays = businessDaysInRange(range, []);
 
-  // Resolve { dayRate, ot, weekend } for an assignment. The dedicated day rate is
-  // an annual salary spread over the month's business days (annual / 12 /
-  // businessDays), so a fully-worked month bills exactly annual / 12. OT and
-  // weekend are always per-hour from the sheet (rebadged uses its own).
+  // Resolve { dayRate, ot, weekend } for an assignment. ANNUAL is the only
+  // billing basis: the salary spreads as annual / 12 / businessDays so a
+  // fully-worked month bills exactly annual / 12 and partial months scale by
+  // daysWorked. OT and weekend are always per-hour from the sheet (rebadged
+  // uses its own).
   type AssignmentWithTech = (typeof assignments)[number];
   function resolveRates(a: AssignmentWithTech) {
-    // HOURLY (per-tech): regular HOURS × the band's Hourly Rate; DAY_RATE: regular
-    // DAYS × the day rate. OT + weekend stay per-hour either way.
-    const isHourly = a.technician.dedicatedBillingBasis === "HOURLY";
+    // Rebadged techs bill entirely off their OWN annual salary through the same
+    // formula (full override — the account band sheet is ignored, including
+    // OT / weekend, which come from the rebadged hourly rates). A rebadged tech
+    // without an annual salary resolves to 0 and surfaces as unpriced.
+    if (a.technician.isRebadged) {
+      return {
+        dayRate: new Prisma.Decimal(
+          resolveRebadgedDayRate({
+            annual: Number(a.technician.annualSalary ?? 0),
+            businessDays,
+          }),
+        ),
+        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
+        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
+      };
+    }
+
     const techRates = ratesForTechnicianInRange(
       accountRates,
       "DEDICATED",
@@ -100,7 +115,8 @@ export async function loadFteRows(
     );
     // Band salary source: prefer the exact annual (ANNUAL_RATE row); fall back to
     // a legacy hourly day-rate row (MONTHLY_DAY_RATE / ANNUAL_BACKFILL, = annual /
-    // 2080) so accounts set up before the annual-storage change still price.
+    // 2080) so accounts set up before the annual-storage change still price. The
+    // retired DAY_RATE / MONTHLY / HOURLY basis rows are no longer read.
     const annualRow = techRates.find(
       (r) => r.rateSubCategory.code === "ANNUAL_RATE" && r.sla.code === a.slaTier,
     );
@@ -110,62 +126,16 @@ export async function loadFteRows(
           r.rateSubCategory.code === "ANNUAL_BACKFILL") &&
         r.sla.code === a.slaTier,
     );
-    // Newer explicit basis rows: a direct per-day DAY_RATE or a MONTHLY rate.
-    const dayRow = techRates.find(
-      (r) => r.rateSubCategory.code === "DAY_RATE" && r.sla.code === a.slaTier,
-    );
-    const monthlyRow = techRates.find(
-      (r) => r.rateSubCategory.code === "MONTHLY" && r.sla.code === a.slaTier,
-    );
 
-    // Per-tech annual overrides the band salary (within-band exceptions + rebadged
-    // techs); otherwise the band rate applies. Basis priority (see
-    // resolveDedicatedDayRate): per-tech salary > DAY_RATE > ANNUAL_RATE/legacy > MONTHLY.
+    // Per-tech annual overrides the band salary (within-band exceptions).
     const perTechAnnual = Number(a.technician.annualSalary ?? 0);
     const bandAnnual = pickBandAnnual(
       Number(annualRow?.rateAmount?.toString() ?? 0),
       Number(hourlyRow?.rateAmount?.toString() ?? 0),
     );
-    // HOURLY basis: the regular rate is the per-hour HOURLY row (billed × regular
-    // hours by the calculator). DAY_RATE: resolve a per-day rate from the basis rows.
-    const hourlyBasisRow = techRates.find(
-      (r) => r.rateSubCategory.code === "HOURLY" && r.sla.code === a.slaTier,
+    const dayRate = new Prisma.Decimal(
+      resolveDedicatedDayRate({ perTechAnnual, bandAnnual, businessDays }),
     );
-    const dayRate = isHourly
-      ? new Prisma.Decimal(Number(hourlyBasisRow?.rateAmount?.toString() ?? 0))
-      : new Prisma.Decimal(
-          resolveDedicatedDayRate({
-            perTechAnnual,
-            explicitDayRate: Number(dayRow?.rateAmount?.toString() ?? 0),
-            bandAnnual,
-            monthly: Number(monthlyRow?.rateAmount?.toString() ?? 0),
-            businessDays,
-          }),
-        );
-
-    // Rebadged techs bill entirely off their OWN per-tech rates (day rate from the
-    // rebadged Day / Monthly / Annual / Hourly fields, in that priority; OT / weekend
-    // from the manual rebadged hourly rates). The account band rate sheet is ignored.
-    if (a.technician.isRebadged) {
-      // HOURLY basis: bill the rebadged per-hour rate × regular hours directly.
-      const rebadgedDay = isHourly
-        ? new Prisma.Decimal(a.technician.rebadgedHourlyRate?.toString() ?? "0")
-        : new Prisma.Decimal(
-            resolveRebadgedDayRate({
-              dayRate: Number(a.technician.rebadgedDayRate?.toString() ?? 0),
-              monthlyRate: Number(a.technician.rebadgedMonthlyRate?.toString() ?? 0),
-              annual: Number(a.technician.annualSalary ?? 0),
-              hourlyRate: Number(a.technician.rebadgedHourlyRate?.toString() ?? 0),
-              defaultHours,
-              businessDays,
-            }),
-          );
-      return {
-        dayRate: rebadgedDay,
-        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
-        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
-      };
-    }
     const otRow = techRates.find(
       (r) =>
         (r.rateSubCategory.code === "OT_HOURLY_RATE" ||
@@ -245,7 +215,6 @@ export async function loadFteRows(
       entries,
       rates,
       slaTier: a.slaTier,
-      basis: a.technician.dedicatedBillingBasis,
       coverageDaysDelta: coverage.daysDeltaByAssignment.get(a.id),
       coverageOtDelta: coverage.otDeltaByAssignment.get(a.id),
       coverageWeekendDelta: coverage.weekendDeltaByAssignment.get(a.id),
@@ -278,9 +247,6 @@ export async function loadFteRows(
       : "—";
 
     const remarkParts: string[] = coverage.remarksByAssignment.get(a.id) ?? [];
-    if (a.technician.dedicatedBillingBasis === "HOURLY") {
-      remarkParts.push(`Hourly basis: ${daysWorkedNum.toFixed(2)}h @ $${Number(calc.dayRate.toFixed(2))}/hr`);
-    }
     const breakdownBits: string[] = [];
     if (otHoursNum > 0) {
       breakdownBits.push(`OT ${otHoursNum.toFixed(2)}h @ $${Number(calc.otRate.toFixed(2))}`);
