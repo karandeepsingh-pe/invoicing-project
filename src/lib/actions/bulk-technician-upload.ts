@@ -148,6 +148,28 @@ export async function bulkUploadTechnicians(
       continue;
     }
 
+    // Annual is the only billing basis (2026-06-10): the retired rebadged
+    // Day/Monthly/Hourly columns are accepted positionally (old templates still
+    // parse) but never persisted — note it so the uploader isn't surprised.
+    if (
+      r.rebadgedHourlyRate != null ||
+      r.rebadgedDayRate != null ||
+      r.rebadgedMonthlyRate != null
+    ) {
+      errors.push({
+        row: rowNumber,
+        message:
+          "Rebadged Hourly/Day/Monthly rates are legacy — ignored. Billing uses Annual Salary only (row still created).",
+      });
+    }
+    if (r.isRebadged && r.annualSalary == null) {
+      errors.push({
+        row: rowNumber,
+        message:
+          "Rebadged without an Annual Salary — created, but will show as UNPRICED on pre-invoices until the annual is set.",
+      });
+    }
+
     try {
       await prisma.technician.create({
         data: {
@@ -166,9 +188,6 @@ export async function bulkUploadTechnicians(
           email: r.email ?? null,
           annualSalary: r.annualSalary != null ? new Prisma.Decimal(r.annualSalary) : null,
           isRebadged: r.isRebadged,
-          rebadgedHourlyRate: r.rebadgedHourlyRate != null ? new Prisma.Decimal(r.rebadgedHourlyRate) : null,
-          rebadgedDayRate: r.rebadgedDayRate != null ? new Prisma.Decimal(r.rebadgedDayRate) : null,
-          rebadgedMonthlyRate: r.rebadgedMonthlyRate != null ? new Prisma.Decimal(r.rebadgedMonthlyRate) : null,
           rebadgedOtRate: r.rebadgedOtRate != null ? new Prisma.Decimal(r.rebadgedOtRate) : null,
           rebadgedWeekendRate: r.rebadgedWeekendRate != null ? new Prisma.Decimal(r.rebadgedWeekendRate) : null,
           postalCodeId: loc.postalCodeId,
