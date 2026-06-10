@@ -37,6 +37,12 @@ export type UnpricedFteAssignment = {
 export type FteRowsResult = {
   rows: PreInvoiceRow[];
   unpriced: UnpricedFteAssignment[];
+  /**
+   * Pass-through backfill expenses for the period (travel etc. paid to covering
+   * techs), billed dollar-for-dollar under the pre-invoice footer's
+   * Reimbursements — NOT included in any row's extendedTotal.
+   */
+  coverageExpenses: number;
 };
 
 /**
@@ -56,7 +62,7 @@ export async function loadFteRows(
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
   });
-  if (!account) return { rows: [], unpriced: [] };
+  if (!account) return { rows: [], unpriced: [], coverageExpenses: 0 };
   const defaultHours = account.defaultHours;
   const accountRates = account.accountRates;
 
@@ -203,6 +209,8 @@ export async function loadFteRows(
       coveringTechnicianId: e.coveringTechnicianId as string,
       date: e.date,
       hours: e.hours,
+      expenseAmount: e.expenseAmount,
+      expenseNotes: e.expenseNotes,
     }));
   const coverage = applyCoverageEvents({
     events: coverageEvents,
@@ -319,6 +327,11 @@ export async function loadFteRows(
     if (weekendNum > 0) {
       remarkParts.push(`Weekend ${weekendNum.toFixed(2)}h @ $${Number(line.weekendRate.toFixed(2))}`);
     }
+    const expenseNum = Number(line.expenseTotal.toFixed(2));
+    if (expenseNum > 0) {
+      const noteBit = line.expenseNotes.length > 0 ? ` (${line.expenseNotes.join(", ")})` : "";
+      remarkParts.push(`$${expenseNum.toFixed(2)} expenses${noteBit} → Reimbursements`);
+    }
 
     rows.push({
       location: line.coveringLocation,
@@ -338,5 +351,11 @@ export async function loadFteRows(
     });
   }
 
-  return { rows, unpriced };
+  const coverageExpenses = Number(
+    coverage.backfillLines
+      .reduce((sum, l) => sum.plus(l.expenseTotal), new Prisma.Decimal(0))
+      .toFixed(2),
+  );
+
+  return { rows, unpriced, coverageExpenses };
 }

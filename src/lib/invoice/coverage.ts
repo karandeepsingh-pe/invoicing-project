@@ -31,6 +31,9 @@ export type CoverageEventInput = {
   coveringTechnicianId: string;
   date: Date;
   hours: DecimalLike;
+  /** Pass-through expense paid to the covering tech (travel etc.). */
+  expenseAmount?: DecimalLike | null;
+  expenseNotes?: string | null;
 };
 
 export type CoverageContext = {
@@ -64,6 +67,9 @@ export type BackfillLine = {
   dayRate: DecimalLike;
   otRate: DecimalLike;
   weekendRate: DecimalLike;
+  /** Pass-through expenses (billed under the footer's Reimbursements, not in the line). */
+  expenseTotal: DecimalLike;
+  expenseNotes: string[];
 };
 
 export type CoverageOutcome = {
@@ -161,7 +167,10 @@ export function applyCoverageEvents(args: {
       dayRate: covered.dayRate,
       otRate: covered.otRate,
       weekendRate: covered.weekendRate,
+      expenseTotal: new Decimal(0),
+      expenseNotes: [],
     };
+    const expense = event.expenseAmount ?? new Decimal(0);
     linesByKey.set(key, {
       ...base,
       regularDays: base.regularDays.plus(split.regularDays),
@@ -169,6 +178,11 @@ export function applyCoverageEvents(args: {
       weekendHours: base.weekendHours.plus(split.weekendHours),
       totalHours: base.totalHours.plus(event.hours),
       perDate: [...base.perDate, { dateLabel, hours: event.hours }],
+      expenseTotal: base.expenseTotal.plus(expense),
+      expenseNotes:
+        event.expenseNotes && !base.expenseNotes.includes(event.expenseNotes)
+          ? [...base.expenseNotes, event.expenseNotes]
+          : base.expenseNotes,
     });
   }
 

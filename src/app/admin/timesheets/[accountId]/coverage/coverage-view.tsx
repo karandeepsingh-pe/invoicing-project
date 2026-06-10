@@ -25,6 +25,8 @@ type EventRow = {
   covered: string;
   covering: string;
   hours: number;
+  expenseAmount: number | null;
+  expenseNotes: string | null;
   notes: string | null;
 };
 
@@ -135,6 +137,23 @@ export function CoverageView({
                   required
                   errors={fieldErrors?.hours}
                 />
+                <TextField
+                  label="Expense $ (optional)"
+                  name="expenseAmount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  inputMode="decimal"
+                  placeholder="e.g. 10"
+                  errors={fieldErrors?.expenseAmount}
+                  hint="Paid to the covering tech (travel etc.) — billed to the client under Reimbursements."
+                />
+                <TextField
+                  label="Expense note"
+                  name="expenseNotes"
+                  placeholder="e.g. travel"
+                  errors={fieldErrors?.expenseNotes}
+                />
                 <TextField label="Notes" name="notes" placeholder="" />
               </div>
               <SubmitButton>Add event</SubmitButton>
@@ -149,6 +168,7 @@ export function CoverageView({
               <th className="px-3 py-2 text-left">Covered</th>
               <th className="px-3 py-2 text-left">Covering</th>
               <th className="px-3 py-2 text-right">Hours</th>
+              <th className="px-3 py-2 text-right">Expense</th>
               <th className="px-3 py-2 text-left">Notes</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -160,6 +180,11 @@ export function CoverageView({
                 <td className="px-3 py-2">{e.covered}</td>
                 <td className="px-3 py-2">{e.covering}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{e.hours.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-xs">
+                  {e.expenseAmount != null
+                    ? `$${e.expenseAmount.toFixed(2)}${e.expenseNotes ? ` (${e.expenseNotes})` : ""}`
+                    : "—"}
+                </td>
                 <td className="px-3 py-2 text-xs text-fg-muted">{e.notes ?? "—"}</td>
                 <td className="px-3 py-2 text-right">
                   <button
@@ -175,7 +200,7 @@ export function CoverageView({
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-sm text-fg-subtle">
+                <td colSpan={7} className="px-3 py-4 text-sm text-fg-subtle">
                   No coverage events for this month.
                 </td>
               </tr>

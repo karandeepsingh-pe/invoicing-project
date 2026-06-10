@@ -479,6 +479,10 @@ model CoverageEvent {
   coveringTechnicianId String?
   date                 DateTime @db.Date
   hours                Decimal  @db.Decimal(6, 2)
+  // Pass-through expense paid to the covering tech (travel etc.) — billed to
+  // the client under the pre-invoice footer's Reimbursements, dollar-for-dollar.
+  expenseAmount        Decimal? @db.Decimal(12, 2)
+  expenseNotes         String?
   notes                String?
   enteredById          String
   // Soft-delete stamps (cascade target when the covered day is soft-deleted).

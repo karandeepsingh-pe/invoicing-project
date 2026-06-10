@@ -9,6 +9,19 @@ export const coverageCreateSchema = z.object({
   coveringTechnicianId: z.string().min(1),
   date: isoDate,
   hours: z.coerce.number().min(0.25).max(24),
+  // Pass-through expense paid to the covering tech (travel etc.) — billed to
+  // the client under Reimbursements. Blank -> none.
+  expenseAmount: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number().min(0).max(100_000).optional(),
+  ),
+  expenseNotes: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((v) => (v.length === 0 ? null : v))
+    .nullable()
+    .optional(),
   notes: z
     .string()
     .trim()

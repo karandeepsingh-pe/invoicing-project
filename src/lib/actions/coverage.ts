@@ -21,6 +21,8 @@ export async function createCoverageEvent(
     coveringTechnicianId: formData.get("coveringTechnicianId"),
     date: formData.get("date"),
     hours: formData.get("hours"),
+    expenseAmount: formData.get("expenseAmount") ?? undefined,
+    expenseNotes: formData.get("expenseNotes") ?? undefined,
     notes: formData.get("notes") ?? undefined,
   });
   if (!parsed.success) {
@@ -106,6 +108,11 @@ export async function createCoverageEvent(
         coveringTechnicianId: parsed.data.coveringTechnicianId,
         date: eventDate,
         hours: new Prisma.Decimal(parsed.data.hours),
+        expenseAmount:
+          parsed.data.expenseAmount != null && parsed.data.expenseAmount > 0
+            ? new Prisma.Decimal(parsed.data.expenseAmount)
+            : null,
+        expenseNotes: parsed.data.expenseNotes ?? null,
         notes: parsed.data.notes ?? null,
         enteredById: admin.userId,
       },

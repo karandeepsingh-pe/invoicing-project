@@ -60,19 +60,22 @@ export async function generatePreInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const { rows } = await loadFteRows(accountId, range);
+  const { rows, coverageExpenses } = await loadFteRows(accountId, range);
 
   // Add-ons: percentage fees (e.g. PM fee) computed on the line-item subtotal,
-  // plus flat retainer and reimbursements. Authoritative totals via assembleInvoice.
+  // plus flat retainer and reimbursements. Backfill expenses (travel etc. paid
+  // to covering techs this period) pass through under Reimbursements,
+  // dollar-for-dollar. Authoritative totals via assembleInvoice.
   const percentFees: FeeSpec[] = account.miscFees
     .filter((m) => m.percent != null)
     .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
     .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
-  const reimbursements = account.miscFees
-    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  const reimbursements =
+    account.miscFees
+      .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) + coverageExpenses;
 
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),

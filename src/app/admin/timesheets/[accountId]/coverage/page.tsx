@@ -140,6 +140,8 @@ export default async function CoveragePage({
               ? `${e.coveringAssignment.technician.firstName} ${e.coveringAssignment.technician.lastName}`
               : "—",
           hours: Number(e.hours.toString()),
+          expenseAmount: e.expenseAmount != null ? Number(e.expenseAmount.toString()) : null,
+          expenseNotes: e.expenseNotes,
           notes: e.notes,
         }))}
       />

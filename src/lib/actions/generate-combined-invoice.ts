@@ -134,15 +134,19 @@ export async function generateCombinedInvoice(
 
   // Add-on fees, identical to the single-type generator: percentage fees (e.g. the
   // 3% PM fee) on the line-item subtotal, plus flat retainer + reimbursements.
+  // Backfill expenses (travel etc. paid to covering techs) pass through under
+  // Reimbursements, dollar-for-dollar.
   const percentFees: FeeSpec[] = account.miscFees
     .filter((m) => m.percent != null)
     .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
     .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
-  const reimbursements = account.miscFees
-    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  const reimbursements =
+    account.miscFees
+      .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) +
+    fteResult.coverageExpenses;
 
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),

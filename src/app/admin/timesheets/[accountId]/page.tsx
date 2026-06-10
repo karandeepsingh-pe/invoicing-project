@@ -275,9 +275,14 @@ function TimesheetActionBar({
             Generate Project →
           </Link>
         )}
+        {view === "all" && (
+          <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`ml-auto ${linkCls}`}>
+            Backfill log →
+          </Link>
+        )}
         <Link
           href={`/admin/invoices/generate/${accountId}/combined?${qs}`}
-          className={`${view === "all" || view === "scheduled" ? "ml-auto " : ""}${linkCls}`}
+          className={`${view === "scheduled" ? "ml-auto " : ""}${linkCls}`}
         >
           Generate combined →
         </Link>

@@ -167,6 +167,37 @@ describe("applyCoverageEvents (technician-based covering side)", () => {
     expect(out.backfillLines).toHaveLength(0);
   });
 
+  it("expense pass-through: accumulates on the line, never alters hours/day math", () => {
+    const out = applyCoverageEvents({
+      events: [
+        { ...event("A", "J", TUE_APR_14, 5, "evt1"), expenseAmount: new Decimal(10), expenseNotes: "travel" },
+        { ...event("A", "J", WED_APR_15, 8, "evt2"), expenseAmount: new Decimal(4.5), expenseNotes: "travel" },
+      ],
+      contextByAssignment: ESTEBAN,
+      defaultHours: 8,
+      technicianNameByAssignment: NAMES,
+      coveringTechById: JONATHAN,
+    });
+    const line = out.backfillLines[0];
+    expect(line.expenseTotal.toNumber()).toBe(14.5);
+    expect(line.expenseNotes).toEqual(["travel"]); // deduped
+    // Day math identical to the no-expense case.
+    expect(line.regularDays.toNumber()).toBe(1.625);
+    expect(out.daysDeltaByAssignment.get("A")?.toNumber()).toBe(-1.625);
+  });
+
+  it("events without an expense leave expenseTotal at 0", () => {
+    const out = applyCoverageEvents({
+      events: [event("A", "J", TUE_APR_14, 8)],
+      contextByAssignment: ESTEBAN,
+      defaultHours: 8,
+      technicianNameByAssignment: NAMES,
+      coveringTechById: JONATHAN,
+    });
+    expect(out.backfillLines[0].expenseTotal.toNumber()).toBe(0);
+    expect(out.backfillLines[0].expenseNotes).toEqual([]);
+  });
+
   it("skips events whose covering technician is unknown", () => {
     const out = applyCoverageEvents({
       events: [event("A", "MISSING", TUE_APR_14, 8)],
