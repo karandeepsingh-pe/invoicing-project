@@ -48,8 +48,20 @@ export default async function CoveragePage({
     include: {
       coveredAssignment: { include: { technician: true } },
       coveringAssignment: { include: { technician: true } },
+      coveringTechnician: true,
     },
     orderBy: { date: "asc" },
+  });
+
+  // Covering candidates: ANY active pool technician (Project or Dispatch
+  // availability), no assignment on this account required.
+  const poolTechs = await prisma.technician.findMany({
+    where: {
+      active: true,
+      OR: [{ isAvailableForProject: true }, { isAvailableForDispatch: true }],
+    },
+    include: { employerOrg: { select: { name: true } } },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
   const monthName = range.start.toLocaleString("en-US", {
@@ -74,8 +86,10 @@ export default async function CoveragePage({
         </h1>
         <p className="text-sm text-fg-muted">
           Log who covered whom. Only valid when the covered technician&apos;s
-          assignment slaTier = <code>BACKFILL</code>. The covering tech&apos;s
-          line picks up the covered tech&apos;s rates at invoice time.
+          assignment slaTier = <code>BACKFILL</code>. Any active pool technician
+          can cover — no assignment on this account needed. The pre-invoice gets
+          a separate <em>FTE (Backfill)</em> line at the covered tech&apos;s
+          rates, showing the hours.
         </p>
 
         <details className="glass-soft rounded-md p-3 text-xs text-fg-muted">
@@ -112,11 +126,19 @@ export default async function CoveragePage({
           slaTier: a.slaTier,
           rateCategory: a.rateCategory,
         }))}
+        poolTechs={poolTechs.map((t) => ({
+          id: t.id,
+          label: `${t.firstName} ${t.lastName} · ${t.isRebadged ? "Rebadged" : `Band ${t.band}`} · ${t.employerOrg.name}`,
+        }))}
         events={events.map((e) => ({
           id: e.id,
           date: e.date.toISOString().slice(0, 10),
           covered: `${e.coveredAssignment.technician.firstName} ${e.coveredAssignment.technician.lastName}`,
-          covering: `${e.coveringAssignment.technician.firstName} ${e.coveringAssignment.technician.lastName}`,
+          covering: e.coveringTechnician
+            ? `${e.coveringTechnician.firstName} ${e.coveringTechnician.lastName}`
+            : e.coveringAssignment
+              ? `${e.coveringAssignment.technician.firstName} ${e.coveringAssignment.technician.lastName}`
+              : "—",
           hours: Number(e.hours.toString()),
           notes: e.notes,
         }))}

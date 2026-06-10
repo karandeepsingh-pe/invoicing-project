@@ -26,19 +26,12 @@ export type CalcInput = {
   rates: RateRow[];
   slaTier: SlaTier;
 
-  /** Days delta from coverage events (negative for covered tech, positive for covering). */
+  /**
+   * Days delta from coverage events — negative day-debit on the COVERED tech.
+   * (The covering side no longer rides this calculator: backfill lines are
+   * synthesized separately in fte-rows at the covered seat's rates.)
+   */
   coverageDaysDelta?: DecimalLike;
-  /** OT hours delta from coverage events (positive for covering tech). */
-  coverageOtDelta?: DecimalLike;
-  /** Weekend hours delta from coverage events (positive for covering tech). */
-  coverageWeekendDelta?: DecimalLike;
-
-  /** Override day rate (covering line billed at covered tech's monthlyRate). */
-  overrideDayRate?: DecimalLike;
-  /** Override OT rate (covering line). */
-  overrideOtRate?: DecimalLike;
-  /** Override weekend rate (covering line). */
-  overrideWeekendRate?: DecimalLike;
 };
 
 export type CalcOutput = {
@@ -130,25 +123,20 @@ export function calculateDedicatedFteRow(input: CalcInput): CalcOutput {
   const split = splitEntries(input.entries, input.defaultHours);
 
   const coverageDays = input.coverageDaysDelta ?? ZERO;
-  const coverageOt = input.coverageOtDelta ?? ZERO;
-  const coverageWe = input.coverageWeekendDelta ?? ZERO;
 
-  const otHours = split.otHours.plus(coverageOt);
-  const weekendHours = split.weekendHours.plus(coverageWe);
+  const otHours = split.otHours;
+  const weekendHours = split.weekendHours;
 
-  // The billed "regular" quantity: days (regularDays + coverage days). The day
-  // rate is the annual-derived per-day rate resolved by fte-rows.
+  // The billed "regular" quantity: days (regularDays + the covered-side
+  // coverage debit). The day rate is the annual-derived per-day rate resolved
+  // by fte-rows.
   const daysWorked = split.regularDays.plus(coverageDays);
-
-  const effectiveDayRate = input.overrideDayRate ?? dayRate;
-  const effectiveOtRate = input.overrideOtRate ?? otRate;
-  const effectiveWeekendRate = input.overrideWeekendRate ?? weekendRate;
 
   // Per-day rate × days (businessDays is informational; it does not scale the
   // portion). OT + weekend are per-hour.
-  const daysWorkedPortion = effectiveDayRate.times(daysWorked);
-  const otPortion = effectiveOtRate.times(otHours);
-  const weekendPortion = effectiveWeekendRate.times(weekendHours);
+  const daysWorkedPortion = dayRate.times(daysWorked);
+  const otPortion = otRate.times(otHours);
+  const weekendPortion = weekendRate.times(weekendHours);
 
   const extendedTotal = daysWorkedPortion.plus(otPortion).plus(weekendPortion);
 
@@ -156,9 +144,9 @@ export function calculateDedicatedFteRow(input: CalcInput): CalcOutput {
     daysWorked,
     otHours,
     weekendHours,
-    dayRate: effectiveDayRate,
-    otRate: effectiveOtRate,
-    weekendRate: effectiveWeekendRate,
+    dayRate,
+    otRate,
+    weekendRate,
     daysWorkedPortion,
     otPortion,
     weekendPortion,

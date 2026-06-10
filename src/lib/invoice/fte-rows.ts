@@ -12,6 +12,7 @@ import {
   applyCoverageEvents,
   type CoverageContext,
   type CoverageEventInput,
+  type CoveringTechInfo,
 } from "./coverage";
 import { pickBandAnnual, resolveDedicatedDayRate, resolveRebadgedDayRate } from "./billing-basis";
 import type { PreInvoiceRow } from "./render-pre-invoice";
@@ -156,13 +157,16 @@ export async function loadFteRows(
   }
 
   const assignmentIds = assignments.map((a) => a.id);
-  // Coverage (backfill) validity is governed per event by the covered technician's
-  // tier (BACKFILL) in the calculator, so load all coverage rows for the period.
+  // Coverage (backfill) events for the period. The covering side is technician-
+  // based: any active pool tech, no account assignment needed.
   const coverageRows = await prisma.coverageEvent.findMany({
     where: {
       ...notDeleted,
       date: { gte: range.start, lt: range.end },
       coveredAssignmentId: { in: assignmentIds },
+    },
+    include: {
+      coveringTechnician: { include: { postalCode: true } },
     },
   });
 
@@ -180,18 +184,32 @@ export async function loadFteRows(
     techNameByAssignment.set(a.id, `${a.technician.firstName} ${a.technician.lastName}`);
   }
 
-  const coverageEvents: CoverageEventInput[] = coverageRows.map((e) => ({
-    id: e.id,
-    coveredAssignmentId: e.coveredAssignmentId,
-    coveringAssignmentId: e.coveringAssignmentId,
-    date: e.date,
-    hours: e.hours,
-  }));
+  const coveringTechById = new Map<string, CoveringTechInfo>();
+  for (const e of coverageRows) {
+    const t = e.coveringTechnician;
+    if (!t || coveringTechById.has(t.id)) continue;
+    coveringTechById.set(t.id, {
+      name: `${t.firstName} ${t.lastName}`,
+      bandLabel: t.isRebadged ? "Rebadged" : `Band ${t.band}`,
+      location: t.postalCode ? `${t.postalCode.city}, ${t.postalCode.state}` : "—",
+    });
+  }
+
+  const coverageEvents: CoverageEventInput[] = coverageRows
+    .filter((e) => e.coveringTechnicianId !== null)
+    .map((e) => ({
+      id: e.id,
+      coveredAssignmentId: e.coveredAssignmentId,
+      coveringTechnicianId: e.coveringTechnicianId as string,
+      date: e.date,
+      hours: e.hours,
+    }));
   const coverage = applyCoverageEvents({
     events: coverageEvents,
     contextByAssignment,
     defaultHours,
     technicianNameByAssignment: techNameByAssignment,
+    coveringTechById,
   });
 
   const rows: PreInvoiceRow[] = [];
@@ -216,11 +234,6 @@ export async function loadFteRows(
       rates,
       slaTier: a.slaTier,
       coverageDaysDelta: coverage.daysDeltaByAssignment.get(a.id),
-      coverageOtDelta: coverage.otDeltaByAssignment.get(a.id),
-      coverageWeekendDelta: coverage.weekendDeltaByAssignment.get(a.id),
-      overrideDayRate: coverage.overrideRateByCoveringAssignment.get(a.id),
-      overrideOtRate: coverage.overrideOtRateByCoveringAssignment.get(a.id),
-      overrideWeekendRate: coverage.overrideWeekendRateByCoveringAssignment.get(a.id),
     });
 
     const daysWorkedNum = Number(calc.daysWorked.toFixed(2));
@@ -277,6 +290,51 @@ export async function loadFteRows(
       weekendRate: Number(calc.weekendRate.toFixed(2)),
       extendedTotal: extendedTotalNum,
       remarks: remarkParts.length > 0 ? remarkParts.join(" · ") : undefined,
+    });
+  }
+
+  // Synthesized backfill lines: one per (covering technician, covered seat),
+  // billed at the COVERED seat's rates. Shows who covered, the dates, the
+  // HOURS, and the amount — independent of any assignment the covering tech
+  // may or may not hold on this account.
+  for (const line of coverage.backfillLines) {
+    const daysNum = Number(line.regularDays.toFixed(2));
+    const otNum = Number(line.otHours.toFixed(2));
+    const weekendNum = Number(line.weekendHours.toFixed(2));
+    if (daysNum === 0 && otNum === 0 && weekendNum === 0) continue;
+
+    const extended = Number(
+      line.dayRate
+        .times(line.regularDays)
+        .plus(line.otRate.times(line.otHours))
+        .plus(line.weekendRate.times(line.weekendHours))
+        .toFixed(2),
+    );
+
+    const dateBits = line.perDate
+      .map((d) => `${d.dateLabel}, ${Number(d.hours.toFixed(2)).toFixed(2)} hrs`)
+      .join("; ");
+    const remarkParts = [`Backfill for ${line.coveredTechName} — ${dateBits}`];
+    if (otNum > 0) remarkParts.push(`OT ${otNum.toFixed(2)}h @ $${Number(line.otRate.toFixed(2))}`);
+    if (weekendNum > 0) {
+      remarkParts.push(`Weekend ${weekendNum.toFixed(2)}h @ $${Number(line.weekendRate.toFixed(2))}`);
+    }
+
+    rows.push({
+      location: line.coveringLocation,
+      technicianName: line.coveringTechName,
+      bandLabel: line.coveringBandLabel,
+      backfillLabel: line.coveredTierLabel, // the covered SEAT's tier
+      engineerType: "FTE (Backfill)",
+      businessDays,
+      daysWorked: daysNum,
+      dayRate: line.dayRate.toNumber(),
+      otHours: otNum,
+      otRate: Number(line.otRate.toFixed(2)),
+      weekendHours: weekendNum,
+      weekendRate: Number(line.weekendRate.toFixed(2)),
+      extendedTotal: extended,
+      remarks: remarkParts.join(" · "),
     });
   }
 

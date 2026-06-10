@@ -283,32 +283,9 @@ describe("calculateDedicatedFteRow", () => {
     expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });
 
-  it("coverage OT + override rates bill at covered tech's rates", () => {
-    // Covering tech has no own entries; coverage gives +1 day, +2 OT.
-    const result = calculateDedicatedFteRow({
-      defaultHours: 8,
-      businessDays: 21,
-      entries: [],
-      rates: [
-        {
-          rateAmount: dec(200),
-          rateSubCategory: { code: "MONTHLY_DAY_RATE" },
-          sla: { code: "NO_BACKFILL" },
-        },
-      ],
-      slaTier: "NO_BACKFILL",
-      overrideDayRate: dec(250),
-      overrideOtRate: dec(75),
-      overrideWeekendRate: dec(100),
-      coverageDaysDelta: dec(1),
-      coverageOtDelta: dec(2),
-    });
-    expect(result.daysWorked.toNumber()).toBe(1);
-    expect(result.otHours.toNumber()).toBe(2);
-    expect(result.daysWorkedPortion.toNumber()).toBeCloseTo(250, 2);
-    expect(result.otPortion.toNumber()).toBeCloseTo(150, 2);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 + 150, 2);
-  });
+  // The covering side no longer rides this calculator: backfill lines are
+  // synthesized in fte-rows from the coverage events at the covered seat's
+  // rates (see coverage.test.ts). Only the covered-side day debit remains here.
 });
 
 describe("calculateDedicatedFteRow — annual-only basis", () => {

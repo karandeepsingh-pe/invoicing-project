@@ -18,7 +18,7 @@ export async function createCoverageEvent(
 
   const parsed = coverageCreateSchema.safeParse({
     coveredAssignmentId: formData.get("coveredAssignmentId"),
-    coveringAssignmentId: formData.get("coveringAssignmentId"),
+    coveringTechnicianId: formData.get("coveringTechnicianId"),
     date: formData.get("date"),
     hours: formData.get("hours"),
     notes: formData.get("notes") ?? undefined,
@@ -27,14 +27,14 @@ export async function createCoverageEvent(
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  // Guard: the covered assignment must be a BACKFILL-tier technician. Backfill is
-  // a technician trait now, so coverage is allowed wherever the covered tech is
-  // BACKFILL tier.
+  // Guard: the covered assignment must be a BACKFILL-tier technician — that is
+  // what the Backfill day-rate buys.
   const covered = await prisma.assignment.findUnique({
     where: { id: parsed.data.coveredAssignmentId },
     select: {
       slaTier: true,
       clientAccountId: true,
+      technicianId: true,
     },
   });
   if (!covered) {
@@ -47,12 +47,64 @@ export async function createCoverageEvent(
     };
   }
 
+  // Covering tech: any ACTIVE pool technician (Project or Dispatch availability),
+  // no assignment on this account required. Must differ from the covered tech.
+  const covering = await prisma.technician.findUnique({
+    where: { id: parsed.data.coveringTechnicianId },
+    select: { id: true, active: true, isAvailableForProject: true, isAvailableForDispatch: true },
+  });
+  if (!covering || !covering.active) {
+    return { ok: false, formError: "Covering technician not found or inactive." };
+  }
+  if (!covering.isAvailableForProject && !covering.isAvailableForDispatch) {
+    return {
+      ok: false,
+      formError: "Covering technician must be in the Project or Dispatch pool.",
+    };
+  }
+  if (covering.id === covered.technicianId) {
+    return { ok: false, formError: "Covering technician must differ from the covered technician." };
+  }
+
+  const eventDate = new Date(`${parsed.data.date}T00:00:00.000Z`);
+  const nextDay = new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
+
+  // Same-date dual-work check (non-blocking): warn the SDM if the covering tech
+  // already has work logged that day — coverage has no clock times, so dates
+  // are the practical overlap unit.
+  const [bookingCount, entryCount] = await Promise.all([
+    prisma.technicianBooking.count({
+      where: {
+        technicianId: covering.id,
+        deletedAt: null,
+        startDateTime: { lt: nextDay },
+        endDateTime: { gt: eventDate },
+      },
+    }),
+    prisma.timesheetEntry.count({
+      where: {
+        deletedAt: null,
+        date: eventDate,
+        assignment: { technicianId: covering.id },
+      },
+    }),
+  ]);
+  const warning =
+    bookingCount > 0 || entryCount > 0
+      ? ` Note: this technician already has ${[
+          bookingCount > 0 ? `${bookingCount} booking(s)` : null,
+          entryCount > 0 ? `${entryCount} timesheet entr${entryCount === 1 ? "y" : "ies"}` : null,
+        ]
+          .filter(Boolean)
+          .join(" and ")} on this date — check the hours don't overlap.`
+      : "";
+
   try {
     const event = await prisma.coverageEvent.create({
       data: {
         coveredAssignmentId: parsed.data.coveredAssignmentId,
-        coveringAssignmentId: parsed.data.coveringAssignmentId,
-        date: new Date(`${parsed.data.date}T00:00:00.000Z`),
+        coveringTechnicianId: parsed.data.coveringTechnicianId,
+        date: eventDate,
         hours: new Prisma.Decimal(parsed.data.hours),
         notes: parsed.data.notes ?? null,
         enteredById: admin.userId,
@@ -60,7 +112,7 @@ export async function createCoverageEvent(
     });
     revalidatePath(`/admin/timesheets/${covered.clientAccountId}/coverage`);
     revalidatePath(`/admin/invoices/generate/${covered.clientAccountId}`);
-    return { ok: true, id: event.id };
+    return { ok: true, id: event.id, message: `Coverage logged.${warning}` };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return {

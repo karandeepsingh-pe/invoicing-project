@@ -303,8 +303,9 @@ model Technician {
   updatedAt       DateTime     @updatedAt
 
   employerOrg Org          @relation(fields: [employerOrgId], references: [id])
-  assignments Assignment[]
-  postalCode  PostalCode?  @relation(fields: [postalCodeId], references: [id])
+  assignments    Assignment[]
+  postalCode     PostalCode?     @relation(fields: [postalCodeId], references: [id])
+  coveringEvents CoverageEvent[] @relation("coveringTechnician")
 
   @@unique([employerOrgId, employeeId])
   @@index([employerOrgId, active])
@@ -464,13 +465,18 @@ enum BookingKind {
 }
 
 // Coverage event for the Dedicated FTE flow. Logs who covered a BACKFILL-tier
-// technician's absence on a specific date. The covering technician's invoice
-// line picks up the days; the covered technician's line loses them. Billed at
-// the COVERED technician's Day Rate.
+// technician's absence on a specific date. The pre-invoice synthesizes a
+// separate "FTE (Backfill)" line for the covering TECHNICIAN (any active pool
+// tech — no account assignment required) and the covered technician's line
+// loses the day-fraction. Always billed at the COVERED technician's seat rates.
 model CoverageEvent {
   id                   String   @id @default(cuid())
   coveredAssignmentId  String
-  coveringAssignmentId String
+  // Legacy covering reference (assignment-based, pre-2026-06-10). Nullable so
+  // new events can be technician-based; kept for rollback. Do not write.
+  coveringAssignmentId String?
+  // The covering technician (technician-based model, 2026-06-10+).
+  coveringTechnicianId String?
   date                 DateTime @db.Date
   hours                Decimal  @db.Decimal(6, 2)
   notes                String?
@@ -480,9 +486,10 @@ model CoverageEvent {
   deletedById          String?
   createdAt            DateTime @default(now())
 
-  coveredAssignment  Assignment @relation("coveredEvents", fields: [coveredAssignmentId], references: [id])
-  coveringAssignment Assignment @relation("coveringEvents", fields: [coveringAssignmentId], references: [id])
-  enteredBy          User       @relation(fields: [enteredById], references: [id])
+  coveredAssignment  Assignment  @relation("coveredEvents", fields: [coveredAssignmentId], references: [id])
+  coveringAssignment Assignment? @relation("coveringEvents", fields: [coveringAssignmentId], references: [id])
+  coveringTechnician Technician? @relation("coveringTechnician", fields: [coveringTechnicianId], references: [id])
+  enteredBy          User        @relation(fields: [enteredById], references: [id])
 
   // (coveredAssignmentId, date) uniqueness is a SQL-managed PARTIAL unique index
   // "coverage_events_coveredAssignmentId_date_active" WHERE deletedAt IS NULL, so a
@@ -490,6 +497,7 @@ model CoverageEvent {
   // covered-assignment lookups fast now that the unique is gone.
   @@index([coveredAssignmentId, date])
   @@index([coveringAssignmentId, date])
+  @@index([coveringTechnicianId, date])
   @@map("coverage_events")
 }
 

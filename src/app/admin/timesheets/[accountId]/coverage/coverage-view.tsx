@@ -17,6 +17,8 @@ type AssignmentOpt = {
   rateCategory: "DEDICATED" | "PROJECT_TM" | "DISPATCH_SCHED" | "SCHEDULED";
 };
 
+type PoolTechOpt = { id: string; label: string };
+
 type EventRow = {
   id: string;
   date: string;
@@ -31,12 +33,14 @@ export function CoverageView({
   year,
   month,
   assignments,
+  poolTechs,
   events,
 }: {
   accountId: string;
   year: number;
   month: number;
   assignments: AssignmentOpt[];
+  poolTechs: PoolTechOpt[];
   events: EventRow[];
 }) {
   const [createState, createAction] = useActionState(createCoverageEvent, null);
@@ -57,8 +61,11 @@ export function CoverageView({
   const formError =
     createState && createState.ok === false ? createState.formError : undefined;
 
-  const backfillOpts = assignments.filter((a) => a.slaTier === "BACKFILL");
-  const coveringOpts = assignments;
+  // Covered side: BACKFILL-tier Dedicated seats on this account. Covering side:
+  // any active pool technician (loaded server-side, all accounts).
+  const backfillOpts = assignments.filter(
+    (a) => a.slaTier === "BACKFILL" && a.rateCategory === "DEDICATED",
+  );
 
   function handleDelete(id: string) {
     startTransition(() => {
@@ -97,14 +104,15 @@ export function CoverageView({
                   ))}
                 </SelectField>
                 <SelectField
-                  label="Covering technician"
-                  name="coveringAssignmentId"
+                  label="Covering technician (any pool tech)"
+                  name="coveringTechnicianId"
                   required
-                  errors={fieldErrors?.coveringAssignmentId}
+                  errors={fieldErrors?.coveringTechnicianId}
+                  hint="Active Project/Dispatch pool — no assignment on this account needed. Bills at the covered tech's rates."
                 >
-                  {coveringOpts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
+                  {poolTechs.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
                     </option>
                   ))}
                 </SelectField>
