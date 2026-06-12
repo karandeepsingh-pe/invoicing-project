@@ -25,7 +25,7 @@ export default async function OrgDetailPage({
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
-          ← Partner Management
+          ← Client Management
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">

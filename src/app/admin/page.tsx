@@ -24,7 +24,7 @@ export default async function AdminDashboard() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Dashboard</span>
         <h1 className="text-4xl font-semibold tracking-tighter2">Welcome back</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Configure orgs, accounts, rate cards, technicians, and assignments from Partner
+          Configure orgs, accounts, rate cards, technicians, and assignments from Client
           Management. Everything propagates across the app from that single tab.
         </p>
       </header>

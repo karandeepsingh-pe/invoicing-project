@@ -4,10 +4,10 @@ import { useActionState, useTransition } from "react";
 import { createCoverageEvent, deleteCoverageEvent } from "@/lib/actions/coverage";
 import {
   FormError,
-  SelectField,
   SubmitButton,
   TextField,
 } from "@/components/admin/field";
+import { SearchableSelectField } from "@/components/admin/searchable-select";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 type AssignmentOpt = {
@@ -93,31 +93,21 @@ export function CoverageView({
           ) : (
             <>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <SelectField
+                <SearchableSelectField
                   label="Covered technician (BACKFILL)"
                   name="coveredAssignmentId"
                   required
+                  options={backfillOpts.map((a) => ({ value: a.id, label: a.name }))}
                   errors={fieldErrors?.coveredAssignmentId}
-                >
-                  {backfillOpts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
+                />
+                <SearchableSelectField
                   label="Covering technician (any pool tech)"
                   name="coveringTechnicianId"
                   required
+                  options={poolTechs.map((t) => ({ value: t.id, label: t.label }))}
                   errors={fieldErrors?.coveringTechnicianId}
                   hint="Active Project/Dispatch pool — no assignment on this account needed. Bills at the covered tech's rates."
-                >
-                  {poolTechs.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
-                    </option>
-                  ))}
-                </SelectField>
+                />
                 <TextField
                   label="Date"
                   name="date"

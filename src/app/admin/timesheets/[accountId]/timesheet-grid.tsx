@@ -18,6 +18,8 @@ import {
 } from "@/lib/actions/soft-delete";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { FilterInput } from "@/components/admin/filter-input";
+import { filterByText } from "@/lib/display/option-filter";
 import {
   normalizeCellText,
   parseCellText,
@@ -152,6 +154,13 @@ export function TimesheetGrid({
   const [deletePending, startDeleteTransition] = useTransition();
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<Set<string>>(
     () => new Set(),
+  );
+  // Display-only row filter: autosave, summaries, and blank-cell checks always
+  // run over the full assignment list regardless of what's visible.
+  const [rowQuery, setRowQuery] = useState("");
+  const visibleAssignments = useMemo(
+    () => filterByText(assignments, rowQuery, (a) => a.technicianName),
+    [assignments, rowQuery],
   );
 
   useActionToast(deleteState, {
@@ -383,6 +392,13 @@ export function TimesheetGrid({
     });
   }, [assignments, days, defaultHours, parsedByKey, prefillDefaultHours]);
 
+  // Row rendering filters by technician, so summaries must be looked up by id —
+  // the positional zip against the full list would misalign.
+  const summaryById = useMemo(
+    () => new Map(summaries.map((s) => [s.assignmentId, s])),
+    [summaries],
+  );
+
   function handleChange(
     assignmentId: string,
     date: string,
@@ -466,24 +482,44 @@ export function TimesheetGrid({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs text-fg-subtle">
-          Autosaves as you type · {assignments.length} technician
-          {assignments.length === 1 ? "" : "s"} · {days.length} days
+          Autosaves as you type ·{" "}
+          {rowQuery.trim() !== ""
+            ? `${visibleAssignments.length} of ${assignments.length} technicians`
+            : `${assignments.length} technician${assignments.length === 1 ? "" : "s"}`}{" "}
+          · {days.length} days
         </div>
-        <div className="text-xs font-medium">{saveStatus}</div>
+        <div className="flex items-center gap-3">
+          <FilterInput
+            value={rowQuery}
+            onChange={setRowQuery}
+            placeholder="Search technician…"
+            className="w-56"
+            inputClassName="py-1 text-xs"
+          />
+          <div className="text-xs font-medium">{saveStatus}</div>
+        </div>
       </div>
 
       {softDeleteEnabled && (
         <div className="flex items-center justify-between rounded-md border border-border-strong bg-surface px-3 py-2 text-xs">
           <span className="font-medium text-fg">
             {selectedAssignmentIds.size} row{selectedAssignmentIds.size === 1 ? "" : "s"} selected
+            {(() => {
+              if (rowQuery.trim() === "") return null;
+              const visibleIds = new Set(visibleAssignments.map((a) => a.assignmentId));
+              const hidden = [...selectedAssignmentIds].filter((id) => !visibleIds.has(id)).length;
+              return hidden > 0 ? ` (${hidden} hidden by search)` : null;
+            })()}
           </span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() =>
-                setSelectedAssignmentIds(new Set(assignments.map((a) => a.assignmentId)))
+                setSelectedAssignmentIds(
+                  (prev) => new Set([...prev, ...visibleAssignments.map((a) => a.assignmentId)]),
+                )
               }
               className="font-medium text-accent hover:text-accent-hover"
             >
@@ -584,8 +620,19 @@ export function TimesheetGrid({
             </tr>
           </thead>
           <tbody>
-            {assignments.map((a, idx) => {
-              const summary = summaries[idx];
+            {visibleAssignments.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4 + days.length}
+                  className="px-3 py-4 text-sm text-fg-subtle"
+                >
+                  No technicians match &ldquo;{rowQuery}&rdquo; — clear the search to see all rows.
+                </td>
+              </tr>
+            )}
+            {visibleAssignments.map((a) => {
+              const summary = summaryById.get(a.assignmentId);
+              if (!summary) return null;
               const savedCount = days.reduce(
                 (n, d) =>
                   (savedText[cellKey(a.assignmentId, d)] ?? "") !== "" ? n + 1 : n,

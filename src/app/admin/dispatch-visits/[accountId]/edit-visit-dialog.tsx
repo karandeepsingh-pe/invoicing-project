@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { DispatchWorkStatus } from "@prisma/client";
 import { Dialog } from "@/components/admin/dialog";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { SearchableSelectField } from "@/components/admin/searchable-select";
 import { LocationFields } from "@/components/admin/location-fields";
 import { updateDispatchVisit } from "@/lib/actions/dispatch-visit";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
@@ -118,11 +119,15 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
       <FormError error={formError} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <SelectField label="Engineer" name="assignmentId" required value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)} errors={fieldErrors?.assignmentId}>
-          {assignments.map((a) => (
-            <option key={a.id} value={a.id}>{a.name} · Band {a.band}</option>
-          ))}
-        </SelectField>
+        <SearchableSelectField
+          label="Engineer"
+          name="assignmentId"
+          required
+          value={assignmentId}
+          onChange={setAssignmentId}
+          options={assignments.map((a) => ({ value: a.id, label: `${a.name} · Band ${a.band}` }))}
+          errors={fieldErrors?.assignmentId}
+        />
         <TextField label="Vantage Ticket" name="ticketNumber" defaultValue={visit.ticketNumber ?? ""} maxLength={60} errors={fieldErrors?.ticketNumber} />
         <SelectField label="Work Status" name="workStatus" defaultValue={visit.workStatus} errors={fieldErrors?.workStatus}>
           {Object.values(DispatchWorkStatus).map((s) => (

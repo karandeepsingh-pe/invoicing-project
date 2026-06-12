@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { AccountCardGrid } from "@/components/admin/account-card-grid";
 
 export default async function InvoicesLanding() {
   const accounts = await prisma.clientAccount.findMany({
@@ -23,27 +23,16 @@ export default async function InvoicesLanding() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {accounts.map((a) => (
-          <Link
-            key={a.id}
-            href={`/admin/invoices/generate/${a.id}/combined` as never}
-            className="glass group flex flex-col gap-2 rounded-xl p-4 transition-all hover:-translate-y-0.5"
-          >
-            <span className="text-xs text-fg-subtle">{a.org.name}</span>
-            <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
-              {a.name}
-            </span>
-            <span className="text-[11px] text-fg-subtle">
-              {a._count.assignments} assignment{a._count.assignments === 1 ? "" : "s"} ·{" "}
-              {a._count.invoiceRuns} run{a._count.invoiceRuns === 1 ? "" : "s"}
-            </span>
-          </Link>
-        ))}
-        {accounts.length === 0 && (
-          <p className="col-span-full text-sm text-fg-subtle">No accounts yet.</p>
-        )}
-      </div>
+      <AccountCardGrid
+        placeholder="Search accounts by client or organization…"
+        accounts={accounts.map((a) => ({
+          id: a.id,
+          orgName: a.org.name,
+          name: a.name,
+          href: `/admin/invoices/generate/${a.id}/combined`,
+          metaLine: `${a._count.assignments} assignment${a._count.assignments === 1 ? "" : "s"} · ${a._count.invoiceRuns} run${a._count.invoiceRuns === 1 ? "" : "s"}`,
+        }))}
+      />
     </div>
   );
 }

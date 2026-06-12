@@ -5,6 +5,7 @@ import { AssignmentSlaTier, RateCategory } from "@prisma/client";
 import { createAssignment } from "@/lib/actions/assignment";
 import { eligibleCategories, type TechnicianFlags } from "@/lib/domain/technician-pools";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import { SearchableSelectField } from "@/components/admin/searchable-select";
 
 type PreviewRow = {
   subCategoryLabel: string;
@@ -98,20 +99,15 @@ export function AssignmentCreateForm({
       <FormError error={formError} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <SelectField
+        <SearchableSelectField
           label="Client account"
           name="clientAccountId"
           required
           value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
+          onChange={setAccountId}
+          options={accounts.map((a) => ({ value: a.id, label: a.label }))}
           errors={fieldErrors?.clientAccountId}
-        >
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </SelectField>
+        />
         <SelectField
           label="Category"
           name="rateCategory"

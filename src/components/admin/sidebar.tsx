@@ -11,7 +11,7 @@ type Section = FlatLink | Group;
 
 const sections: Section[] = [
   { kind: "link", href: "/admin", label: "Dashboard" },
-  { kind: "link", href: "/admin/management", label: "Partner Management" },
+  { kind: "link", href: "/admin/management", label: "Client Management" },
   { kind: "link", href: "/admin/timesheets", label: "Timesheets" },
   { kind: "link", href: "/admin/invoices", label: "Invoices" },
   {

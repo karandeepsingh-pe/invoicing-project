@@ -22,6 +22,7 @@ import {
   TextField,
 } from "@/components/admin/field";
 import { LocationFields } from "@/components/admin/location-fields";
+import { SearchableSelectField } from "@/components/admin/searchable-select";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 import { EditDispatchVisitDialog, type EditVisitData } from "./edit-visit-dialog";
 
@@ -258,12 +259,21 @@ export function DispatchVisitsView({
 
           {/* Engineer + ticket + status */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <SelectField
+            <SearchableSelectField
               label="Engineer (Technician)"
               name="assignmentId"
               required
               value={assignmentId}
-              onChange={(e) => setAssignmentId(e.target.value)}
+              onChange={setAssignmentId}
+              options={assignments.map((a) => {
+                const busy = busyLabel(a.technicianId);
+                return {
+                  value: a.id,
+                  label: `${a.name} · Band ${a.band}`,
+                  sublabel: busy ? `busy ${busy}` : undefined,
+                  disabled: busy !== null && a.id !== assignmentId,
+                };
+              })}
               errors={fieldErrors?.assignmentId}
               hint={
                 selected && busyLabel(selected.technicianId)
@@ -272,17 +282,7 @@ export function DispatchVisitsView({
                     ? [selected.phone, selected.email].filter(Boolean).join(" · ")
                     : undefined
               }
-            >
-              {assignments.map((a) => {
-                const busy = busyLabel(a.technicianId);
-                return (
-                  <option key={a.id} value={a.id} disabled={busy !== null && a.id !== assignmentId}>
-                    {a.name} · Band {a.band}
-                    {busy ? ` — busy ${busy}` : ""}
-                  </option>
-                );
-              })}
-            </SelectField>
+            />
             <TextField label="Vantage Ticket" name="ticketNumber" placeholder="e.g. HCL-ZF-26-04-010035" maxLength={60} errors={fieldErrors?.ticketNumber} />
             <SelectField label="Work Status" name="workStatus" defaultValue={DispatchWorkStatus.COMPLETED} errors={fieldErrors?.workStatus}>
               {Object.values(DispatchWorkStatus).map((s) => (

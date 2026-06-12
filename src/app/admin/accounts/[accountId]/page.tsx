@@ -10,6 +10,7 @@ import { AccountAssignmentCreateDialog } from "./create-assignment-dialog";
 import type { TechOption } from "./create-assignment-form";
 import { AssignmentsTable } from "./assignments-table";
 import { InvoiceRunDeleteButton } from "./invoice-run-actions";
+import { ClientAccountEditForm } from "../edit-form";
 
 const invoiceFormatLabel: Record<string, string> = {
   FSO: "FSO",
@@ -154,12 +155,33 @@ export default async function AccountDetailPage({
           href="/admin/management"
           className="text-xs font-medium text-fg-subtle hover:text-fg"
         >
-          ← Partner Management
+          ← Client Management
         </Link>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight">{account.name}</h1>
         <p className="text-sm text-fg-muted">
-          {account.org.outputTemplate} · billing currency {currency}
+          {account.org.outputTemplate} · billing currency {currency} · Default Hours{" "}
+          {account.defaultHours}
         </p>
+        <div className="mt-2 max-w-md">
+          <ClientAccountEditForm
+            id={account.id}
+            name={account.name}
+            currency={account.currency}
+            orgDefaultCurrency={account.org.defaultCurrency}
+            clientPocName={account.clientPocName}
+            clientSpocEmail={account.clientSpocEmail}
+            projectDescription={account.projectDescription}
+            defaultHours={account.defaultHours}
+            addressLine1={account.addressLine1}
+            city={account.city}
+            state={account.state}
+            postalCode={account.postalCode}
+            country={account.country}
+            dispatchPricingModel={account.dispatchPricingModel}
+            businessHoursStart={account.businessHoursStart}
+            businessHoursEnd={account.businessHoursEnd}
+          />
+        </div>
       </header>
 
       <section className="flex flex-col gap-4">

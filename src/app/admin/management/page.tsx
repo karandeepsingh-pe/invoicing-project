@@ -118,7 +118,7 @@ export default async function ManagementPage() {
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-          Partner Management
+          Client Management
         </span>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-4xl font-semibold tracking-tighter2">Orgs · Accounts · Technicians</h1>
