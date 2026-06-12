@@ -41,7 +41,7 @@ export default async function GenerateCombinedPage({
         <Link href="/admin/invoices" className="text-xs font-medium text-fg-subtle hover:text-fg">
           ← Invoices
         </Link>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Generate — all categories
         </span>
         <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">

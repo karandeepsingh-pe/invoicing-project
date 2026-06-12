@@ -13,7 +13,7 @@ export default async function InvoicesLanding() {
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Workspace
         </span>
         <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Invoices</h1>

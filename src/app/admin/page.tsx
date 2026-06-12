@@ -21,7 +21,7 @@ export default async function AdminDashboard() {
   return (
     <div className="flex flex-col gap-10 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Dashboard</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Dashboard</span>
         <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Welcome back</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
           Configure orgs, accounts, rate cards, technicians, and assignments from Client

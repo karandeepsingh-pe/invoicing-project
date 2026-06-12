@@ -595,26 +595,25 @@ export function TimesheetGrid({
         <table className="w-full border-collapse text-xs">
           <thead className="bg-surface-2">
             <tr>
-              <th className="sticky left-0 z-10 min-w-[140px] max-w-[45vw] border-b border-r border-border bg-surface-2 px-3 py-2 text-left sm:min-w-[180px] sm:max-w-none">
+              <th className="sticky left-0 z-10 min-w-[140px] max-w-[45vw] border-b border-r border-border bg-surface-2 px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted sm:min-w-[170px] sm:max-w-none">
                 Technician
               </th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">Days</th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">OT</th>
-              <th className="border-b border-r border-border px-2 py-2 text-right">Weekend</th>
+              <th className="border-b border-r border-border px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted">Days</th>
+              <th className="border-b border-r border-border px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted">OT</th>
+              <th className="border-b border-r border-border px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted">Wknd</th>
               {days.map((d) => (
                 <th
                   key={d}
-                  className={`border-b border-r border-border px-1 py-2 text-center font-medium ${
-                    isWeekend(d) ? "bg-surface text-fg-subtle" : ""
+                  className={`border-b border-r border-border/60 px-1 py-1.5 text-center font-medium ${
+                    isWeekend(d) ? "bg-surface-2/70 text-fg-subtle/70" : ""
                   }`}
                 >
-                  <div className="text-[10px] uppercase tracking-wider">
-                    {new Date(`${d}T00:00:00.000Z`).toLocaleString("en-US", {
-                      weekday: "short",
-                      timeZone: "UTC",
-                    })}
+                  <div className="text-[9px] uppercase tracking-wider text-fg-subtle">
+                    {new Date(`${d}T00:00:00.000Z`)
+                      .toLocaleString("en-US", { weekday: "short", timeZone: "UTC" })
+                      .slice(0, 2)}
                   </div>
-                  <div className="tabular-nums">{Number(d.slice(8))}</div>
+                  <div className="text-xs tabular-nums">{Number(d.slice(8))}</div>
                 </th>
               ))}
             </tr>
@@ -645,35 +644,26 @@ export function TimesheetGrid({
                     selectedAssignmentIds.has(a.assignmentId) ? "bg-surface/60" : ""
                   }`}
                 >
-                  <td className="sticky left-0 z-10 max-w-[45vw] border-b border-r border-border bg-bg px-3 py-2 sm:max-w-none">
-                    <div className="flex items-start gap-2">
+                  <td className="sticky left-0 z-10 max-w-[45vw] border-b border-r border-border bg-bg px-2.5 py-1.5 sm:max-w-none">
+                    <div className="flex items-center gap-2">
                       {softDeleteEnabled && (
                         <input
                           type="checkbox"
                           checked={selectedAssignmentIds.has(a.assignmentId)}
                           onChange={() => toggleRow(a.assignmentId)}
                           aria-label={`Select ${a.technicianName}`}
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-border-strong text-accent accent-accent focus:ring-accent"
+                          className="h-3.5 w-3.5 shrink-0 rounded border-border-strong text-accent accent-accent focus:ring-accent"
                         />
                       )}
                       <div className="min-w-0">
-                        <div className="font-medium text-fg">{a.technicianName}</div>
-                        <div className="text-[11px] text-fg-subtle">
-                          {categoryLabel(a.category)} · Band {a.band}
-                          {a.slaTier !== "NONE" ? ` · ${slaTierLabel(a.slaTier)}` : ""} ·{" "}
-                          {a.location}
-                          {a.contactNo ? ` · ${a.contactNo}` : ""}
+                        <div className="truncate text-[13px] font-medium leading-tight text-fg">
+                          {a.technicianName}
                         </div>
-                        <div className="text-[11px] font-medium">
-                          {savedCount > 0 ? (
-                            <span className="text-fg-muted">
-                              {savedCount} day{savedCount === 1 ? "" : "s"} saved
-                            </span>
-                          ) : (
-                            <span className="text-fg-subtle">Not entered yet</span>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center gap-3">
+                        <div className="flex items-center gap-2 whitespace-nowrap text-[10px] leading-tight">
+                          <span className="uppercase tracking-wider text-fg-subtle">
+                            {categoryLabel(a.category)} · B{a.band}
+                            {a.slaTier !== "NONE" ? ` · ${slaTierLabel(a.slaTier)}` : ""}
+                          </span>
                           <FillRangeDialog
                             technicianName={a.technicianName}
                             days={days}
@@ -686,9 +676,9 @@ export function TimesheetGrid({
                                 <button
                                   type="button"
                                   disabled={deletePending}
-                                  className="text-[11px] font-medium text-danger hover:text-danger/80 disabled:opacity-50"
+                                  className="text-[10px] font-medium text-danger transition-colors hover:text-danger/80 disabled:opacity-50"
                                 >
-                                  Delete month
+                                  Delete
                                 </button>
                               }
                               title={`Delete ${a.technicianName}'s entries this month?`}
@@ -708,13 +698,13 @@ export function TimesheetGrid({
                       </div>
                     </div>
                   </td>
-                  <td className={`border-b border-r border-border px-2 py-2 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
+                  <td className={`border-b border-r border-border px-2 py-1.5 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
                     {summary.regularDays.toFixed(2)}
                   </td>
-                  <td className={`border-b border-r border-border px-2 py-2 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
+                  <td className={`border-b border-r border-border px-2 py-1.5 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
                     {summary.otHours.toFixed(2)}
                   </td>
-                  <td className={`border-b border-r border-border px-2 py-2 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
+                  <td className={`border-b border-r border-border px-2 py-1.5 text-right tabular-nums${savedCount === 0 ? " text-fg-subtle/60" : ""}`}>
                     {summary.weekendHours.toFixed(2)}
                   </td>
                   {days.map((d) => {
@@ -735,8 +725,8 @@ export function TimesheetGrid({
                     return (
                       <td
                         key={d}
-                        className={`group/cell relative border-b border-r border-border ${
-                          isWeekend(d) ? "bg-surface/60" : ""
+                        className={`group/cell relative border-b border-r border-border/60 ${
+                          isWeekend(d) ? "bg-surface-2/50" : ""
                         }`}
                       >
                         <input
@@ -755,7 +745,7 @@ export function TimesheetGrid({
                           inputMode="decimal"
                           maxLength={5}
                           className={
-                            "w-12 bg-transparent px-1 py-1 text-center text-xs outline-none focus:bg-surface " +
+                            "w-10 bg-transparent px-0.5 py-1 text-center text-xs outline-none focus:bg-surface " +
                             (isInvalid
                               ? "rounded-sm ring-1 ring-danger text-danger"
                               : isBlankWeekday

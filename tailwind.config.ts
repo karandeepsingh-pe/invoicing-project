@@ -26,12 +26,25 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-sans)', "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        display: ['var(--font-display)', "Georgia", "Times New Roman", "serif"],
         mono: ['var(--font-mono)', "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       letterSpacing: {
-        // Montserrat's wide letterforms want gentler negative tracking than Inter did.
-        tightish: "-0.005em",
+        tightish: "-0.011em",
         tighter2: "-0.02em",
+      },
+      // Editorial sharpness: strictly rectangular. `full` survives for the
+      // genuinely circular (checkbox accents, pills, spinners).
+      borderRadius: {
+        none: "0",
+        sm: "0",
+        DEFAULT: "0",
+        md: "0",
+        lg: "0",
+        xl: "0",
+        "2xl": "0",
+        "3xl": "0",
+        full: "9999px",
       },
       boxShadow: {
         card: "0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 1px 0 rgb(0 0 0 / 0.03)",

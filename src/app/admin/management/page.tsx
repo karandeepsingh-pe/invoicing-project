@@ -117,7 +117,7 @@ export default async function ManagementPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Client Management
         </span>
         <div className="flex flex-wrap items-center justify-between gap-4">

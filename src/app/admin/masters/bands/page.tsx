@@ -10,7 +10,7 @@ export default function BandsMastersPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Bands</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
           Bands 0–4 are hardcoded into the schema and used on every technician and rate row.

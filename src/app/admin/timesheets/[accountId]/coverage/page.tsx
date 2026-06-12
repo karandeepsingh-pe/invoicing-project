@@ -78,7 +78,7 @@ export default async function CoveragePage({
         >
           ← Timesheet
         </Link>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Backfill log
         </span>
         <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">

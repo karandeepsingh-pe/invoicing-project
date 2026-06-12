@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OvationLogo } from "@/components/brand/ovation-logo";
 
 type FlatLink = { kind: "link"; href: string; label: string };
 type Group = { kind: "group"; id: string; label: string; children: FlatLink[] };
@@ -85,14 +86,8 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
   }
 
   const logo = (
-    <Link href="/admin" className="flex items-center gap-2.5 px-1">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold tracking-tight text-accent-fg shadow-sm">
-        OV
-      </div>
-      <div className="flex flex-col leading-tight">
-        <span className="text-sm font-semibold tracking-tightish">Ovation</span>
-        <span className="text-[10px] uppercase tracking-wider text-fg-subtle">Invoicing</span>
-      </div>
+    <Link href="/admin" className="flex items-center px-1">
+      <OvationLogo />
     </Link>
   );
 
@@ -136,7 +131,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
         {logo}
 
         <nav className="flex flex-col gap-0.5">
-          <span className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+          <span className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-fg-subtle">
             Workspace
           </span>
           {sections.map((s) => {
@@ -150,8 +145,8 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
                   className={
                     "group relative flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all " +
                     (active
-                      ? "bg-surface/60 text-fg shadow-sm"
-                      : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                      ? "text-fg"
+                      : "text-fg-muted transition-colors duration-300 hover:text-fg")
                   }
                 >
                   {active && (
@@ -174,7 +169,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
                     "group flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-all " +
                     (containsActive
                       ? "text-fg"
-                      : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                      : "text-fg-muted transition-colors duration-300 hover:text-fg")
                   }
                 >
                   <span>{s.label}</span>
@@ -194,8 +189,8 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
                           className={
                             "relative flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-all " +
                             (active
-                              ? "bg-surface/60 text-fg shadow-sm"
-                              : "text-fg-muted hover:bg-surface/40 hover:text-fg")
+                              ? "text-fg"
+                              : "text-fg-muted transition-colors duration-300 hover:text-fg")
                           }
                         >
                           {active && (

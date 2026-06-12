@@ -1,25 +1,23 @@
 import Link from "next/link";
 import { env } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { OvationLogo } from "@/components/brand/ovation-logo";
 
 export default function HomePage() {
   return (
-    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-6">
+    <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6">
       <div className="absolute right-6 top-6 w-32">
         <ThemeToggle />
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-sm font-bold tracking-tight text-accent-fg shadow-sm">
-          OV
-        </div>
-        <span className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-          {env.NEXT_PUBLIC_APP_NAME}
-        </span>
+      <div className="flex items-center gap-4">
+        <OvationLogo markClassName="h-10 w-10" />
+        <span className="sr-only">{env.NEXT_PUBLIC_APP_NAME}</span>
       </div>
-      <div className="flex flex-col gap-4">
-        <h1 className="max-w-2xl text-5xl font-semibold leading-[1.05] tracking-tighter2 text-fg">
+      <div className="flex flex-col gap-5">
+        <div className="h-px w-12 bg-accent" aria-hidden="true" />
+        <h1 className="max-w-2xl text-5xl leading-[1.02] text-fg sm:text-6xl">
           Invoice automation,<br />
-          <span className="text-fg-muted">end to end.</span>
+          <span className="italic text-fg-muted">end to end.</span>
         </h1>
         <p className="max-w-xl text-base leading-relaxed text-fg-muted">
           Admins configure orgs, accounts, rate cards, technicians, and assignments. SDMs capture
