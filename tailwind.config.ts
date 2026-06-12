@@ -29,8 +29,9 @@ const config: Config = {
         mono: ['var(--font-mono)', "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       letterSpacing: {
-        tightish: "-0.011em",
-        tighter2: "-0.025em",
+        // Montserrat's wide letterforms want gentler negative tracking than Inter did.
+        tightish: "-0.005em",
+        tighter2: "-0.02em",
       },
       boxShadow: {
         card: "0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 1px 0 rgb(0 0 0 / 0.03)",
@@ -41,9 +42,19 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(2px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-in": {
+          from: { transform: "translateX(-100%)" },
+          to: { transform: "translateX(0)" },
+        },
+        "pop-in": {
+          from: { opacity: "0", transform: "translateY(4px) scale(0.98)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 160ms ease-out",
+        "slide-in": "slide-in 220ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "pop-in": "pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

@@ -74,10 +74,10 @@ export function Dialog({
       role="dialog"
       aria-labelledby={headingId}
       aria-describedby={description ? descId : undefined}
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-fg/40 px-4 py-8 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-fg/40 px-4 py-8 backdrop-blur-sm animate-fade-in"
     >
       <div
-        className={`glass-strong flex max-h-[calc(100vh-4rem)] w-full ${widthClass} flex-col rounded-2xl ${paddingClass} shadow-2xl animate-fade-in`}
+        className={`glass-strong flex max-h-[calc(100vh-4rem)] w-full ${widthClass} flex-col rounded-2xl ${paddingClass} shadow-2xl animate-pop-in motion-reduce:animate-none`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className={`${headerMb} flex flex-shrink-0 items-start justify-between gap-4`}>

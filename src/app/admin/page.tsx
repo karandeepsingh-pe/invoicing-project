@@ -22,14 +22,14 @@ export default async function AdminDashboard() {
     <div className="flex flex-col gap-10 animate-fade-in">
       <header className="flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Dashboard</span>
-        <h1 className="text-4xl font-semibold tracking-tighter2">Welcome back</h1>
+        <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Welcome back</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
           Configure orgs, accounts, rate cards, technicians, and assignments from Client
           Management. Everything propagates across the app from that single tab.
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
         {cards.map((c) => (
           <Link
             key={c.label}
@@ -39,7 +39,7 @@ export default async function AdminDashboard() {
             <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
               {c.label}
             </div>
-            <div className="text-4xl font-semibold tracking-tighter2 text-fg tabular-nums">
+            <div className="text-3xl font-semibold tracking-tighter2 text-fg tabular-nums sm:text-4xl">
               {c.value}
             </div>
             <div className="text-[11px] text-fg-subtle">{c.hint}</div>

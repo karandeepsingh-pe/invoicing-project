@@ -98,7 +98,7 @@ export default async function TechnicianDetailPage({
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
-            <h1 className="text-4xl font-semibold tracking-tighter2">
+            <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">
               {tech.firstName} {tech.lastName}
               {tech.employeeId && (
                 <span className="ml-3 align-middle text-sm font-medium text-fg-subtle">
@@ -114,7 +114,7 @@ export default async function TechnicianDetailPage({
             <div className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
               <CategoryPill category={tech.primaryCategory} />
               {tech.isRebadged ? (
-                <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
                   Rebadged
                   {tech.annualSalary ? ` · $${Number(tech.annualSalary).toLocaleString()}/yr` : ""}
                 </span>
@@ -184,7 +184,7 @@ export default async function TechnicianDetailPage({
           />
         </div>
         {activeDedicated && (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="mt-3 rounded-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs text-warning">
             Active DEDICATED assignment at {activeDedicated.clientAccount.org.name} /{" "}
             {activeDedicated.clientAccount.name}. End it before starting a new DEDICATED engagement.
           </div>
@@ -192,7 +192,7 @@ export default async function TechnicianDetailPage({
       </header>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tightish">Assignments</h2>
           <div className="flex items-center gap-3">
             <span className="text-xs text-fg-subtle">

@@ -75,7 +75,7 @@ export function AccountRateCreateForm({
   const formError = state && state.ok === false ? state.formError : undefined;
 
   return (
-    <form action={action} className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <form action={action} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <input type="hidden" name="clientAccountId" value={clientAccountId} />
 
       {!lockedCategory && (

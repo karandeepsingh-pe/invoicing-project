@@ -17,7 +17,7 @@ export default async function HolidaysMastersPage() {
       <header className="flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Holidays</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Holidays</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{holidays.length} total</span>
             <HolidayCreateDialog />

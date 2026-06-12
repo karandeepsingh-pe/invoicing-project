@@ -490,12 +490,12 @@ export function TimesheetGrid({
             : `${assignments.length} technician${assignments.length === 1 ? "" : "s"}`}{" "}
           · {days.length} days
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           <FilterInput
             value={rowQuery}
             onChange={setRowQuery}
             placeholder="Search technician…"
-            className="w-56"
+            className="w-full sm:w-56"
             inputClassName="py-1 text-xs"
           />
           <div className="text-xs font-medium">{saveStatus}</div>
@@ -503,7 +503,7 @@ export function TimesheetGrid({
       </div>
 
       {softDeleteEnabled && (
-        <div className="flex items-center justify-between rounded-md border border-border-strong bg-surface px-3 py-2 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 py-2 text-xs">
           <span className="font-medium text-fg">
             {selectedAssignmentIds.size} row{selectedAssignmentIds.size === 1 ? "" : "s"} selected
             {(() => {
@@ -595,7 +595,7 @@ export function TimesheetGrid({
         <table className="w-full border-collapse text-xs">
           <thead className="bg-surface-2">
             <tr>
-              <th className="sticky left-0 z-10 min-w-[180px] border-b border-r border-border bg-surface-2 px-3 py-2 text-left">
+              <th className="sticky left-0 z-10 min-w-[140px] max-w-[45vw] border-b border-r border-border bg-surface-2 px-3 py-2 text-left sm:min-w-[180px] sm:max-w-none">
                 Technician
               </th>
               <th className="border-b border-r border-border px-2 py-2 text-right">Days</th>
@@ -645,7 +645,7 @@ export function TimesheetGrid({
                     selectedAssignmentIds.has(a.assignmentId) ? "bg-surface/60" : ""
                   }`}
                 >
-                  <td className="sticky left-0 z-10 border-b border-r border-border bg-bg px-3 py-2">
+                  <td className="sticky left-0 z-10 max-w-[45vw] border-b border-r border-border bg-bg px-3 py-2 sm:max-w-none">
                     <div className="flex items-start gap-2">
                       {softDeleteEnabled && (
                         <input

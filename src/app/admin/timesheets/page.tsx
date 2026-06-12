@@ -16,7 +16,7 @@ export default async function TimesheetsLanding() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
           Workspace
         </span>
-        <h1 className="text-4xl font-semibold tracking-tighter2">Timesheets</h1>
+        <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Timesheets</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
           Pick an account to open its monthly timesheet grid.
         </p>

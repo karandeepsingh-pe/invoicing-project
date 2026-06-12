@@ -105,7 +105,7 @@ export default async function TimesheetPage({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
           {view === "all" ? "All categories" : "Timesheet"}
         </span>
-        <h1 className="text-3xl font-semibold tracking-tighter2">
+        <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
@@ -262,7 +262,7 @@ function TimesheetActionBar({
 
         {view === "dedicated" && (
           <>
-            <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`ml-auto ${linkCls}`}>
+            <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`sm:ml-auto ${linkCls}`}>
               Backfill log →
             </Link>
             <Link href={`/admin/invoices/generate/${accountId}?${qs}`} className={linkCls}>
@@ -271,18 +271,18 @@ function TimesheetActionBar({
           </>
         )}
         {view === "project" && (
-          <Link href={`/admin/invoices/generate/${accountId}/project?${qs}`} className={`ml-auto ${linkCls}`}>
+          <Link href={`/admin/invoices/generate/${accountId}/project?${qs}`} className={`sm:ml-auto ${linkCls}`}>
             Generate Project →
           </Link>
         )}
         {view === "all" && (
-          <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`ml-auto ${linkCls}`}>
+          <Link href={`/admin/timesheets/${accountId}/coverage?${qs}`} className={`sm:ml-auto ${linkCls}`}>
             Backfill log →
           </Link>
         )}
         <Link
           href={`/admin/invoices/generate/${accountId}/combined?${qs}`}
-          className={`${view === "scheduled" ? "ml-auto " : ""}${linkCls}`}
+          className={`${view === "scheduled" ? "sm:ml-auto " : ""}${linkCls}`}
         >
           Generate combined →
         </Link>

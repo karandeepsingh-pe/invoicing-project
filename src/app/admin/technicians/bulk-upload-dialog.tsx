@@ -114,7 +114,7 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
             {result.skipped > 0 && <> · {result.skipped} skipped (duplicates)</>}.
           </div>
           {result.errors.length > 0 && (
-            <div className="max-h-48 overflow-y-auto rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="max-h-48 overflow-y-auto rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               <p className="mb-1 font-semibold">
                 {result.errors.length} row{result.errors.length === 1 ? "" : "s"} need attention:
               </p>

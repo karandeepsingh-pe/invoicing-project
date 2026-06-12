@@ -130,7 +130,7 @@ export async function DispatchCategorySection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className={`${stickyHeading ? "sticky top-0 z-20 " : ""}-mx-1 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-bg px-1 py-2`}>
+      <div className={`${stickyHeading ? "sticky top-14 z-20 md:top-0 " : ""}-mx-1 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-bg px-1 py-2`}>
         <h2 id={headingId} className="scroll-mt-24 text-lg font-semibold tracking-tightish">
           Dispatch
           <span className="ml-2 text-xs font-normal text-fg-subtle">

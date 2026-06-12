@@ -20,7 +20,7 @@ export function SearchBar({
   useEffect(() => setLocal(value), [value]);
 
   return (
-    <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-3 px-1 pb-2 pt-1 md:flex-row md:items-center md:justify-between">
+    <div className="sticky top-14 z-10 -mx-1 flex flex-col gap-3 px-1 pb-2 pt-1 md:top-0 md:flex-row md:items-center md:justify-between">
       <div className="relative flex w-full max-w-md items-center">
         <SearchIcon className="pointer-events-none absolute left-3 h-4 w-4 text-fg-subtle" />
         <input

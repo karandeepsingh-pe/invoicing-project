@@ -118,7 +118,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
       <input type="hidden" name="id" value={visit.id} />
       <FormError error={formError} />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SearchableSelectField
           label="Engineer"
           name="assignmentId"
@@ -137,7 +137,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
         <TextField label="Site Code" name="siteCode" defaultValue={visit.siteCode ?? ""} maxLength={40} errors={fieldErrors?.siteCode} />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <TextField label="Request Received Date" name="requestReceivedDate" type="date" defaultValue={visit.requestReceivedDate ?? ""} errors={fieldErrors?.requestReceivedDate} />
         <TextField label="Proposed Onsite Date" name="proposedOnsiteDate" type="date" defaultValue={visit.proposedOnsiteDate ?? ""} errors={fieldErrors?.proposedOnsiteDate} />
         <TextField label="Visit Time (proposed)" name="visitTime" type="time" defaultValue={visit.visitTime ?? ""} errors={fieldErrors?.visitTime} />
@@ -164,7 +164,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
         }}
       />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <TextField label="Visit date" name="visitDate" type="date" required value={visitDate} onChange={(e) => setVisitDate(e.target.value)} errors={fieldErrors?.visitDate} />
         <TextField
           label="In-Time"
@@ -201,7 +201,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <TextField label="Travel hours" name="travelHours" type="number" step="0.25" min={0} defaultValue={visit.travelHours ?? ""} errors={fieldErrors?.travelHours} />
         <TextField label="Travel miles" name="travelMiles" type="number" step="1" min={0} defaultValue={visit.travelMiles ?? ""} errors={fieldErrors?.travelMiles} />
         <TextField label="Parts amount" name="partsAmount" type="number" step="0.01" min={0} defaultValue={visit.partsAmount ?? ""} errors={fieldErrors?.partsAmount} />
@@ -210,7 +210,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
       <TextField label="Notes" name="notes" defaultValue={visit.notes ?? ""} errors={fieldErrors?.notes} />
 
       {needsOverride && (
-        <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-xs text-amber-700 dark:text-amber-300">
+        <div className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-xs text-warning">
           <p className="font-semibold">Time-slot conflict for this technician:</p>
           <ul className="list-disc pl-5">
             {conflicts.map((c, i) => (
@@ -218,7 +218,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
             ))}
           </ul>
           <input name="overrideReason" placeholder="Reason for override (logged)" className="glass-input rounded-md px-2 py-1 text-xs text-fg" />
-          <button type="submit" name="override" value="true" className="self-start rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">
+          <button type="submit" name="override" value="true" className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-warning/90">
             Save anyway (override)
           </button>
         </div>

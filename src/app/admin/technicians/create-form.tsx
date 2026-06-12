@@ -186,7 +186,7 @@ export function TechnicianCreateForm({
       />
 
       {nameMatches.length > 0 && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
           <p className="font-semibold">
             {nameMatches.length} existing technician
             {nameMatches.length === 1 ? "" : "s"} share this name:

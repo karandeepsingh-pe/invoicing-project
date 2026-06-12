@@ -16,7 +16,7 @@ export default async function InvoicesLanding() {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
           Workspace
         </span>
-        <h1 className="text-4xl font-semibold tracking-tighter2">Invoices</h1>
+        <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Invoices</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
           Open any account to preview every category (FTE, Project / T&amp;M,
           Dispatch) for the month and download each — or the combined workbook.

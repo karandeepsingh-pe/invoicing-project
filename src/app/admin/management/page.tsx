@@ -121,7 +121,7 @@ export default async function ManagementPage() {
           Client Management
         </span>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Orgs · Accounts · Technicians</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Orgs · Accounts · Technicians</h1>
           <div className="flex flex-wrap items-center gap-2">
             <AccountBulkUploadDialog />
             <TechnicianBulkUploadDialog />

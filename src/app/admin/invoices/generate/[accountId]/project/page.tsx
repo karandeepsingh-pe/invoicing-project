@@ -43,7 +43,7 @@ export default async function GenerateProjectPage({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
           Generate Project / T&amp;M pre-invoice
         </span>
-        <h1 className="text-3xl font-semibold tracking-tighter2">
+        <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">

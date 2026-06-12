@@ -258,7 +258,7 @@ export function DispatchVisitsView({
           <h2 className="text-sm font-semibold tracking-tightish">Add visit</h2>
 
           {/* Engineer + ticket + status */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <SearchableSelectField
               label="Engineer (Technician)"
               name="assignmentId"
@@ -293,7 +293,7 @@ export function DispatchVisitsView({
           </div>
 
           {/* Dates + visit type */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <TextField label="Request Received Date" name="requestReceivedDate" type="date" errors={fieldErrors?.requestReceivedDate} />
             <TextField label="Proposed Onsite Date" name="proposedOnsiteDate" type="date" errors={fieldErrors?.proposedOnsiteDate} />
             <TextField label="Visit Time (proposed)" name="visitTime" type="time" errors={fieldErrors?.visitTime} />
@@ -319,7 +319,7 @@ export function DispatchVisitsView({
           />
 
           {/* Visit date + in/out + hours + SLA */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <TextField
               label="Visit date"
               name="visitDate"
@@ -431,7 +431,7 @@ export function DispatchVisitsView({
           />
 
           {/* Travel + parts + notes */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <TextField label="Travel hours" name="travelHours" type="number" step="0.25" min={0} errors={fieldErrors?.travelHours} />
             <TextField label="Travel miles" name="travelMiles" type="number" step="1" min={0} errors={fieldErrors?.travelMiles} />
             <TextField label="Parts amount" name="partsAmount" type="number" step="0.01" min={0} errors={fieldErrors?.partsAmount} />
@@ -440,7 +440,7 @@ export function DispatchVisitsView({
           <TextField label="Notes" name="notes" errors={fieldErrors?.notes} />
 
           {needsOverride && (
-            <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-xs text-warning">
               <p className="font-semibold">Time-slot conflict for this technician:</p>
               <ul className="list-disc pl-5">
                 {conflicts.map((c, i) => (
@@ -455,7 +455,7 @@ export function DispatchVisitsView({
                 name="override"
                 value="true"
                 disabled={createPending}
-                className="self-start rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-warning/90 disabled:opacity-50"
               >
                 {createPending ? "Saving…" : "Save anyway (override)"}
               </button>
@@ -473,6 +473,7 @@ export function DispatchVisitsView({
           </div>
         )}
 
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
             <tr>
@@ -560,6 +561,7 @@ export function DispatchVisitsView({
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

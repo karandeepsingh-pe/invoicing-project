@@ -13,7 +13,7 @@ export default async function VisitTypesMastersPage() {
       <header className="flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Dispatch visit types</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Dispatch visit types</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{types.length} total</span>
             <VisitTypeCreateDialog />

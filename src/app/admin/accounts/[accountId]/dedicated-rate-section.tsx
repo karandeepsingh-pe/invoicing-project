@@ -234,7 +234,7 @@ export function DedicatedRateSection({
         <table className="w-full border-collapse text-xs">
           <thead className="bg-surface-2">
             <tr>
-              <th className="sticky left-0 z-10 min-w-[200px] border-b border-r border-border bg-surface-2 px-3 py-2 text-left font-medium">
+              <th className="sticky left-0 z-10 min-w-[150px] sm:min-w-[200px] border-b border-r border-border bg-surface-2 px-3 py-2 text-left font-medium">
                 Dedicated rate
               </th>
               {BANDS.map((b) => (

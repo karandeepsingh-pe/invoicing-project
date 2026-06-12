@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Montserrat, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { env } from "@/lib/env";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/admin/toast-provider";
 import { Toaster } from "@/components/admin/toaster";
 
-const inter = Inter({
+// Brand typeface (Ovation guidelines): Montserrat for headings AND body.
+// Variable font — one file covers every weight in use (400–700).
+const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
@@ -29,7 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${montserrat.variable} ${mono.variable} scroll-smooth motion-reduce:scroll-auto`}
+    >
       <body className="min-h-screen bg-bg font-sans text-fg antialiased">
         <ThemeProvider>
           <ToastProvider>

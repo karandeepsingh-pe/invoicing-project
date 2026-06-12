@@ -41,6 +41,7 @@ function groupContainsActive(pathname: string, group: Group): boolean {
 export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
   const pathname = usePathname() ?? "/admin";
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Auto-open the group whose child is active (on first mount + when path changes).
   useEffect(() => {
@@ -55,6 +56,25 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
     });
   }, [pathname]);
 
+  // Drawer follows navigation closed; Escape + scroll lock mirror dialog.tsx.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
   function toggleGroup(id: string) {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -64,18 +84,56 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
     });
   }
 
+  const logo = (
+    <Link href="/admin" className="flex items-center gap-2.5 px-1">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold tracking-tight text-accent-fg shadow-sm">
+        OV
+      </div>
+      <div className="flex flex-col leading-tight">
+        <span className="text-sm font-semibold tracking-tightish">Ovation</span>
+        <span className="text-[10px] uppercase tracking-wider text-fg-subtle">Invoicing</span>
+      </div>
+    </Link>
+  );
+
   return (
-    <aside className="glass-strong sticky top-0 flex h-screen w-64 flex-col justify-between rounded-none border-b-0 border-l-0 border-t-0 px-4 py-5">
+    <>
+      {/* Desktop sidebar */}
+      <aside className="glass-strong sticky top-0 hidden h-screen w-64 flex-col justify-between rounded-none border-b-0 border-l-0 border-t-0 px-4 py-5 md:flex">
+        {renderContent()}
+      </aside>
+
+      {/* Mobile app bar */}
+      <header className="glass-strong sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between rounded-none border-x-0 border-t-0 px-4 md:hidden">
+        {logo}
+        <button
+          type="button"
+          aria-label="Open navigation"
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen(true)}
+          className="rounded-md p-2 text-fg-muted transition-colors hover:bg-surface/40 hover:text-fg"
+        >
+          <MenuIcon className="h-5 w-5" />
+        </button>
+      </header>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+          <div className="absolute inset-0 bg-fg/40 animate-fade-in" onClick={() => setMobileOpen(false)} />
+          <div className="glass-strong absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between overflow-y-auto rounded-none border-y-0 border-l-0 px-4 py-5 animate-slide-in motion-reduce:animate-none">
+            {renderContent()}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  function renderContent() {
+    return (
+      <>
       <div className="flex flex-col gap-7">
-        <Link href="/admin" className="flex items-center gap-2.5 px-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[11px] font-bold tracking-tight text-accent-fg shadow-sm">
-            OV
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tightish">Ovation</span>
-            <span className="text-[10px] uppercase tracking-wider text-fg-subtle">Invoicing</span>
-          </div>
-        </Link>
+        {logo}
 
         <nav className="flex flex-col gap-0.5">
           <span className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
@@ -162,7 +220,20 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
         </div>
         <ThemeToggle />
       </div>
-    </aside>
+      </>
+    );
+  }
+}
+
+function MenuIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <path
+        fillRule="evenodd"
+        d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"
+        clipRule="evenodd"
+      />
+    </svg>
   );
 }
 

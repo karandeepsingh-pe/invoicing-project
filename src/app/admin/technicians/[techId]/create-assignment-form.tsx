@@ -77,7 +77,7 @@ export function AssignmentCreateForm({
 
   if (hasActiveDedication) {
     return (
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-sm text-amber-700 dark:text-amber-300">
+      <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-sm text-warning">
         This technician has an active <strong>Dedicated FTE</strong> assignment and is locked
         out of new work until it ends. End the dedication first, then assign them elsewhere.
       </div>
@@ -98,7 +98,7 @@ export function AssignmentCreateForm({
       <input type="hidden" name="technicianId" value={technicianId} />
       <FormError error={formError} />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SearchableSelectField
           label="Client account"
           name="clientAccountId"

@@ -164,7 +164,7 @@ export default async function AccountDetailPage({
         >
           ← Client Management
         </Link>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">{account.name}</h1>
+        <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight sm:text-3xl">{account.name}</h1>
         <p className="text-sm text-fg-muted">
           {account.org.outputTemplate} · billing currency {currency} · Default Hours{" "}
           {account.defaultHours}
@@ -192,7 +192,7 @@ export default async function AccountDetailPage({
       </header>
 
       <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Rate sheet</h2>
           <span className="text-xs text-fg-subtle">
             {account.accountRates.length} row{account.accountRates.length === 1 ? "" : "s"} total
@@ -203,7 +203,7 @@ export default async function AccountDetailPage({
           return (
             <div
               key={cat}
-              className="glass overflow-hidden"
+              className="glass overflow-hidden rounded-xl"
             >
               <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold tracking-tight">
                 <span>{categoryLabel[cat]}</span>
@@ -272,11 +272,11 @@ export default async function AccountDetailPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Miscellaneous fees</h2>
           <MiscFeeCreateDialog clientAccountId={account.id} />
         </div>
-        <div className="glass overflow-hidden">
+        <div className="glass overflow-hidden rounded-xl">
           <table className="w-full text-sm">
             <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
               <tr>
@@ -312,7 +312,7 @@ export default async function AccountDetailPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Assignments</h2>
           <div className="flex items-center gap-3">
           <AccountAssignmentCreateDialog
@@ -354,7 +354,7 @@ export default async function AccountDetailPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Invoice runs</h2>
           <span className="text-xs text-fg-subtle">
             {account.invoiceRuns.length} run{account.invoiceRuns.length === 1 ? "" : "s"}
@@ -364,7 +364,7 @@ export default async function AccountDetailPage({
           Audit record written each time a pre-invoice is generated. Delete runs here to
           free the account for deletion.
         </p>
-        <div className="glass overflow-hidden">
+        <div className="glass overflow-hidden rounded-xl">
           <table className="w-full text-sm">
             <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
               <tr>

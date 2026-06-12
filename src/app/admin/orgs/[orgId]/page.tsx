@@ -29,7 +29,7 @@ export default async function OrgDetailPage({
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-semibold tracking-tight">{org.name}</h1>
+            <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">{org.name}</h1>
             <p className="text-sm text-fg-muted">
               {org.outputTemplate} · default currency {org.defaultCurrency}
             </p>
