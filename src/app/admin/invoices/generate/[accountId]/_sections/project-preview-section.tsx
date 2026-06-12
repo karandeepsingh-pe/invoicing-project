@@ -36,8 +36,8 @@ export async function ProjectPreviewSection({
       timesheetEntries: { where: { ...notDeleted, date: { gte: range.start, lt: range.end } } },
     },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 

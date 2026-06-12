@@ -61,7 +61,7 @@ export default async function TechnicianDetailPage({
       org: { select: { name: true, defaultCurrency: true } },
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
-    orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
 
   const today = new Date();

@@ -69,8 +69,8 @@ export async function TimesheetCategorySection({
     },
     include: { technician: { include: { postalCode: true } } },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 

@@ -3,7 +3,7 @@ import { AccountCardGrid } from "@/components/admin/account-card-grid";
 
 export default async function InvoicesLanding() {
   const accounts = await prisma.clientAccount.findMany({
-    orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+    orderBy: { name: "asc" },
     include: {
       org: { select: { name: true } },
       _count: { select: { invoiceRuns: true, assignments: true } },

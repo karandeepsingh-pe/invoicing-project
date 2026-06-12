@@ -26,8 +26,8 @@ export default async function ManagementPage() {
           assignments: {
             where: { OR: [{ endDate: null }, { endDate: { gte: today } }] },
             orderBy: [
-              { technician: { lastName: "asc" } },
               { technician: { firstName: "asc" } },
+              { technician: { lastName: "asc" } },
             ],
             include: {
               technician: {
@@ -38,7 +38,7 @@ export default async function ManagementPage() {
         },
       },
       technicians: {
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
         include: {
           _count: { select: { assignments: true } },
           postalCode: { select: { zipcode: true, city: true, state: true, country: true } },
@@ -59,7 +59,7 @@ export default async function ManagementPage() {
         select: { clientAccountId: true },
       },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
   const techOptions: TechOption[] = allTechs.map((t) => ({
     id: t.id,

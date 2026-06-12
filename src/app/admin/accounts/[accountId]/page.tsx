@@ -85,7 +85,14 @@ export default async function AccountDetailPage({
           ],
         },
         miscFees: { orderBy: [{ kind: "asc" }, { createdAt: "desc" }] },
-        assignments: { include: { technician: true }, orderBy: { startDate: "desc" } },
+        assignments: {
+          include: { technician: true },
+          orderBy: [
+            { technician: { firstName: "asc" } },
+            { technician: { lastName: "asc" } },
+            { startDate: "desc" },
+          ],
+        },
         invoiceRuns: {
           orderBy: { generatedAt: "desc" },
           include: { generatedBy: { select: { email: true, name: true } } },
@@ -104,7 +111,7 @@ export default async function AccountDetailPage({
           select: { clientAccountId: true },
         },
       },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
   ]);
   if (!account) notFound();

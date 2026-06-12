@@ -79,8 +79,8 @@ export default async function DispatchVisitsPage({
     },
     include: { technician: true },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 

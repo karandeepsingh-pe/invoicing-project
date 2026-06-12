@@ -32,7 +32,7 @@ export default async function TechniciansPage() {
           orderBy: { startDate: "desc" },
         },
       },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.clientAccount.findMany({
@@ -40,7 +40,7 @@ export default async function TechniciansPage() {
         org: { select: { name: true, defaultCurrency: true } },
         accountRates: { include: { rateSubCategory: true, sla: true } },
       },
-      orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+      orderBy: { name: "asc" },
     }),
   ]);
 

@@ -178,7 +178,7 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
       technician: { include: { postalCode: true } },
       timesheetEntries: { where: { ...notDeleted, date: { gte: range.start, lt: range.end } }, orderBy: { date: "asc" } },
     },
-    orderBy: [{ technician: { lastName: "asc" } }, { technician: { firstName: "asc" } }],
+    orderBy: [{ technician: { firstName: "asc" } }, { technician: { lastName: "asc" } }],
   });
   const pickRate = (band: number, code: string): number => {
     const row = account.accountRates.find(

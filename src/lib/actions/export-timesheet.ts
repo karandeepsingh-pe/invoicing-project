@@ -85,8 +85,8 @@ export async function exportTimesheetXlsx(input: {
         },
       },
       orderBy: [
-        { technician: { lastName: "asc" } },
         { technician: { firstName: "asc" } },
+        { technician: { lastName: "asc" } },
       ],
     });
 

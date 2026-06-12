@@ -48,8 +48,8 @@ export async function DispatchCategorySection({
     },
     include: { technician: true },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 

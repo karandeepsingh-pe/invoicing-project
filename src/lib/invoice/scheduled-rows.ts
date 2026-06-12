@@ -40,8 +40,8 @@ export async function loadScheduledRows(
       },
     },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 

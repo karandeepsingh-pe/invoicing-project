@@ -10,7 +10,7 @@ export default async function AccountsPage() {
       select: { id: true, name: true, defaultCurrency: true },
     }),
     prisma.clientAccount.findMany({
-      orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+      orderBy: { name: "asc" },
       include: {
         org: {
           select: {

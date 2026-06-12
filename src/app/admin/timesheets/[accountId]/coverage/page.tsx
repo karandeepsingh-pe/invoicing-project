@@ -34,8 +34,8 @@ export default async function CoveragePage({
     },
     include: { technician: true },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 
@@ -61,7 +61,7 @@ export default async function CoveragePage({
       OR: [{ isAvailableForProject: true }, { isAvailableForDispatch: true }],
     },
     include: { employerOrg: { select: { name: true } } },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
 
   const monthName = range.start.toLocaleString("en-US", {
