@@ -163,7 +163,10 @@ function weekdaySegments(
   endM: number,
   total: DecimalLike,
 ): HourSegment[] | null {
-  if (outM <= inM) return null;
+  // Out ≤ In = the visit crossed midnight (overnight ticket). Wrap the out
+  // minute into the next day: every post-midnight minute falls in the
+  // trailing OOB segment (the business window only exists on the start day).
+  if (outM <= inM) outM += 24 * 60;
   const span = outM - inM;
   const seg = (scenario: Scenario, fromM: number, toM: number): HourSegment | null => {
     const mins = Math.max(0, Math.min(outM, toM) - Math.max(inM, fromM));

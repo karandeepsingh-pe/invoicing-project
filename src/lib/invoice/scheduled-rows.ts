@@ -76,9 +76,13 @@ export async function loadScheduledRows(
 
     const totalHalf = calc.halfDays + calc.weekendHalfDays;
     const weekendDays = calc.weekendFullDays + calc.weekendHalfDays;
+    const hourlyTotal = Number(calc.hourlyHours.plus(calc.weekendHourlyHours).toFixed(2));
     const remarkBits: string[] = [];
     if (totalHalf > 0) remarkBits.push(`${calc.fullDays + calc.weekendFullDays} full + ${totalHalf} half day(s)`);
     if (weekendDays > 0) remarkBits.push(`${weekendDays} weekend day(s) @ weekend rate`);
+    if (hourlyTotal > 0) {
+      remarkBits.push(`${hourlyTotal.toFixed(2)} hourly hrs @ $${Number(calc.hourlyRate.toFixed(2))}`);
+    }
 
     rows.push({
       location,
@@ -94,9 +98,9 @@ export async function loadScheduledRows(
       weekendHours: 0,
       weekendRate: 0,
       extendedTotal: Number(calc.extendedTotal.toFixed(2)),
-      // With half-days or weekend-rate days the Extended is a sum of distinct
-      // per-day rates, which dayRate×daysWorked cannot reconstruct.
-      literalExtended: totalHalf > 0 || weekendDays > 0,
+      // With half-days, weekend-rate days, or hourly hours the Extended is a
+      // sum of distinct rates, which dayRate×daysWorked cannot reconstruct.
+      literalExtended: totalHalf > 0 || weekendDays > 0 || hourlyTotal > 0,
       remarks: remarkBits.length > 0 ? remarkBits.join(" · ") : undefined,
     });
   }

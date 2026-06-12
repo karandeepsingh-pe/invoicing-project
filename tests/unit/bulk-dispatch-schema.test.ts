@@ -18,6 +18,7 @@ function baseRow(overrides: Record<string, string> = {}): Record<string, string>
     slaCode: "NBD",
     visitType: "",
     workStatus: "",
+    cancellationCharge: "",
     inTime: "09:15",
     outTime: "11:45",
     totalHours: "",
@@ -90,9 +91,9 @@ describe("bulkDispatchRowSchema", () => {
     expect(res.success).toBe(false);
   });
 
-  it("rejects Out before In", () => {
-    const res = bulkDispatchRowSchema.safeParse(baseRow({ inTime: "11:00", outTime: "09:00" }));
-    expect(res.success).toBe(false);
+  it("Out before In = overnight: 23:00 → 01:00 derives 2h", () => {
+    const r = bulkDispatchRowSchema.parse(baseRow({ inTime: "23:00", outTime: "01:00" }));
+    expect(r.hoursOnSite).toBeCloseTo(2, 2);
   });
 
   it("requires Total Hours or an In/Out pair", () => {
@@ -136,7 +137,7 @@ describe("bulkScheduledRowSchema", () => {
         dayType: "Full Day",
         notes: "",
       }).dayType,
-    ).toBe("FULL");
+    ).toEqual({ kind: "FULL" });
     expect(
       bulkScheduledRowSchema.parse({
         technician: "Jared Mattke",
@@ -144,7 +145,7 @@ describe("bulkScheduledRowSchema", () => {
         dayType: "half",
         notes: "",
       }).dayType,
-    ).toBe("HALF");
+    ).toEqual({ kind: "HALF" });
   });
 
   it("rejects unknown day types and bad dates", () => {

@@ -48,7 +48,7 @@ export type FsoProjectRow = FsoDedicatedRow;
 export type FsoScheduledRow = FsoLocation & {
   technicianName: string;
   visitDate: string;
-  category: "Full Day" | "Half Day";
+  category: "Full Day" | "Half Day" | "Hourly";
   halfDayRate: number;
   fullDayRate: number;
   totalCost: number;
@@ -191,6 +191,8 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
     const t = a.technician;
     const fullRate = pickRate(t.band, "FULL_DAY");
     const halfRate = pickRate(t.band, "HALF_DAY");
+    const hourlyRate = pickRate(t.band, "HOURLY_BUSINESS");
+    const weekendHourlyRate = pickRate(t.band, "HOURLY_WEEKEND") || hourlyRate;
     const loc: FsoLocation = {
       country: t.postalCode?.country ?? "",
       state: t.postalCode?.state ?? "",
@@ -201,14 +203,22 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
       email: t.email ?? "",
     };
     for (const e of a.timesheetEntries) {
-      let kind: "Full Day" | "Half Day" | null = null;
+      let kind: "Full Day" | "Half Day" | "Hourly" | null = null;
+      let hours = 0;
       if (e.status === "HALF_DAY") kind = "Half Day";
       else if (e.status === null) {
         const h = Number(e.hours.toString());
         if (h >= account.defaultHours) kind = "Full Day";
-        else if (h > 0) kind = "Half Day";
+        else if (h > 0) {
+          // Sub-default hours bill hourly when an hourly rate is set
+          // (mirrors scheduled-calculator); half-day fallback otherwise.
+          kind = hourlyRate > 0 || weekendHourlyRate > 0 ? "Hourly" : "Half Day";
+          hours = h;
+        }
       }
       if (!kind) continue;
+      const dow = e.date.getUTCDay();
+      const perHour = dow === 0 || dow === 6 ? weekendHourlyRate : hourlyRate;
       out.push({
         ...loc,
         technicianName: `${t.firstName} ${t.lastName}`,
@@ -216,7 +226,12 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
         category: kind,
         halfDayRate: halfRate,
         fullDayRate: fullRate,
-        totalCost: kind === "Full Day" ? fullRate : halfRate,
+        totalCost:
+          kind === "Full Day"
+            ? fullRate
+            : kind === "Half Day"
+              ? halfRate
+              : round2(hours * perHour),
       });
     }
   }

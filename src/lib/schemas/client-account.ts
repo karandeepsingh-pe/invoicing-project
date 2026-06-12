@@ -37,12 +37,25 @@ const hhmmOrNull = z
   .nullable()
   .optional();
 
+// Optional money amount: "" -> null (unset).
+const moneyOrNull = z
+  .union([
+    z.coerce.number().min(0).max(9_999_999),
+    z.literal("").transform(() => null),
+  ])
+  .nullable()
+  .optional();
+
 // Shared dispatch-billing knobs (added to create + update). No schema default so
 // programmatic fixtures that omit them keep the window null (auto-split off).
 const dispatchBillingFields = {
   dispatchPricingModel: z.nativeEnum(DispatchPricingModel).optional(),
   businessHoursStart: hhmmOrNull,
   businessHoursEnd: hhmmOrNull,
+  // Per-site recurring fees: at generation, site counts x these prices become
+  // labeled Retainer/Standby footer lines.
+  dedicatedRetainerPerSite: moneyOrNull,
+  dispatchStandbyPerSite: moneyOrNull,
 };
 
 // Both window ends must be set together, and end after start (string compare is

@@ -73,13 +73,13 @@ function money(n: number, currency: string): string {
   return `${currency} ${n.toFixed(2)}`;
 }
 
-/** Hours between two "HH:mm" times (same day, out > in), else null. */
+/** Hours between two "HH:mm" times. Out ≤ In wraps past midnight (overnight). */
 function diffHours(inT: string, outT: string): string | null {
   const a = /^(\d{2}):(\d{2})$/.exec(inT);
   const b = /^(\d{2}):(\d{2})$/.exec(outT);
   if (!a || !b) return null;
-  const mins = (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
-  if (mins <= 0) return null;
+  let mins = (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
+  if (mins <= 0) mins += 24 * 60;
   return String(mins / 60);
 }
 
@@ -294,6 +294,15 @@ export function DispatchVisitsView({
 
           {/* Dates + visit type */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <TextField
+              label="Cancellation charge $"
+              name="cancellationCharge"
+              type="number"
+              step="0.01"
+              min={0}
+              errors={fieldErrors?.cancellationCharge}
+              hint="Cancelled visits only — blank = logged, not invoiced."
+            />
             <TextField label="Request Received Date" name="requestReceivedDate" type="date" errors={fieldErrors?.requestReceivedDate} />
             <TextField label="Proposed Onsite Date" name="proposedOnsiteDate" type="date" errors={fieldErrors?.proposedOnsiteDate} />
             <TextField label="Visit Time (proposed)" name="visitTime" type="time" errors={fieldErrors?.visitTime} />
@@ -493,16 +502,26 @@ export function DispatchVisitsView({
             {visits.map((v) => {
               const b = billing[v.id];
               const billable = BILLABLE_STATUSES.has(v.workStatus);
+              const cancelled = v.workStatus === "CANCELLED";
+              const cancellationCharge = v.edit.cancellationCharge;
               const unpriced = billable && (b?.billed ?? 0) === 0 && (b?.firstHourRate ?? 0) === 0;
               const basis =
                 b && (b.firstHourRate > 0 || b.additionalHourRate > 0)
                   ? `1st hr ${b.firstHourRate} + ${b.additionalHours.toFixed(2)} × ${b.additionalHourRate}`
                   : undefined;
               return (
-                <tr key={v.id} className={"border-t border-border" + (unpriced ? " bg-warning-bg/30" : "")}>
+                <tr
+                  key={v.id}
+                  className={
+                    "border-t border-border" +
+                    (cancelled ? " bg-danger-bg/40" : unpriced ? " bg-warning-bg/30" : "")
+                  }
+                >
                   <td className="px-3 py-2 font-mono text-xs">{v.visitDate}</td>
                   <td className="px-3 py-2">{v.technicianName}</td>
-                  <td className="px-3 py-2 text-fg-muted">{statusLabel[v.workStatus] ?? v.workStatus}</td>
+                  <td className={"px-3 py-2 " + (cancelled ? "font-medium text-danger" : "text-fg-muted")}>
+                    {statusLabel[v.workStatus] ?? v.workStatus}
+                  </td>
                   <td className="px-3 py-2 text-fg-muted">
                     {[v.siteLocation, v.cityState].filter(Boolean).join(" · ") || "—"}
                   </td>
@@ -513,7 +532,15 @@ export function DispatchVisitsView({
                     {b ? b.additionalHours.toFixed(2) : "—"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" title={basis}>
-                    {!billable ? (
+                    {cancelled ? (
+                      cancellationCharge != null ? (
+                        <span title="Cancellation charge — billed">
+                          {money(cancellationCharge, currency)}
+                        </span>
+                      ) : (
+                        <span className="text-fg-subtle" title="Cancelled — logged, not invoiced">—</span>
+                      )
+                    ) : !billable ? (
                       <span className="text-fg-subtle">—</span>
                     ) : unpriced ? (
                       <span className="text-warning">unpriced</span>

@@ -44,7 +44,9 @@ const HOUR_MS = 60 * 60 * 1000;
  * while the visit row keeps the raw minutes for billing.
  *
  * An Out-Time past 23:00 ceils into the next day (UTC ms arithmetic rolls
- * over). Inputs are "YYYY-MM-DD" + "HH:mm" (already zod-validated, out > in).
+ * over). An Out-Time ≤ the In-Time means the visit crossed MIDNIGHT
+ * (overnight ticket): the end lands on the next day. Inputs are
+ * "YYYY-MM-DD" + "HH:mm" (already zod-validated).
  */
 export function bookingEnvelope(
   visitDate: string,
@@ -53,7 +55,8 @@ export function bookingEnvelope(
 ): { start: Date; end: Date } {
   const dayStart = new Date(`${visitDate}T00:00:00.000Z`).getTime();
   const inMinutes = minutesOf(inTime);
-  const outMinutes = minutesOf(outTime);
+  const rawOutMinutes = minutesOf(outTime);
+  const outMinutes = rawOutMinutes <= inMinutes ? rawOutMinutes + 24 * 60 : rawOutMinutes;
   const startHour = Math.floor(inMinutes / 60);
   const endHour = Math.ceil(outMinutes / 60);
   return {

@@ -201,6 +201,7 @@ export async function DispatchCategorySection({
             ticketNumber: v.ticketNumber,
             hoursOnSite: Number(v.hoursOnSite.toString()),
             oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
+            cancellationCharge: v.cancellationCharge ? Number(v.cancellationCharge.toString()) : null,
             afterHours: v.afterHours,
             weekend: v.weekend,
             inTime: v.startDateTime ? fmtHM(v.startDateTime) : null,

@@ -7,7 +7,7 @@ import { z } from "zod";
 export const BULK_SCHEDULED_COLUMNS = [
   { key: "technician", header: "Technician *" },
   { key: "visitDate", header: "Visit Date * (YYYY-MM-DD)" },
-  { key: "dayType", header: "Day Type * (FULL / HALF)" },
+  { key: "dayType", header: "Day Type * (FULL / HALF / hours e.g. 3)" },
   { key: "notes", header: "Notes (not billed)" },
 ] as const;
 
@@ -18,24 +18,32 @@ const DAY_TYPE_SYNONYMS: Record<string, "FULL" | "HALF"> = {
   "full day": "FULL",
   fullday: "FULL",
   f: "FULL",
-  "1": "FULL",
   half: "HALF",
   "half day": "HALF",
   halfday: "HALF",
   h: "HALF",
-  "0.5": "HALF",
 };
+
+/** FULL, HALF, or an hour count (bills hours × the SCHEDULED hourly rate). */
+export type ScheduledDayType =
+  | { kind: "FULL" }
+  | { kind: "HALF" }
+  | { kind: "HOURS"; hours: number };
 
 export const bulkScheduledRowSchema = z.object({
   technician: z.string().trim().min(1, "Technician is required"),
   visitDate: z.string().trim().pipe(isoDate),
-  dayType: z.string().transform((v, ctx) => {
-    const t = DAY_TYPE_SYNONYMS[v.trim().toLowerCase()];
-    if (!t) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "use FULL or HALF" });
-      return z.NEVER;
-    }
-    return t;
+  dayType: z.string().transform((v, ctx): ScheduledDayType => {
+    const s = v.trim().toLowerCase();
+    const word = DAY_TYPE_SYNONYMS[s];
+    if (word) return { kind: word };
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0 && n < 24) return { kind: "HOURS", hours: n };
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "use FULL, HALF, or an hour count (0–24, e.g. 3)",
+    });
+    return z.NEVER;
   }),
   notes: z.string().transform((v) => {
     const t = v.trim();

@@ -21,6 +21,8 @@ export function ClientAccountEditForm({
   dispatchPricingModel,
   businessHoursStart,
   businessHoursEnd,
+  dedicatedRetainerPerSite,
+  dispatchStandbyPerSite,
 }: {
   id: string;
   name: string;
@@ -38,6 +40,8 @@ export function ClientAccountEditForm({
   dispatchPricingModel: string;
   businessHoursStart: string | null;
   businessHoursEnd: string | null;
+  dedicatedRetainerPerSite: string | null;
+  dispatchStandbyPerSite: string | null;
 }) {
   const [state, action] = useActionState(updateClientAccount, null);
   const [open, setOpen] = useState(false);
@@ -166,6 +170,34 @@ export function ClientAccountEditForm({
         Set both to auto-split dispatch visits: weekday hours after the end time bill at after-hours
         rates; a weekend date bills the whole visit at weekend rates. Leave blank to bill each visit by
         the manual after-hours/weekend flags.
+      </span>
+
+      <div className="mt-1 border-t border-border pt-2">
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">Per-site recurring fees</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <TextField
+          label="Dedicated retainer $/site"
+          name="dedicatedRetainerPerSite"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={dedicatedRetainerPerSite ?? ""}
+          errors={fieldErrors?.dedicatedRetainerPerSite}
+        />
+        <TextField
+          label="Dispatch standby $/site"
+          name="dispatchStandbyPerSite"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={dispatchStandbyPerSite ?? ""}
+          errors={fieldErrors?.dispatchStandbyPerSite}
+        />
+      </div>
+      <span className="text-xs text-fg-subtle">
+        At invoice generation you enter site counts; the fee bills count × price as labeled
+        Retainer / Standby lines. Blank = not offered for this account.
       </span>
 
       <div className="flex items-center gap-2">

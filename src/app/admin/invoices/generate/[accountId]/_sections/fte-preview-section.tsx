@@ -66,6 +66,15 @@ export async function FtePreviewSection({
 
   const { unpriced } = await loadFteRows(accountId, range);
 
+  const account = await prisma.clientAccount.findUnique({
+    where: { id: accountId },
+    select: { dedicatedRetainerPerSite: true },
+  });
+  const retainerPerSite =
+    account?.dedicatedRetainerPerSite != null
+      ? Number(account.dedicatedRetainerPerSite.toString())
+      : null;
+
   return (
     <section className="flex flex-col gap-3">
       {showHeading && (
@@ -88,6 +97,7 @@ export async function FtePreviewSection({
           businessDays={businessDays}
           assignments={previews}
           unpriced={unpriced}
+          retainerPerSite={retainerPerSite}
         />
       )}
     </section>

@@ -84,7 +84,7 @@ export async function downloadDispatchVisitTemplate(
   const sampleSla = [...pricedCodes][0] ?? "NBD";
   sheet.addRow([
     sampleTech, "2026-06-03", "INC0123456", sampleSla, visitTypes[0]?.code ?? "",
-    "Completed", "09:15", "11:45", "", "", "N", "N",
+    "Completed", "", "09:15", "11:45", "", "", "N", "N",
     "", "160 New Boston St", "01801", "Woburn", "MA", "USA",
     "2026-06-01", "2026-06-03", "09:00", "", "", "", "", "", "N", "",
   ]);
@@ -243,6 +243,7 @@ export async function bulkUploadDispatchVisits(
       afterHours: r.afterHours,
       weekend: r.weekend,
       workStatus: r.workStatus,
+      cancellationCharge: r.cancellationCharge,
       slaId,
       visitTypeId,
       inTime: r.inTime,

@@ -50,7 +50,7 @@ export async function generatePreInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dedicatedSites } = parsed.data;
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -80,10 +80,21 @@ export async function generatePreInvoice(
       .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
       .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) + coverageExpenses;
 
+  // Per-site retainer: site count entered at generation × the account's price.
+  const retainerPerSite = Number(account.dedicatedRetainerPerSite?.toString() ?? 0);
+  const extraFees: { label: string; amount: number }[] = [];
+  if (dedicatedSites && retainerPerSite > 0) {
+    extraFees.push({
+      label: `Retainer — Dedicated (${dedicatedSites} site${dedicatedSites === 1 ? "" : "s"} × $${retainerPerSite})`,
+      amount: Math.round(dedicatedSites * retainerPerSite * 100) / 100,
+    });
+  }
+
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),
     [
       ...percentFees,
+      ...extraFees.map((f): FeeSpec => ({ kind: "flat", label: f.label, amount: f.amount })),
       { kind: "flat", label: "Retainer", amount: retainerFee },
       { kind: "flat", label: "Reimbursements", amount: reimbursements },
     ],
@@ -118,7 +129,7 @@ export async function generatePreInvoice(
       monthYearLabel: `${monthLabel} ${year}`,
     },
     rows,
-    { retainerFee, reimbursements, projectManagementFee },
+    { retainerFee, reimbursements, projectManagementFee, extraFees },
   );
 
   await prisma.invoiceRun.create({

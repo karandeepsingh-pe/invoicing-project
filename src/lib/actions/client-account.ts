@@ -78,6 +78,8 @@ export async function updateClientAccount(
     dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
     businessHoursStart: formData.get("businessHoursStart") ?? undefined,
     businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
+    dedicatedRetainerPerSite: formData.get("dedicatedRetainerPerSite") ?? undefined,
+    dispatchStandbyPerSite: formData.get("dispatchStandbyPerSite") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

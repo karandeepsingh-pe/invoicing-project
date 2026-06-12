@@ -56,6 +56,8 @@ export default async function AccountsPage() {
     dispatchPricingModel: a.dispatchPricingModel,
     businessHoursStart: a.businessHoursStart,
     businessHoursEnd: a.businessHoursEnd,
+    dedicatedRetainerPerSite: a.dedicatedRetainerPerSite?.toString() ?? null,
+    dispatchStandbyPerSite: a.dispatchStandbyPerSite?.toString() ?? null,
   }));
 
   return (

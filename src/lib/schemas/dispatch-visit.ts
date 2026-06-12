@@ -37,6 +37,9 @@ const visitFields = {
   afterHours: z.coerce.boolean().optional().default(false),
   weekend: z.coerce.boolean().optional().default(false),
   workStatus: z.nativeEnum(DispatchWorkStatus).optional().default(DispatchWorkStatus.COMPLETED),
+  // Manual cancellation fee — bills exactly this on a CANCELLED visit; a
+  // CANCELLED visit without it is logged but never invoiced.
+  cancellationCharge: z.coerce.number().min(0).max(9_999_999).optional(),
   slaId: z.string().min(1),
   visitTypeId: z.string().optional(),
   inTime: hhmm.optional().or(z.literal("").transform(() => undefined)),
@@ -55,23 +58,34 @@ const visitFields = {
   overrideReason: optText(300),
 } as const;
 
-// Both In/Out present-or-absent together, and Out after In.
+// Both In/Out present-or-absent together. Out ≤ In is ALLOWED and means the
+// visit crossed midnight (overnight ticket): hours wrap to the next day and
+// the post-midnight portion bills OOO/after-hours on auto-split accounts.
 const inOutPaired = (v: { inTime?: string; outTime?: string }) =>
   Boolean(v.inTime) === Boolean(v.outTime);
-const inOutOrdered = (v: { inTime?: string; outTime?: string }) =>
-  !v.inTime || !v.outTime || v.outTime > v.inTime;
+// A cancellation fee only makes sense on a CANCELLED visit.
+const cancellationOnlyWhenCancelled = (v: {
+  workStatus: DispatchWorkStatus;
+  cancellationCharge?: number;
+}) => v.cancellationCharge === undefined || v.workStatus === DispatchWorkStatus.CANCELLED;
 
 export const dispatchVisitCreateSchema = z
   .object(visitFields)
   .refine(inOutPaired, { path: ["outTime"], message: "Enter both In-Time and Out-Time, or leave both blank." })
-  .refine(inOutOrdered, { path: ["outTime"], message: "Out-Time must be after In-Time." });
+  .refine(cancellationOnlyWhenCancelled, {
+    path: ["cancellationCharge"],
+    message: "Cancellation charge applies only when Work Status is Cancelled.",
+  });
 
 export type DispatchVisitCreateInput = z.infer<typeof dispatchVisitCreateSchema>;
 
 export const dispatchVisitUpdateSchema = z
   .object({ id: z.string().min(1), ...visitFields })
   .refine(inOutPaired, { path: ["outTime"], message: "Enter both In-Time and Out-Time, or leave both blank." })
-  .refine(inOutOrdered, { path: ["outTime"], message: "Out-Time must be after In-Time." });
+  .refine(cancellationOnlyWhenCancelled, {
+    path: ["cancellationCharge"],
+    message: "Cancellation charge applies only when Work Status is Cancelled.",
+  });
 
 export type DispatchVisitUpdateInput = z.infer<typeof dispatchVisitUpdateSchema>;
 

@@ -187,6 +187,8 @@ export default async function AccountDetailPage({
             dispatchPricingModel={account.dispatchPricingModel}
             businessHoursStart={account.businessHoursStart}
             businessHoursEnd={account.businessHoursEnd}
+            dedicatedRetainerPerSite={account.dedicatedRetainerPerSite?.toString() ?? null}
+            dispatchStandbyPerSite={account.dispatchStandbyPerSite?.toString() ?? null}
           />
         </div>
       </header>

@@ -72,7 +72,21 @@ export default async function GenerateCombinedPage({
           All categories in a single .xlsx with a Summary grand total.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <CombinedGenerateForm accountId={accountId} year={year} month={month} />
+          <CombinedGenerateForm
+            accountId={accountId}
+            year={year}
+            month={month}
+            retainerPerSite={
+              account.dedicatedRetainerPerSite != null
+                ? Number(account.dedicatedRetainerPerSite.toString())
+                : null
+            }
+            standbyPerSite={
+              account.dispatchStandbyPerSite != null
+                ? Number(account.dispatchStandbyPerSite.toString())
+                : null
+            }
+          />
           {account.org.outputTemplate === "FSO" && (
             <FsoGenerateForm accountId={accountId} year={year} month={month} />
           )}

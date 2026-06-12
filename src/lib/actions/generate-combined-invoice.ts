@@ -19,6 +19,9 @@ const schema = z.object({
   accountId: z.string().min(1),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Optional per-site fee counts (fee = count × the account's per-site price).
+  dedicatedSites: z.coerce.number().int().min(0).max(100000).optional(),
+  dispatchSites: z.coerce.number().int().min(0).max(100000).optional(),
 });
 
 type Success = { ok: true; filename: string; base64: string };
@@ -54,7 +57,7 @@ export async function generateCombinedInvoice(
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return { ok: false, formError: "Validation failed." };
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dedicatedSites, dispatchSites } = parsed.data;
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -151,10 +154,29 @@ export async function generateCombinedInvoice(
       .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) +
     fteResult.coverageExpenses;
 
+  // Per-site recurring fees: site count entered at generation × the per-site
+  // price on the account. Skipped when either side is missing/zero.
+  const extraFees: { label: string; amount: number }[] = [];
+  const retainerPerSite = Number(account.dedicatedRetainerPerSite?.toString() ?? 0);
+  const standbyPerSite = Number(account.dispatchStandbyPerSite?.toString() ?? 0);
+  if (dedicatedSites && retainerPerSite > 0) {
+    extraFees.push({
+      label: `Retainer — Dedicated (${dedicatedSites} site${dedicatedSites === 1 ? "" : "s"} × $${retainerPerSite})`,
+      amount: Math.round(dedicatedSites * retainerPerSite * 100) / 100,
+    });
+  }
+  if (dispatchSites && standbyPerSite > 0) {
+    extraFees.push({
+      label: `Standby — Dispatch (${dispatchSites} site${dispatchSites === 1 ? "" : "s"} × $${standbyPerSite})`,
+      amount: Math.round(dispatchSites * standbyPerSite * 100) / 100,
+    });
+  }
+
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),
     [
       ...percentFees,
+      ...extraFees.map((f): FeeSpec => ({ kind: "flat", label: f.label, amount: f.amount })),
       { kind: "flat", label: "Retainer", amount: retainerFee },
       { kind: "flat", label: "Reimbursements", amount: reimbursements },
     ],
@@ -190,7 +212,7 @@ export async function generateCombinedInvoice(
     },
     rows,
     dispatchDetail,
-    { retainerFee, reimbursements, projectManagementFee },
+    { retainerFee, reimbursements, projectManagementFee, extraFees },
   );
 
   await prisma.invoiceRun.create({

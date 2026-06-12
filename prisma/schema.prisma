@@ -141,6 +141,11 @@ model ClientAccount {
   // rates. Null = auto-split off (single scenario from the manual after-hours flag).
   businessHoursStart String?
   businessHoursEnd   String?
+  // Per-site recurring fees: at invoice generation the admin enters site
+  // counts and the fee bills count x per-site price as labeled retainer lines
+  // ("Retainer — Dedicated", "Standby — Dispatch"). Null = not offered.
+  dedicatedRetainerPerSite Decimal? @db.Decimal(10, 2)
+  dispatchStandbyPerSite   Decimal? @db.Decimal(10, 2)
   // Billing / site address shown on generated invoices and dispatch context.
   addressLine1       String?
   city               String?
@@ -400,6 +405,9 @@ model DispatchVisit {
   siteCode            String?
   workStatus          DispatchWorkStatus @default(COMPLETED)
   oooHrs              Decimal?           @db.Decimal(6, 2)
+  // Manual cancellation fee: a CANCELLED visit bills exactly this amount when
+  // set; a CANCELLED visit without it is logged but never invoiced.
+  cancellationCharge  Decimal?           @db.Decimal(10, 2)
   postalCodeId        String?
   enteredById  String
   // Soft-delete stamps (testing-phase). Read paths filter deletedAt:null.

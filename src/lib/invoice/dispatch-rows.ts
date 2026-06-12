@@ -107,11 +107,16 @@ export async function loadDispatchTrackerRows(
       profile,
     );
     const pc = v.postalCode ?? tech.postalCode;
-    // COMPLETED always bills. Under a profile that charges a cancellation fee, a
-    // CANCELLED visit also bills (its computed charge is the first-hour cancel fee).
-    const billable =
-      isBillableStatus(v.workStatus) ||
-      (profile.cancelledBillsFirstHour && v.workStatus === "CANCELLED");
+    // COMPLETED bills its computed charge. A CANCELLED visit bills ONLY its
+    // manual cancellationCharge (user rule 2026-06-13): no charge entered ->
+    // logged in the tracker at $0, never on the pre-invoice.
+    const cancellationCharge =
+      v.workStatus === "CANCELLED" && v.cancellationCharge != null
+        ? Number(v.cancellationCharge.toString())
+        : null;
+    const billed = isBillableStatus(v.workStatus)
+      ? calc.charge
+      : cancellationCharge ?? 0;
     const total = calc.hoursOnSite;
     return {
       visitId: v.id,
@@ -138,7 +143,8 @@ export async function loadDispatchTrackerRows(
       // TCS: after 2h). Display only; the money is calc.charge.
       additionalHours: Math.max(0, Number((total - profile.freeHoursIncluded).toFixed(2))),
       oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
-      billed: billable ? calc.charge : 0,
+      cancellationCharge,
+      billed,
       band: tech.band,
       slaCode: v.sla.code,
     };

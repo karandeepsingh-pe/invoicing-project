@@ -68,6 +68,7 @@ export async function downloadScheduledVisitTemplate(
   ref.addRow(["Day Types"]).font = { bold: true };
   ref.addRow(["FULL", `bills the FULL_DAY rate (recorded as ${account.defaultHours}h)`]);
   ref.addRow(["HALF", "bills the HALF_DAY rate"]);
+  ref.addRow(["a number, e.g. 3", "bills hours × the SCHEDULED hourly rate (weekend hourly on Sat/Sun when set)"]);
   ref.getColumn(1).width = 52;
   ref.getColumn(2).width = 44;
 
@@ -166,12 +167,19 @@ export async function bulkUploadScheduledVisits(
     }
     const assignment = candidates[0];
 
-    // FULL -> defaultHours worked; HALF -> HALF_DAY status (0.5 day), exactly
-    // what the grid would store. (assignmentId, date) unique only among live
-    // rows (partial index), so: live identical -> skip; live different ->
-    // update; soft-deleted or absent -> create.
-    const hours = r.dayType === "FULL" ? new Prisma.Decimal(account.defaultHours) : new Prisma.Decimal(0);
-    const status = r.dayType === "HALF" ? ("HALF_DAY" as const) : null;
+    // FULL -> defaultHours worked; HALF -> HALF_DAY status (0.5 day); an hour
+    // count -> plain hours (bills hourly when the rate sheet carries a
+    // SCHEDULED hourly rate, else half-day fallback) — exactly what the grid
+    // would store. (assignmentId, date) unique only among live rows (partial
+    // index), so: live identical -> skip; live different -> update;
+    // soft-deleted or absent -> create.
+    const hours =
+      r.dayType.kind === "FULL"
+        ? new Prisma.Decimal(account.defaultHours)
+        : r.dayType.kind === "HOURS"
+          ? new Prisma.Decimal(r.dayType.hours)
+          : new Prisma.Decimal(0);
+    const status = r.dayType.kind === "HALF" ? ("HALF_DAY" as const) : null;
 
     const existing = await prisma.timesheetEntry.findFirst({
       where: { assignmentId: assignment.id, date, deletedAt: null },

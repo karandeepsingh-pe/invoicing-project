@@ -69,6 +69,7 @@ export async function createDispatchVisit(
     afterHours: formData.get("afterHours") === "on" || formData.get("afterHours") === "true",
     weekend: formData.get("weekend") === "on" || formData.get("weekend") === "true",
     workStatus: formData.get("workStatus") || undefined,
+    cancellationCharge: formData.get("cancellationCharge") || undefined,
     slaId: formData.get("slaId"),
     visitTypeId: formData.get("visitTypeId") || undefined,
     inTime: formData.get("inTime") || undefined,
@@ -133,6 +134,7 @@ export async function updateDispatchVisit(
     afterHours: formData.get("afterHours") === "on" || formData.get("afterHours") === "true",
     weekend: formData.get("weekend") === "on" || formData.get("weekend") === "true",
     workStatus: formData.get("workStatus") || undefined,
+    cancellationCharge: formData.get("cancellationCharge") || undefined,
     slaId: formData.get("slaId"),
     visitTypeId: formData.get("visitTypeId") || undefined,
     inTime: formData.get("inTime") || undefined,
@@ -182,7 +184,10 @@ export async function updateDispatchVisit(
 
   const isWeekend = d.weekend || isWeekendDate(d.visitDate);
   const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
-  const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  // Out ≤ In = the visit crossed midnight (overnight ticket): end on day+1.
+  const crossesMidnight = Boolean(d.inTime && d.outTime && d.outTime <= d.inTime);
+  let end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  if (end && crossesMidnight) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
   // Whole-hour booking envelope of In/Out (see createDispatchVisit).
   const slot = d.inTime && d.outTime ? bookingEnvelope(d.visitDate, d.inTime, d.outTime) : null;
 
@@ -251,6 +256,7 @@ export async function updateDispatchVisit(
           afterHours: d.afterHours,
           weekend: isWeekend,
           workStatus: d.workStatus,
+          cancellationCharge: decimalOrNull(d.cancellationCharge),
           slaId: d.slaId,
           visitTypeId: d.visitTypeId ?? null,
           startDateTime: start,

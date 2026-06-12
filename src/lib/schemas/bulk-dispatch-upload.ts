@@ -13,6 +13,7 @@ export const BULK_DISPATCH_COLUMNS = [
   { key: "slaCode", header: "SLA Code *" },
   { key: "visitType", header: "Visit Type" },
   { key: "workStatus", header: "Work Status" },
+  { key: "cancellationCharge", header: "Cancellation Charge $ (Cancelled only)" },
   { key: "inTime", header: "In-Time (HH:mm)" },
   { key: "outTime", header: "Out-Time (HH:mm)" },
   { key: "totalHours", header: "Total Hours (blank = from In/Out)" },
@@ -95,11 +96,15 @@ const WORK_STATUS_SYNONYMS: Record<string, DispatchWorkStatus> = {
   pending: DispatchWorkStatus.PENDING,
 };
 
-/** Hours between two "HH:mm" wall-clock times on the same day, 2dp. */
+/**
+ * Hours between two "HH:mm" wall-clock times, 2dp. Out ≤ In means the visit
+ * crossed midnight (overnight ticket) and wraps into the next day.
+ */
 export function hoursBetween(inTime: string, outTime: string): number {
   const [ih, im] = inTime.split(":").map(Number);
   const [oh, om] = outTime.split(":").map(Number);
-  const minutes = oh * 60 + om - (ih * 60 + im);
+  let minutes = oh * 60 + om - (ih * 60 + im);
+  if (minutes <= 0) minutes += 24 * 60;
   return Math.round((minutes / 60) * 100) / 100;
 }
 
@@ -128,6 +133,7 @@ export const bulkDispatchRowSchema = z
       }
       return status;
     }),
+    cancellationCharge: optNumber(9_999_999),
     inTime: optHhmm,
     outTime: optHhmm,
     totalHours: optNumber(24),
@@ -152,6 +158,13 @@ export const bulkDispatchRowSchema = z
     overrideReason: optText,
   })
   .superRefine((row, ctx) => {
+    if (row.cancellationCharge !== undefined && row.workStatus !== "CANCELLED") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cancellationCharge"],
+        message: "only valid when Work Status is Cancelled",
+      });
+    }
     if (Boolean(row.inTime) !== Boolean(row.outTime)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -159,13 +172,7 @@ export const bulkDispatchRowSchema = z
         message: "enter both In-Time and Out-Time, or neither",
       });
     }
-    if (row.inTime && row.outTime && row.outTime <= row.inTime) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["outTime"],
-        message: "Out-Time must be after In-Time",
-      });
-    }
+    // Out ≤ In is allowed: the ticket crossed midnight (overnight visit).
     if (row.totalHours === undefined && !(row.inTime && row.outTime)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -30,6 +30,15 @@ export async function DispatchPreviewSection({
     orderBy: { visitDate: "asc" },
   });
 
+  const account = await prisma.clientAccount.findUnique({
+    where: { id: accountId },
+    select: { dispatchStandbyPerSite: true },
+  });
+  const standbyPerSite =
+    account?.dispatchStandbyPerSite != null
+      ? Number(account.dispatchStandbyPerSite.toString())
+      : null;
+
   return (
     <section className="flex flex-col gap-3">
       {showHeading && (
@@ -80,7 +89,12 @@ export async function DispatchPreviewSection({
               </tbody>
             </table>
           </section>
-          <DispatchGenerateForm accountId={accountId} year={year} month={month} />
+          <DispatchGenerateForm
+            accountId={accountId}
+            year={year}
+            month={month}
+            standbyPerSite={standbyPerSite}
+          />
         </>
       )}
     </section>

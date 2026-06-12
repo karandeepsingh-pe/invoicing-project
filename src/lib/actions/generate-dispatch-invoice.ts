@@ -12,6 +12,8 @@ const schema = z.object({
   accountId: z.string().min(1),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Optional standby site count (fee = count × the account's per-site price).
+  dispatchSites: z.coerce.number().int().min(0).max(100000).optional(),
 });
 
 type Success = { ok: true; filename: string; base64: string };
@@ -53,7 +55,7 @@ export async function generateDispatchInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dispatchSites } = parsed.data;
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -81,9 +83,17 @@ export async function generateDispatchInvoice(
     businessWindow,
   );
 
-  const retainerFee = account.miscFees
-    .filter((m) => m.kind === "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  // Standby (per-site) folds into the retainer line on the dispatch-only sheet
+  // — the client format shows it as a single "Retainer ... Sites" row.
+  const standbyPerSite = Number(account.dispatchStandbyPerSite?.toString() ?? 0);
+  const standbyFee =
+    dispatchSites && standbyPerSite > 0
+      ? Math.round(dispatchSites * standbyPerSite * 100) / 100
+      : 0;
+  const retainerFee =
+    account.miscFees
+      .filter((m) => m.kind === "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) + standbyFee;
   const reimbursements = account.miscFees
     .filter((m) => m.kind !== "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);

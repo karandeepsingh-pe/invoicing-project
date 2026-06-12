@@ -30,6 +30,8 @@ export type AccountCard = {
   dispatchPricingModel: string;
   businessHoursStart: string | null;
   businessHoursEnd: string | null;
+  dedicatedRetainerPerSite: string | null;
+  dispatchStandbyPerSite: string | null;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -132,6 +134,8 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 dispatchPricingModel={a.dispatchPricingModel}
                 businessHoursStart={a.businessHoursStart}
                 businessHoursEnd={a.businessHoursEnd}
+                dedicatedRetainerPerSite={a.dedicatedRetainerPerSite}
+                dispatchStandbyPerSite={a.dispatchStandbyPerSite}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

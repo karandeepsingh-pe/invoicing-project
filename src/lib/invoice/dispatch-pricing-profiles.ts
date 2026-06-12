@@ -35,8 +35,6 @@ export type DispatchPricingProfile = {
   // its own legacy uplift instead and ignores these).
   weekendFirstHourMultiplier: number | null;
   weekendAfterFirstHourMultiplier: number | null;
-  // A CANCELLED visit still bills the first-hour charge (cancellation fee).
-  cancelledBillsFirstHour: boolean;
   // Treat a Saturday/Sunday visit date (or a public holiday) as a weekend for
   // pricing. JLL does; TCS bills weekends only when the visit is explicitly flagged
   // (its tracker carries a separate weekend column), so the calendar must not leak in.
@@ -53,7 +51,6 @@ export const STANDARD_PROFILE: DispatchPricingProfile = {
   rateBand: DISPATCH_BAND,
   weekendFirstHourMultiplier: null,
   weekendAfterFirstHourMultiplier: null,
-  cancelledBillsFirstHour: false,
   autoWeekendFromDate: true,
 };
 
@@ -69,7 +66,6 @@ export const TCS_PRIORITY_PROFILE: DispatchPricingProfile = {
   rateBand: DISPATCH_BAND,
   weekendFirstHourMultiplier: 1.5,
   weekendAfterFirstHourMultiplier: 2,
-  cancelledBillsFirstHour: true,
   autoWeekendFromDate: false,
 };
 

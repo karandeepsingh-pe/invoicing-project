@@ -18,6 +18,7 @@ export type EditVisitData = {
   ticketNumber: string | null;
   hoursOnSite: number;
   oooHrs: number | null;
+  cancellationCharge: number | null;
   afterHours: boolean;
   weekend: boolean;
   inTime: string | null;
@@ -60,13 +61,13 @@ const statusLabel: Record<string, string> = {
   PENDING: "Pending",
 };
 
-/** Hours between two "HH:mm" times (same day, out > in), else null. */
+/** Hours between two "HH:mm" times. Out ≤ In wraps past midnight (overnight). */
 function diffHours(inT: string, outT: string): string | null {
   const a = /^(\d{2}):(\d{2})$/.exec(inT);
   const b = /^(\d{2}):(\d{2})$/.exec(outT);
   if (!a || !b) return null;
-  const mins = (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
-  if (mins <= 0) return null;
+  let mins = (Number(b[1]) * 60 + Number(b[2])) - (Number(a[1]) * 60 + Number(a[2]));
+  if (mins <= 0) mins += 24 * 60;
   return String(mins / 60);
 }
 
@@ -134,6 +135,16 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
             <option key={s} value={s}>{statusLabel[s] ?? s}</option>
           ))}
         </SelectField>
+        <TextField
+          label="Cancellation charge $"
+          name="cancellationCharge"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={visit.cancellationCharge != null ? String(visit.cancellationCharge) : ""}
+          errors={fieldErrors?.cancellationCharge}
+          hint="Cancelled visits only — blank = logged, not invoiced."
+        />
         <TextField label="Site Code" name="siteCode" defaultValue={visit.siteCode ?? ""} maxLength={40} errors={fieldErrors?.siteCode} />
       </div>
 
