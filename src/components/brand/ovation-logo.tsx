@@ -1,41 +1,31 @@
-// Ovation brand lockup. The mark approximates the official geometric symbol
-// (concentric open-circle form, rendered in Ovation Red) — swap the <svg> for
-// the official asset when the vector file is available; the wordmark and
-// layout stay.
+// Official Ovation brand assets (from "Ovation logo (HR).jpg", processed to
+// transparent PNGs): /ovation-mark.png (symbol) and /ovation-logo.png (full
+// stacked lockup). Brand rules allow the full-color logo on white or black,
+// so the red mark renders as-is in both themes.
 
-export function OvationMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
-      {/* Outer broken ring */}
-      <path
-        d="M24 4a20 20 0 1 1-14.14 5.86"
-        stroke="currentColor"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-      {/* Inner counter-rotated arc */}
-      <path
-        d="M24 14a10 10 0 1 0 10 10"
-        stroke="currentColor"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-      {/* Core dot */}
-      <circle cx="24" cy="24" r="3.5" fill="currentColor" />
-    </svg>
-  );
-}
+import Image from "next/image";
 
+/**
+ * Horizontal lockup for chrome (sidebar, app bar): the official mark beside a
+ * crisp text wordmark — raster type would blur at this size.
+ */
 export function OvationLogo({
   withWordmark = true,
-  markClassName = "h-8 w-8",
+  markClassName = "h-9 w-9",
 }: {
   withWordmark?: boolean;
   markClassName?: string;
 }) {
   return (
     <span className="inline-flex items-center gap-3">
-      <OvationMark className={`${markClassName} text-accent`} />
+      <Image
+        src="/ovation-mark.png"
+        alt="Ovation"
+        width={48}
+        height={48}
+        className={markClassName}
+        priority
+      />
       {withWordmark && (
         <span className="flex flex-col leading-none">
           <span className="font-display text-base font-semibold tracking-[0.18em] text-fg">
@@ -47,5 +37,18 @@ export function OvationLogo({
         </span>
       )}
     </span>
+  );
+}
+
+/** Full official stacked lockup (mark + wordmark) for large placements. */
+export function OvationLockup({ width = 220 }: { width?: number }) {
+  return (
+    <Image
+      src="/ovation-logo.png"
+      alt="Ovation Workplace Services"
+      width={width}
+      height={Math.round(width * 0.7225)}
+      priority
+    />
   );
 }

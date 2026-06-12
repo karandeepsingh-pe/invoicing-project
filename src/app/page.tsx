@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { env } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OvationLogo } from "@/components/brand/ovation-logo";
+import { OvationLockup } from "@/components/brand/ovation-logo";
 
 export default function HomePage() {
   return (
@@ -10,7 +10,7 @@ export default function HomePage() {
         <ThemeToggle />
       </div>
       <div className="flex items-center gap-4">
-        <OvationLogo markClassName="h-10 w-10" />
+        <OvationLockup width={180} />
         <span className="sr-only">{env.NEXT_PUBLIC_APP_NAME}</span>
       </div>
       <div className="flex flex-col gap-5">
