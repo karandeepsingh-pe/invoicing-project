@@ -115,7 +115,7 @@ export function AssignmentsTable({
 
       <div className="glass overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
             <tr>
               <th className="px-4 py-2.5 text-left font-medium">
                 <input

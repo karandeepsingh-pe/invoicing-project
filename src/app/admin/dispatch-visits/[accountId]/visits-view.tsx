@@ -464,7 +464,7 @@ export function DispatchVisitsView({
                 name="override"
                 value="true"
                 disabled={createPending}
-                className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-warning/90 disabled:opacity-50"
+                className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg hover:bg-warning/90 disabled:opacity-50"
               >
                 {createPending ? "Saving…" : "Save anyway (override)"}
               </button>
@@ -484,7 +484,7 @@ export function DispatchVisitsView({
 
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
             <tr>
               <th className="px-3 py-2 text-left">Date</th>
               <th className="px-3 py-2 text-left">Engineer</th>

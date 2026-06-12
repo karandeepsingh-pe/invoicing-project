@@ -229,7 +229,7 @@ function EditVisitForm({ visit, assignments, slas, visitTypes, businessHours, cl
             ))}
           </ul>
           <input name="overrideReason" placeholder="Reason for override (logged)" className="glass-input rounded-md px-2 py-1 text-xs text-fg" />
-          <button type="submit" name="override" value="true" className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-warning/90">
+          <button type="submit" name="override" value="true" className="self-start rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-bg hover:bg-warning/90">
             Save anyway (override)
           </button>
         </div>

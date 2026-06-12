@@ -280,7 +280,7 @@ export default async function AccountDetailPage({
         </div>
         <div className="glass overflow-hidden rounded-xl">
           <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
               <tr>
                 <th className="px-4 py-2.5 text-left font-medium">Kind</th>
                 <th className="px-4 py-2.5 text-left font-medium">Label</th>
@@ -368,7 +368,7 @@ export default async function AccountDetailPage({
         </p>
         <div className="glass overflow-hidden rounded-xl">
           <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+            <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
               <tr>
                 <th className="px-4 py-2.5 text-left font-medium">Period</th>
                 <th className="px-4 py-2.5 text-left font-medium">Format</th>

@@ -74,6 +74,17 @@
     color: rgb(29 28 29);
   }
 
+  /* Native <select> popups derive their colors from the option elements —
+     with the transparent underline inputs they'd otherwise render a white
+     panel with inherited light text in dark mode (unreadable). */
+  select {
+    color: inherit;
+  }
+  option {
+    background-color: rgb(var(--surface));
+    color: rgb(var(--fg));
+  }
+
   /* Editorial: clean paper background — no ambient gradients. Depth comes
      from hairline rules and type hierarchy, not glows. */
 

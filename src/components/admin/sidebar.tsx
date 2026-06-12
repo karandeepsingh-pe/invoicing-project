@@ -115,7 +115,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
-          <div className="absolute inset-0 bg-fg/40 animate-fade-in" onClick={() => setMobileOpen(false)} />
+          <div className="absolute inset-0 bg-black/50 animate-fade-in dark:bg-black/70" onClick={() => setMobileOpen(false)} />
           <div className="glass-strong absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col justify-between overflow-y-auto rounded-none border-y-0 border-l-0 px-4 py-5 animate-slide-in motion-reduce:animate-none">
             {renderContent()}
           </div>

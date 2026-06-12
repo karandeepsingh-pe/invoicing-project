@@ -51,7 +51,7 @@ export function ConfirmDialog({
               className={
                 "inline-flex items-center rounded-md px-3.5 py-2 text-sm font-medium shadow-sm transition-colors disabled:opacity-50 " +
                 (destructive
-                  ? "bg-danger text-white hover:bg-danger/90"
+                  ? "bg-danger text-bg hover:bg-danger/90"
                   : "bg-accent text-accent-fg hover:bg-accent-hover")
               }
             >

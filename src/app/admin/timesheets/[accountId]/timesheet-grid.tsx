@@ -605,7 +605,7 @@ export function TimesheetGrid({
                 <th
                   key={d}
                   className={`border-b border-r border-border/60 px-1 py-1.5 text-center font-medium ${
-                    isWeekend(d) ? "bg-surface-2/70 text-fg-subtle/70" : ""
+                    isWeekend(d) ? "bg-surface-2/70 text-fg-subtle" : ""
                   }`}
                 >
                   <div className="text-[9px] uppercase tracking-wider text-fg-subtle">
@@ -745,7 +745,7 @@ export function TimesheetGrid({
                           inputMode="decimal"
                           maxLength={5}
                           className={
-                            "w-10 bg-transparent px-0.5 py-1 text-center text-xs outline-none focus:bg-surface " +
+                            "w-10 bg-transparent px-0.5 py-1 text-center text-xs outline-none focus:bg-surface focus:ring-1 focus:ring-accent/40 " +
                             (isInvalid
                               ? "rounded-sm ring-1 ring-danger text-danger"
                               : isBlankWeekday
@@ -765,7 +765,7 @@ export function TimesheetGrid({
                             onClick={() => handleDeleteCell(a.assignmentId, d)}
                             title={`Delete ${d} (soft-delete)`}
                             aria-label={`Delete ${d}`}
-                            className="absolute right-0 top-0 hidden h-3.5 w-3.5 items-center justify-center rounded-bl-sm bg-danger/80 text-[9px] font-bold leading-none text-white group-hover/cell:flex disabled:opacity-50"
+                            className="absolute right-0 top-0 hidden h-3.5 w-3.5 items-center justify-center rounded-bl-sm bg-danger/80 text-[9px] font-bold leading-none text-bg group-hover/cell:flex disabled:opacity-50"
                           >
                             ×
                           </button>

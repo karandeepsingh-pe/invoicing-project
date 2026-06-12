@@ -119,7 +119,7 @@ export function GenerateForm({
 
       <div className="glass overflow-x-auto rounded-lg">
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
             <tr>
               <th className="px-3 py-2 text-left">Technician</th>
               <th className="px-3 py-2 text-left">Band / SLA</th>
