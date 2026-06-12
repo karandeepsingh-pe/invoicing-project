@@ -11,15 +11,14 @@ import {
   dispatchVisitDeleteSchema,
 } from "@/lib/schemas/dispatch-visit";
 import { bookingEnvelope } from "@/lib/domain/booking-overlap";
+import {
+  executeDispatchVisitCreate,
+  type DispatchConflict,
+} from "@/lib/domain/dispatch-visit-create";
 import { resolvePostalCodeId } from "./postal-code-resolve";
 import type { ActionResult } from "./result";
 
-export type DispatchConflict = {
-  kind: BookingKind;
-  startDateTime: string;
-  endDateTime: string;
-  accountLabel: string;
-};
+export type { DispatchConflict };
 
 export type DispatchVisitResult =
   | { ok: true; id?: string; message?: string }
@@ -90,159 +89,27 @@ export async function createDispatchVisit(
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
-  const d = parsed.data;
 
-  const assignment = await prisma.assignment.findUnique({
-    where: { id: d.assignmentId },
-    select: { id: true, technicianId: true, clientAccountId: true },
-  });
-  if (!assignment) return { ok: false, formError: "Assignment not found." };
-
-  // Auto-split accounts (a business-hours window is configured) require In/Out so
-  // the visit's hours can be split across business vs after-hours windows.
-  const acct = await prisma.clientAccount.findUnique({
-    where: { id: assignment.clientAccountId },
-    select: { businessHoursStart: true, businessHoursEnd: true },
-  });
-  if (acct?.businessHoursStart && acct.businessHoursEnd && (!d.inTime || !d.outTime)) {
-    return {
-      ok: false,
-      fieldErrors: {
-        outTime: ["In-Time and Out-Time are required for this account (business-hours auto-split)."],
-      },
-    };
-  }
-
-  const isWeekend = d.weekend || isWeekendDate(d.visitDate);
-  const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
-  const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
-  // The booking holds the whole-hour ENVELOPE of In/Out (floor/ceil) so techs are
-  // reserved in hour slots; the visit row keeps the raw minutes for billing.
-  const slot = d.inTime && d.outTime ? bookingEnvelope(d.visitDate, d.inTime, d.outTime) : null;
-
-  // Time-slot overlap (half-open [start,end)) against the tech's other live bookings.
-  let conflicts: DispatchConflict[] = [];
-  if (slot) {
-    const overlapping = await prisma.technicianBooking.findMany({
-      where: {
-        technicianId: assignment.technicianId,
-        deletedAt: null,
-        startDateTime: { lt: slot.end },
-        endDateTime: { gt: slot.start },
-      },
-      select: { assignmentId: true, kind: true, startDateTime: true, endDateTime: true },
-    });
-    if (overlapping.length > 0) {
-      const ids = Array.from(new Set(overlapping.map((o) => o.assignmentId)));
-      const labels = await prisma.assignment.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, clientAccount: { select: { name: true, org: { select: { name: true } } } } },
-      });
-      const labelById = new Map(
-        labels.map((a) => [a.id, `${a.clientAccount.org.name} / ${a.clientAccount.name}`]),
-      );
-      conflicts = overlapping.map((o) => ({
-        kind: o.kind,
-        startDateTime: o.startDateTime.toISOString(),
-        endDateTime: o.endDateTime.toISOString(),
-        accountLabel: labelById.get(o.assignmentId) ?? "—",
-      }));
-    }
-  }
-  const hasConflict = conflicts.length > 0;
-  if (hasConflict && !d.override) {
-    return {
-      ok: false,
-      needsOverride: true,
-      conflicts,
-      formError: `Time-slot conflict with ${conflicts.length} existing booking(s) for this technician.`,
-    };
-  }
-
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      const loc = await resolvePostalCodeId(tx, {
-        zipcode: d.zipcode,
-        locationCity: d.locationCity,
-        locationState: d.locationState,
-        locationCountry: d.locationCountry,
-      });
-      if (!loc.ok) return { kind: "validation" as const, fieldErrors: loc.fieldErrors };
-
-      const created = await tx.dispatchVisit.create({
-        data: {
-          assignmentId: assignment.id,
-          visitDate: new Date(`${d.visitDate}T00:00:00.000Z`),
-          requestReceivedDate: dateOrNull(d.requestReceivedDate),
-          proposedOnsiteDate: dateOrNull(d.proposedOnsiteDate),
-          visitTime: d.visitTime ?? null,
-          siteCode: d.siteCode ?? null,
-          ticketNumber: d.ticketNumber ?? null,
-          hoursOnSite: new Prisma.Decimal(d.hoursOnSite),
-          oooHrs: decimalOrNull(d.oooHrs),
-          afterHours: d.afterHours,
-          weekend: isWeekend,
-          workStatus: d.workStatus,
-          slaId: d.slaId,
-          visitTypeId: d.visitTypeId ?? null,
-          startDateTime: start,
-          endDateTime: end,
-          siteLocation: d.siteLocation ?? null,
-          postalCodeId: loc.postalCodeId,
-          travelHours: decimalOrNull(d.travelHours),
-          travelMiles: decimalOrNull(d.travelMiles),
-          partsAmount: decimalOrNull(d.partsAmount),
-          reimbursementNotes: d.reimbursementNotes ?? null,
-          notes: d.notes ?? null,
-          enteredById: admin.userId,
-        },
-      });
-
-      if (slot) {
-        await tx.technicianBooking.create({
-          data: {
-            technicianId: assignment.technicianId,
-            assignmentId: assignment.id,
-            kind: BookingKind.DISPATCH,
-            startDateTime: slot.start,
-            endDateTime: slot.end,
-            dispatchVisitId: created.id,
-            isOverride: hasConflict && d.override,
-            overrideReason: hasConflict && d.override ? (d.overrideReason ?? null) : null,
-            enteredById: admin.userId,
-          },
-        });
-        if (hasConflict && d.override) {
-          await tx.bookingAuditEvent.create({
-            data: {
-              kind: AuditKind.OVERLAP_OVERRIDE,
-              actorId: admin.userId,
-              technicianId: assignment.technicianId,
-              assignmentId: assignment.id,
-              detail: {
-                dispatchVisitId: created.id,
-                start: slot.start.toISOString(),
-                end: slot.end.toISOString(),
-                reason: d.overrideReason ?? null,
-                conflicts: conflicts as unknown as Prisma.InputJsonValue,
-              },
-            },
-          });
-        }
-      }
-      return { kind: "created" as const, id: created.id };
-    });
-
-    if (result.kind === "validation") {
-      return { ok: false, fieldErrors: result.fieldErrors };
-    }
-    revalidatePath(`/admin/dispatch-visits/${assignment.clientAccountId}`);
-    return { ok: true, id: result.id, message: "Visit added." };
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError) {
-      return { ok: false, formError: `Database error: ${err.code}` };
-    }
-    throw err;
+  // Shared core (also used by the bulk xlsx upload) — same validation,
+  // conflict, booking, and audit behavior for every visit.
+  const outcome = await executeDispatchVisitCreate(parsed.data, admin.userId);
+  switch (outcome.kind) {
+    case "created":
+      revalidatePath(`/admin/dispatch-visits/${outcome.clientAccountId}`);
+      return { ok: true, id: outcome.id, message: "Visit added." };
+    case "validation":
+      return { ok: false, fieldErrors: outcome.fieldErrors };
+    case "conflict":
+      return {
+        ok: false,
+        needsOverride: true,
+        conflicts: outcome.conflicts,
+        formError: `Time-slot conflict with ${outcome.conflicts.length} existing booking(s) for this technician.`,
+      };
+    case "notFound":
+      return { ok: false, formError: "Assignment not found." };
+    case "dbError":
+      return { ok: false, formError: `Database error: ${outcome.code}` };
   }
 }
 

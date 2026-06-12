@@ -5,6 +5,7 @@ import { monthRange } from "@/lib/invoice/period";
 import { TimesheetGrid, type GridAssignment, type GridCell } from "./timesheet-grid";
 import { DeleteMonthButton } from "./delete-month-button";
 import { DeletedRowsSection } from "./deleted-rows-section";
+import { ScheduledBulkUploadDialog } from "./scheduled-bulk-upload-dialog";
 
 type DayCategory = "DEDICATED" | "PROJECT_TM" | "SCHEDULED";
 
@@ -134,7 +135,8 @@ export async function TimesheetCategorySection({
             {deletedRows.length > 0 ? ` · ${deletedRows.length} deleted` : ""}
           </span>
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {rateCategory === "SCHEDULED" && <ScheduledBulkUploadDialog accountId={accountId} />}
           {showEditLink && (
             <Link
               href={editHref}

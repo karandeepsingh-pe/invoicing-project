@@ -7,6 +7,7 @@ import { monthRange } from "@/lib/invoice/period";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
 import { DispatchVisitsView } from "./visits-view";
+import { DispatchBulkUploadDialog } from "./bulk-upload-dialog";
 import { DeleteMonthButton } from "../../timesheets/[accountId]/delete-month-button";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
 
@@ -154,6 +155,7 @@ export default async function DispatchVisitsPage({
 
         <TimesheetTypeTabs accountId={accountId} year={year} month={month} active="DISPATCH" />
         <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
+          <DispatchBulkUploadDialog accountId={accountId} />
           <Link
             href={`/admin/invoices/generate/${accountId}/dispatch?year=${year}&month=${month}`}
             className="rounded-md border border-border-strong bg-surface px-2.5 py-1 font-medium text-fg transition-colors hover:bg-surface-2"

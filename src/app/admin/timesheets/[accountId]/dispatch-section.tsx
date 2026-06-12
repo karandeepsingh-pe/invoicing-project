@@ -5,6 +5,7 @@ import { monthRange } from "@/lib/invoice/period";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
 import { DispatchVisitsView } from "@/app/admin/dispatch-visits/[accountId]/visits-view";
+import { DispatchBulkUploadDialog } from "@/app/admin/dispatch-visits/[accountId]/bulk-upload-dialog";
 import { DeleteMonthButton } from "./delete-month-button";
 
 function fmtHM(d: Date): string {
@@ -138,7 +139,8 @@ export async function DispatchCategorySection({
             visit{visits.length === 1 ? "" : "s"}
           </span>
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DispatchBulkUploadDialog accountId={accountId} />
           <Link
             href={`/admin/dispatch-visits/${accountId}?${qs}`}
             className="rounded-md border border-border-strong bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted hover:bg-surface-2"
