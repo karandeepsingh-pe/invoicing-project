@@ -29,10 +29,14 @@ Reference data lives in a gitignored drop at `KD/KD/`.
     `dispatch-pricing-profiles.ts`).
   - **OT ≠ OOB.** OT = overtime (Dedicated, quantity-based). OOB = after-hours (Dispatch, time-of-day). Never
     conflate them.
-  - **PH bills; PTO does not.** PH = 1 billable paid day (client pays for public holidays). PTO is paid to the
-    technician but **not charged to the client** — 0 billable days (`statusDayCredit` in `cell.ts`; HALF_DAY =
-    0.5, AB/NA = 0). A Dedicated row with PTO carries a "N PTO — paid, not billed" remark. (User-confirmed
-    2026-06-10, superseding the brief both-non-billable rule.)
+  - **PH is billed via the business-day denominator, not as a day credit.** Business days = weekdays − weekday
+    public holidays (global `Holiday` master, threaded through `businessDaysInRange` via
+    `holidayDatesInRange`). Day rate = annual / 12 / businessDays-excl-PH, so a tech working every non-PH
+    weekday bills exactly the monthly; PH never appears in worked-day/hour totals on any sheet
+    (`statusDayCredit("PH") = 0` in `cell.ts`; HALF_DAY = 0.5, PTO/AB/NA = 0). PTO is paid to the technician
+    but **not charged to the client**; a Dedicated row with PTO carries a "N PTO — paid, not billed" remark.
+    AB reduces the tech's worked days only, never business days. (User-confirmed 2026-06-12, superseding the
+    "PH = 1 billable day" rule of 2026-06-10.)
   - **Project / Scheduled** = per-band day/half/weekend/hourly (+ Project weekly/monthly + monthly cap).
   - **Misc fees** = % on subtotal + flat, via `assemble.ts`.
 - **DB is masters-only after a handoff reset** (`KD/reset-to-masters.ts`). Demo data is rebuildable from the

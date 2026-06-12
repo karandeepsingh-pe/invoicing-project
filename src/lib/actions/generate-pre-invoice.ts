@@ -7,6 +7,7 @@ import { generatePreInvoiceSchema } from "@/lib/schemas/generate-pre-invoice";
 import { lastDayOfMonth, monthRange } from "@/lib/invoice/period";
 import { renderPreInvoice } from "@/lib/invoice/render-pre-invoice";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { expandFteLineItems } from "@/lib/invoice/fte-line-items";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
 
 type SuccessPayload = { ok: true; filename: string; base64: string };
@@ -60,7 +61,9 @@ export async function generatePreInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const { rows, coverageExpenses } = await loadFteRows(accountId, range);
+  const { rows: rawRows, coverageExpenses } = await loadFteRows(accountId, range);
+  // One line per charge type: base days line + separate OT / Weekend lines.
+  const rows = expandFteLineItems(rawRows);
 
   // Add-ons: percentage fees (e.g. PM fee) computed on the line-item subtotal,
   // plus flat retainer and reimbursements. Backfill expenses (travel etc. paid

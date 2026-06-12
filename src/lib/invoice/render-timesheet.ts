@@ -41,8 +41,9 @@ export type TimesheetExportRow = {
 
 export type TimesheetExportSection = {
   sheetName: string; // "Dedicated" | "Project" | "Scheduled"
-  // Dedicated mirrors the billing day-credit (PH=1, PTO=0, HALF_DAY=0.5);
-  // Project/Scheduled count HALF_DAY only, like the on-screen grid summary.
+  // Dedicated mirrors the billing day-credit (PH=0 — billed via the
+  // business-day denominator — PTO=0, HALF_DAY=0.5); Project/Scheduled count
+  // HALF_DAY only, like the on-screen grid summary.
   dedicated: boolean;
   rows: TimesheetExportRow[];
 };

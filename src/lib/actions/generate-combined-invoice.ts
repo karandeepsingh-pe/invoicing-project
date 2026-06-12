@@ -5,7 +5,9 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth, businessDaysInRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { expandFteLineItems } from "@/lib/invoice/fte-line-items";
 import { loadProjectRows } from "@/lib/invoice/project-rows";
 import { loadScheduledRows } from "@/lib/invoice/scheduled-rows";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
@@ -66,7 +68,7 @@ export async function generateCombinedInvoice(
 
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
-  const businessDays = businessDaysInRange(range, []);
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
   const businessWindow =
     account.businessHoursStart && account.businessHoursEnd
       ? { start: account.businessHoursStart, end: account.businessHoursEnd }
@@ -88,7 +90,8 @@ export async function generateCombinedInvoice(
   // Merge every engagement type into ONE unified line-item table, in the order the
   // reference sheet uses: FTE, then Project, then Scheduled, then Dispatch (one row
   // per billable visit). FTE rows are already PreInvoiceRow-shaped; the rest map in.
-  const fteRows = fteResult.rows;
+  // One line per charge type: base days line + separate OT / Weekend lines.
+  const fteRows = expandFteLineItems(fteResult.rows);
   const projectAsRows: PreInvoiceRow[] = projectRows.map((r) => ({
     location: r.location,
     technicianName: r.technicianName,

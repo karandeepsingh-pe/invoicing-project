@@ -111,8 +111,8 @@ describe("normalizeCellText", () => {
 });
 
 describe("statusDayCredit", () => {
-  it("PH bills as a full paid day; PTO is not billed to the client", () => {
-    expect(statusDayCredit("PH")).toBe(1);
+  it("PH credits 0 worked days (billed via the business-day denominator); PTO not billed", () => {
+    expect(statusDayCredit("PH")).toBe(0);
     expect(statusDayCredit("PTO")).toBe(0);
   });
 
@@ -128,7 +128,7 @@ describe("statusDayCredit", () => {
 
 describe("statusHourCredit", () => {
   it("= day credit × defaultHours", () => {
-    expect(statusHourCredit("PH", 8)).toBe(8);
+    expect(statusHourCredit("PH", 8)).toBe(0);
     expect(statusHourCredit("PTO", 8)).toBe(0);
     expect(statusHourCredit("HALF_DAY", 8)).toBe(4);
     expect(statusHourCredit("AB", 8)).toBe(0);

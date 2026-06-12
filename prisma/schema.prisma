@@ -73,10 +73,11 @@ enum MiscFeeKind {
 }
 
 // Status codes for a TimesheetEntry day cell (Dedicated billing). PH (public
-// holiday) and PTO (paid time off) each bill as 1 full PAID day — a salaried
-// resource is billed regardless of attendance. HALF_DAY counts as 0.5 of a day.
-// AB (absent) and NA (terminated / not active) count as 0. The day-credit rule
-// is centralised in src/lib/validation/cell.ts (statusDayCredit).
+// holiday) credits 0 worked days — the client pays for PH via the business-day
+// denominator instead (PH excluded from businessDays raises the day rate).
+// PTO is paid to the technician by Ovation but not billed. HALF_DAY counts as
+// 0.5 of a day. AB (absent) and NA (terminated / not active) count as 0. The
+// day-credit rule is centralised in src/lib/validation/cell.ts (statusDayCredit).
 enum TimesheetDayStatus {
   PH
   AB
@@ -178,7 +179,8 @@ model Sla {
 }
 
 // Gazetted public-holiday master (global). A holiday date auto-prefills PH on the
-// Dedicated timesheet grid (overridable); a PH day bills as a paid full day.
+// Dedicated timesheet grid (overridable) and is excluded from the month's
+// business days — which is how the client pays for it (higher day rate).
 model Holiday {
   id        String   @id @default(cuid())
   date      DateTime @unique @db.Date

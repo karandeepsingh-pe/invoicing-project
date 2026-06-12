@@ -7,6 +7,8 @@ import {
   type TimesheetCell,
 } from "@/lib/invoice/dedicated-fte-calculator";
 import { isWeekendUtc } from "@/lib/invoice/hours-split";
+import { dedicatedDayRate } from "@/lib/invoice/billing-basis";
+import { businessDaysInRange, monthRange } from "@/lib/invoice/period";
 
 const Decimal = Prisma.Decimal;
 
@@ -92,29 +94,31 @@ describe("computeDaysWorked (legacy, used by Project flow)", () => {
 });
 
 describe("calculateDedicatedFteRow", () => {
-  // 22 weekdays in April 2026; PH bills as a paid day, so a month with 1 PH bills 22.
+  // 22 weekdays in April 2026. PH credits 0 worked days — the client pays for
+  // PH via the business-day denominator (PH excluded from businessDays raises
+  // the day rate), so PH never appears in daysWorked.
   const weekdays = aprilWeekdays();
   expect(weekdays.length).toBe(22);
 
-  it("full month (21 worked + 1 PH paid) = dayRate × 22", () => {
+  it("full month (21 worked + 1 PH) = dayRate × 21 — PH credits 0", () => {
     const entries: TimesheetCell[] = weekdays.map((d, i) =>
       i === 0 ? statusCell(d, "PH") : workedCell(d, 8),
     );
     const result = calculateDedicatedFteRow({
       defaultHours: 8,
-      businessDays: 22,
+      businessDays: 21,
       entries,
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(22);
+    expect(result.daysWorked.toNumber()).toBe(21);
     expect(result.otHours.toNumber()).toBe(0);
     expect(result.weekendHours.toNumber()).toBe(0);
     expect(result.dayRate.toNumber()).toBe(250);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
   });
 
-  it("partial month: 20 worked + 1 AB + 1 PH(paid) = dayRate × 21", () => {
+  it("partial month: 20 worked + 1 AB + 1 PH = dayRate × 20", () => {
     const entries: TimesheetCell[] = weekdays.map((d, i) => {
       if (i === 0) return statusCell(d, "PH");
       if (i === 1) return statusCell(d, "AB");
@@ -122,18 +126,18 @@ describe("calculateDedicatedFteRow", () => {
     });
     const result = calculateDedicatedFteRow({
       defaultHours: 8,
-      businessDays: 22,
+      businessDays: 21,
       entries,
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(21);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+    expect(result.daysWorked.toNumber()).toBe(20);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 20, 2);
   });
 
-  it("PH bills, PTO does not: 20 worked + 1 PTO + 1 PH = dayRate × 21", () => {
+  it("neither PH nor PTO credits days: 20 worked + 1 PTO + 1 PH = dayRate × 20", () => {
     // PTO is paid to the technician by Ovation but not charged to the client;
-    // PH bills as a full paid day.
+    // PH is billed through the business-day denominator, not as a day credit.
     const entries: TimesheetCell[] = weekdays.map((d, i) => {
       if (i === 0) return statusCell(d, "PH");
       if (i === 1) return statusCell(d, "PTO");
@@ -141,13 +145,13 @@ describe("calculateDedicatedFteRow", () => {
     });
     const result = calculateDedicatedFteRow({
       defaultHours: 8,
-      businessDays: 22,
+      businessDays: 21,
       entries,
       rates,
       slaTier: "BACKFILL",
     });
-    expect(result.daysWorked.toNumber()).toBe(21);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+    expect(result.daysWorked.toNumber()).toBe(20);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 20, 2);
   });
 
   it("holiday worked: a PH date overridden with 10h bills 1 day + 2 OT, not a paid PH day", () => {
@@ -194,11 +198,11 @@ describe("calculateDedicatedFteRow", () => {
       rates,
       slaTier: "BACKFILL",
     });
-    // 20 at 8h + 1 at 10h (1 day + 2 OT) + 1 PH paid = 22 billable days.
-    expect(result.daysWorked.toNumber()).toBe(22);
+    // 20 at 8h + 1 at 10h (1 day + 2 OT); PH credits 0 = 21 billable days.
+    expect(result.daysWorked.toNumber()).toBe(21);
     expect(result.otHours.toNumber()).toBe(2);
     expect(result.otPortion.toNumber()).toBeCloseTo(2 * 75, 2);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 2 * 75, 2);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21 + 2 * 75, 2);
   });
 
   it("derives weekend hours from a Sat 8h cell", () => {
@@ -218,8 +222,8 @@ describe("calculateDedicatedFteRow", () => {
     });
     expect(result.weekendHours.toNumber()).toBe(8);
     expect(result.weekendPortion.toNumber()).toBe(800);
-    // 21 worked + 1 PH(paid) = 22 billable days, + 8h weekend @ 100.
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 22 + 800, 2);
+    // 21 worked (PH credits 0) = 21 billable days, + 8h weekend @ 100.
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21 + 800, 2);
   });
 
   it("missing rate falls back to zero", () => {
@@ -262,8 +266,8 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "NO_BACKFILL",
     });
     expect(result.dayRate.toNumber()).toBe(200);
-    // 21 worked + 1 PH(paid) = 22 billable days.
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(200 * 22, 2);
+    // 21 worked (PH credits 0) = 21 billable days.
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(200 * 21, 2);
   });
 
   it("coverageDaysDelta subtracts from covered tech", () => {
@@ -278,9 +282,9 @@ describe("calculateDedicatedFteRow", () => {
       slaTier: "BACKFILL",
       coverageDaysDelta: dec(-1),
     });
-    // 21 worked + 1 PH(paid) = 22, minus 1 covered day = 21.
-    expect(result.daysWorked.toNumber()).toBe(21);
-    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 21, 2);
+    // 21 worked (PH credits 0), minus 1 covered day = 20.
+    expect(result.daysWorked.toNumber()).toBe(20);
+    expect(result.extendedTotal.toNumber()).toBeCloseTo(250 * 20, 2);
   });
 
   // The covering side no longer rides this calculator: backfill lines are
@@ -310,5 +314,78 @@ describe("calculateDedicatedFteRow — annual-only basis", () => {
       rates, slaTier: "BACKFILL",
     });
     expect(r.extendedTotal.toNumber()).toBeCloseTo(250 * 3, 2);
+  });
+});
+
+describe("PH via business-day denominator (user oracle, 2026-06-12)", () => {
+  // May 2026: 21 weekdays, 1 weekday PH (Memorial Day, May 25) -> 20 business
+  // days. The client pays for PH through the higher day rate, never as a
+  // visible day credit.
+  function mayWeekdays(): Date[] {
+    const out: Date[] = [];
+    for (let d = 1; d <= 31; d++) {
+      const date = utc(2026, 5, d);
+      if (!isWeekendUtc(date)) out.push(date);
+    }
+    return out;
+  }
+
+  function ratesFor(dayRate: number): RateRow[] {
+    return [
+      {
+        rateAmount: dec(dayRate),
+        rateSubCategory: { code: "MONTHLY_DAY_RATE" },
+        sla: { code: "NO_BACKFILL" },
+      },
+    ];
+  }
+
+  it("user oracle: monthly 5333 / 20 business days × 15.56 days = 4149.07", () => {
+    const businessDays = businessDaysInRange(monthRange(2026, 5), [utc(2026, 5, 25)]);
+    expect(businessDays).toBe(20);
+    const dayRate = dedicatedDayRate(5333 * 12, businessDays);
+    expect(dayRate).toBeCloseTo(266.65, 4);
+    expect(Number((dayRate * 15.56).toFixed(2))).toBe(4149.07);
+  });
+
+  it("full attendance bills exactly the monthly: 20 non-PH weekdays worked = 5333", () => {
+    const weekdays = mayWeekdays();
+    expect(weekdays).toHaveLength(21);
+    const ph = utc(2026, 5, 25);
+    const businessDays = businessDaysInRange(monthRange(2026, 5), [ph]);
+    const dayRate = dedicatedDayRate(5333 * 12, businessDays);
+    const entries: TimesheetCell[] = weekdays.map((d) =>
+      d.getUTCDate() === 25 ? statusCell(d, "PH") : workedCell(d, 8),
+    );
+    const r = calculateDedicatedFteRow({
+      defaultHours: 8,
+      businessDays,
+      entries,
+      rates: ratesFor(dayRate),
+      slaTier: "NO_BACKFILL",
+    });
+    expect(r.daysWorked.toNumber()).toBe(20); // PH invisible in days worked
+    expect(Number(r.extendedTotal.toFixed(2))).toBe(5333);
+  });
+
+  it("1 AB costs 1/20 of the monthly; business days unchanged", () => {
+    const weekdays = mayWeekdays();
+    const ph = utc(2026, 5, 25);
+    const businessDays = businessDaysInRange(monthRange(2026, 5), [ph]);
+    const dayRate = dedicatedDayRate(5333 * 12, businessDays);
+    const entries: TimesheetCell[] = weekdays.map((d) => {
+      if (d.getUTCDate() === 25) return statusCell(d, "PH");
+      if (d.getUTCDate() === 4) return statusCell(d, "AB");
+      return workedCell(d, 8);
+    });
+    const r = calculateDedicatedFteRow({
+      defaultHours: 8,
+      businessDays,
+      entries,
+      rates: ratesFor(dayRate),
+      slaTier: "NO_BACKFILL",
+    });
+    expect(r.daysWorked.toNumber()).toBe(19);
+    expect(Number(r.extendedTotal.toFixed(2))).toBe(Number(((5333 * 19) / 20).toFixed(2)));
   });
 });

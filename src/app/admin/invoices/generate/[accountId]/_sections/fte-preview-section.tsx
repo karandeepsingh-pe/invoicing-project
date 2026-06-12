@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { businessDaysInRange, monthRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import { splitEntries } from "@/lib/invoice/hours-split";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
 import { notDeleted } from "@/lib/domain/soft-delete";
@@ -42,10 +43,9 @@ export async function FtePreviewSection({
     ],
   });
 
-  // PH / PTO bill as paid working days (see hours-split.ts), so the informational
-  // "Business Days" reference is simply the month's weekday count — matching the
-  // engine in fte-rows.ts. (Was previously subtracting PH dates, which diverged.)
-  const businessDays = businessDaysInRange(range, []);
+  // Business days exclude public holidays (the client pays for PH via the
+  // higher day rate) — must match the engine in fte-rows.ts.
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
 
   const previews: AssignmentPreview[] = assignments.map((a) => {
     const split = splitEntries(

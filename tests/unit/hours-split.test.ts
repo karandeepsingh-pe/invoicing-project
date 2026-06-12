@@ -65,10 +65,10 @@ describe("splitCell", () => {
     }
   });
 
-  it("PH (public holiday) -> 1 full paid day (defaultHours regular), billed", () => {
+  it("PH (public holiday) -> 0 worked days/hours (billed via business-day exclusion)", () => {
     const s = splitCell({ date: TUE_APR_14, hours: dec(0), status: "PH" }, 8);
-    expect(s.regularDays.toNumber()).toBe(1);
-    expect(s.regularHours.toNumber()).toBe(8);
+    expect(s.regularDays.toNumber()).toBe(0);
+    expect(s.regularHours.toNumber()).toBe(0);
     expect(s.otHours.toNumber()).toBe(0);
     expect(s.weekendHours.toNumber()).toBe(0);
   });
@@ -125,10 +125,10 @@ describe("splitEntries", () => {
       .concat([{ date: SAT_APR_4, hours: dec(6), status: null }]);
 
     const totals = splitEntries(cells, 8);
-    // 22 weekdays, all billed (PH bills as a paid day):
-    //   20 at 8h = 20 regularDays; Apr 14 at 10h = +1 regularDay + 2 OT;
-    //   Apr 3 PH = +1 paid day. Total regularDays = 22; OT = 2; Weekend = 6.
-    expect(totals.regularDays.toNumber()).toBe(22);
+    // 22 weekdays: 20 at 8h = 20 regularDays; Apr 14 at 10h = +1 regularDay
+    // + 2 OT; Apr 3 PH = 0 worked days (billed via the business-day
+    // denominator, not as a credit). Total regularDays = 21; OT = 2; Weekend = 6.
+    expect(totals.regularDays.toNumber()).toBe(21);
     expect(totals.otHours.toNumber()).toBe(2);
     expect(totals.weekendHours.toNumber()).toBe(6);
   });

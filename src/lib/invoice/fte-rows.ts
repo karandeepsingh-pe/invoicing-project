@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { businessDaysInRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import {
   calculateDedicatedFteRow,
   type RateRow,
@@ -85,9 +86,10 @@ export async function loadFteRows(
     ],
   });
 
-  // PH days now bill as paid working days (see splitCell), so the informational
-  // Business Days reference is simply the weekday count for the month.
-  const businessDays = businessDaysInRange(range, []);
+  // Business days exclude public holidays, which is how the client pays for
+  // PH: the day rate (annual / 12 / businessDays) rises so a full non-PH
+  // month bills exactly the monthly. PH itself credits 0 worked days.
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
 
   // Resolve { dayRate, ot, weekend } for an assignment. ANNUAL is the only
   // billing basis: the salary spreads as annual / 12 / businessDays so a
@@ -267,19 +269,13 @@ export async function loadFteRows(
       ? `${a.technician.postalCode.city}, ${a.technician.postalCode.state}`
       : "—";
 
+    // OT / weekend get their own line items on the pre-invoice (see
+    // fte-line-items.ts), so no breakdown remark is needed here.
     const remarkParts: string[] = coverage.remarksByAssignment.get(a.id) ?? [];
-    const breakdownBits: string[] = [];
-    if (otHoursNum > 0) {
-      breakdownBits.push(`OT ${otHoursNum.toFixed(2)}h @ $${Number(calc.otRate.toFixed(2))}`);
-    }
-    if (weekendHoursNum > 0) {
-      breakdownBits.push(`Weekend ${weekendHoursNum.toFixed(2)}h @ $${Number(calc.weekendRate.toFixed(2))}`);
-    }
-    if (breakdownBits.length > 0) remarkParts.push(breakdownBits.join(" · "));
 
     // PTO is paid to the technician but not billed to the client (0 billable
-    // days). Surface the count so the lower day total is explained. PH bills
-    // as a paid day, so it needs no exclusion note.
+    // days). Surface the count so the lower day total is explained. PH is
+    // invisible by design — billed via the business-day denominator, so no note.
     const ptoCount = a.timesheetEntries.filter((e) => e.status === "PTO").length;
     if (ptoCount > 0) remarkParts.push(`${ptoCount} PTO — paid, not billed`);
 
@@ -322,11 +318,8 @@ export async function loadFteRows(
     const dateBits = line.perDate
       .map((d) => `${d.dateLabel}, ${Number(d.hours.toFixed(2)).toFixed(2)} hrs`)
       .join("; ");
+    // OT / weekend split into their own line items downstream (fte-line-items.ts).
     const remarkParts = [`Backfill for ${line.coveredTechName} — ${dateBits}`];
-    if (otNum > 0) remarkParts.push(`OT ${otNum.toFixed(2)}h @ $${Number(line.otRate.toFixed(2))}`);
-    if (weekendNum > 0) {
-      remarkParts.push(`Weekend ${weekendNum.toFixed(2)}h @ $${Number(line.weekendRate.toFixed(2))}`);
-    }
     const expenseNum = Number(line.expenseTotal.toFixed(2));
     if (expenseNum > 0) {
       const noteBit = line.expenseNotes.length > 0 ? ` (${line.expenseNotes.join(", ")})` : "";

@@ -5,7 +5,9 @@
 //   weekday  -> regular = min(hours, defaultHours)
 //               OT      = max(0, hours - defaultHours)
 //   weekend  -> weekend = hours (no day credit, no OT)
-//   PH       -> 1 full PAID day (billed to the client)
+//   PH       -> 0 worked days/hours; the client pays for PH via the business-day
+//               denominator instead (PH is excluded from businessDays, raising
+//               the day rate so a full non-PH month bills exactly the monthly)
 //   PTO      -> 0 billable (paid to the technician by Ovation, NOT billed to client)
 //   HALF_DAY -> 0.5 regular days, no OT, no weekend
 //   AB/NA    -> 0 across all buckets (status overrides numeric value)
@@ -56,9 +58,9 @@ export function splitCell(cell: DayCell, defaultHours: number): PerCellSplit {
     throw new Error("splitCell: defaultHours must be > 0");
   }
   if (cell.status !== null) {
-    // PH bills as a full paid day; HALF_DAY as half a worked day; PTO / AB / NA
-    // count as zero billable (PTO is paid to the tech but not billed). Rule
-    // lives in validation/cell.ts (shared with the grid summary).
+    // HALF_DAY counts as half a worked day; PH / PTO / AB / NA count as zero
+    // (PH is billed through the business-day denominator, not as a day credit).
+    // Rule lives in validation/cell.ts (shared with the grid summary).
     const dayCredit = statusDayCredit(cell.status);
     const regularDays = new Decimal(dayCredit);
     const regularHours = regularDays.times(defaultHours);

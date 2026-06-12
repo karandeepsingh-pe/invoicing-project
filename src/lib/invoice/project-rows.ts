@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { businessDaysInRange } from "./period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import {
   calculateProjectRow,
   type ProjectRateRow,
@@ -50,8 +51,9 @@ export async function loadProjectRows(
       sla: { code: r.sla.code },
     }));
 
-  // Working days in the billing month, used to pro-rate a pure-monthly basis.
-  const businessDays = businessDaysInRange(range, []);
+  // Working days in the billing month (weekdays minus public holidays), used
+  // to pro-rate a pure-monthly basis — same definition as Dedicated.
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
 
   const rows: ProjectRow[] = [];
   for (const a of assignments) {

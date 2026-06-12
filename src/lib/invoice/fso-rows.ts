@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { businessDaysInRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import { loadFteRows } from "./fte-rows";
 import { loadProjectRows } from "./project-rows";
 import { calculateDispatchVisit } from "./dispatch-calculator";
@@ -135,8 +136,12 @@ export async function loadFsoDedicatedRows(accountId: string, range: Range): Pro
 }
 
 export async function loadFsoProjectRows(accountId: string, range: Range): Promise<FsoProjectRow[]> {
-  const [rows, loc] = await Promise.all([loadProjectRows(accountId, range), techLocationMap(accountId, range)]);
-  const businessDays = businessDaysInRange(range, []);
+  const [rows, loc, phDates] = await Promise.all([
+    loadProjectRows(accountId, range),
+    techLocationMap(accountId, range),
+    holidayDatesInRange(range),
+  ]);
+  const businessDays = businessDaysInRange(range, phDates);
   return rows.map((r) => ({
     ...(loc.get(r.technicianName) ?? EMPTY_LOC),
     technicianName: r.technicianName,
