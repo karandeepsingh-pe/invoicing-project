@@ -14,6 +14,9 @@ export async function createOrg(_prev: ActionResult, formData: FormData): Promis
     name: formData.get("name"),
     outputTemplate: formData.get("outputTemplate"),
     defaultCurrency: formData.get("defaultCurrency") || undefined,
+    remitClientCode: formData.get("remitClientCode"),
+    remitClientName: formData.get("remitClientName"),
+    remitClientAddress: formData.get("remitClientAddress"),
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -40,6 +43,9 @@ export async function updateOrg(_prev: ActionResult, formData: FormData): Promis
     name: formData.get("name"),
     outputTemplate: formData.get("outputTemplate"),
     defaultCurrency: formData.get("defaultCurrency") || undefined,
+    remitClientCode: formData.get("remitClientCode"),
+    remitClientName: formData.get("remitClientName"),
+    remitClientAddress: formData.get("remitClientAddress"),
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

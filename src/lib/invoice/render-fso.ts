@@ -105,7 +105,11 @@ const SV_HEADERS = [
   "Service Month (MM/YYYY)", "Remarks",
 ];
 
-export async function renderFsoWorkbook(meta: FsoMeta, data: FsoData): Promise<Buffer> {
+export async function renderFsoWorkbook(
+  meta: FsoMeta,
+  data: FsoData,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Ovation WPS";
   const { customerName: cust, currency: cur, serviceMonth: sm } = meta;
@@ -170,6 +174,9 @@ export async function renderFsoWorkbook(meta: FsoMeta, data: FsoData): Promise<B
       r.halfDayRate, r.fullDayRate, 0, 0, 0, 0, 0, r.totalCost, 0, 0, r.totalCost, cur, "Yes", "NA", sm, "",
     ]),
   );
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(wb);
 
   const arrayBuffer = await wb.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer);

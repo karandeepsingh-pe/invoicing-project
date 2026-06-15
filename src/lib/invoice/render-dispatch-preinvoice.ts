@@ -248,6 +248,7 @@ export async function renderDispatchPreInvoice(
   header: DispatchHeader,
   rows: DispatchTrackerRow[],
   footer: DispatchFooter,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
@@ -262,6 +263,9 @@ export async function renderDispatchPreInvoice(
     pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true },
   });
   buildBreakdownSheet(breakdown, header, rows);
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(workbook);
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer as ArrayBuffer);

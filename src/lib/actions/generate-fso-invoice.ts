@@ -12,6 +12,8 @@ import {
   loadFsoScheduledRows,
 } from "@/lib/invoice/fso-rows";
 import { renderFsoWorkbook } from "@/lib/invoice/render-fso";
+import { orgSupportsFso } from "@/lib/invoice/fso-eligibility";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 const schema = z.object({
   accountId: z.string().min(1),
@@ -44,9 +46,10 @@ export async function generateFsoInvoice(
     include: { org: true },
   });
   if (!account) return { ok: false, formError: "Account not found." };
-  // FSO is HCL-only: gate on the org's output template.
-  if (account.org.outputTemplate !== "FSO") {
-    return { ok: false, formError: "FSO output is only available for accounts under an HCL (FSO) org." };
+  // FSO is HCL-only: gate on the org being HCL (covers every HCL account,
+  // existing or new, regardless of the org's stored output template).
+  if (!orgSupportsFso(account.org)) {
+    return { ok: false, formError: "FSO output is only available for accounts under HCL." };
   }
 
   const range = monthRange(year, month);
@@ -60,6 +63,13 @@ export async function generateFsoInvoice(
   const monthLabel = range.start.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
   const serviceMonth = `${monthLabel}-${String(range.start.getUTCFullYear()).slice(2)}`;
 
+  // Grand total across the four FSO category sheets, for the Remittance Advice.
+  const invoiceTotal =
+    dedicated.reduce((n, r) => n + r.actualCost + r.otCost + r.weekendCost, 0) +
+    project.reduce((n, r) => n + r.actualCost + r.otCost + r.weekendCost, 0) +
+    dispatch.reduce((n, r) => n + r.charge, 0) +
+    scheduled.reduce((n, r) => n + r.totalCost, 0);
+
   const buffer = await renderFsoWorkbook(
     {
       customerName: account.name,
@@ -67,6 +77,7 @@ export async function generateFsoInvoice(
       serviceMonth,
     },
     { dedicated, project, scheduled, dispatch },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal }),
   );
 
   await prisma.invoiceRun.create({

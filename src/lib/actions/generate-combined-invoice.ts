@@ -13,6 +13,7 @@ import { loadScheduledRows } from "@/lib/invoice/scheduled-rows";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { renderCombinedInvoice } from "@/lib/invoice/render-combined-invoice";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 import type { PreInvoiceRow } from "@/lib/invoice/render-pre-invoice";
 
 const schema = z.object({
@@ -213,6 +214,7 @@ export async function generateCombinedInvoice(
     rows,
     dispatchDetail,
     { retainerFee, reimbursements, projectManagementFee, extraFees },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal }),
   );
 
   await prisma.invoiceRun.create({

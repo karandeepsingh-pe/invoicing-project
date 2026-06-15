@@ -114,6 +114,12 @@ model Org {
   name            String         @unique
   outputTemplate  OutputTemplate
   defaultCurrency String         @default("USD")
+  // Remittance "bill-to" entity shown on the Remittance Advice sheet for every
+  // account under this org (e.g. HCL → "( A009 ) HCL America Inc." + address).
+  // Optional: blank falls back to a built-in HCL default / the account address.
+  remitClientCode    String? // e.g. "A009"
+  remitClientName    String? // e.g. "HCL America Inc."
+  remitClientAddress String? // newline-separated address lines
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

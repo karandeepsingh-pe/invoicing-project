@@ -39,6 +39,9 @@ export default async function OrgDetailPage({
             name={org.name}
             outputTemplate={org.outputTemplate}
             defaultCurrency={org.defaultCurrency}
+            remitClientCode={org.remitClientCode}
+            remitClientName={org.remitClientName}
+            remitClientAddress={org.remitClientAddress}
           />
         </div>
       </header>

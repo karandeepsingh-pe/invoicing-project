@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { CombinedGenerateForm } from "./generate-form";
 import { FsoGenerateForm } from "./fso-generate-form";
+import { orgSupportsFso } from "@/lib/invoice/fso-eligibility";
 import {
   GenerateTypeTabs,
   GenerateMonthPicker,
@@ -87,13 +88,13 @@ export default async function GenerateCombinedPage({
                 : null
             }
           />
-          {account.org.outputTemplate === "FSO" && (
+          {orgSupportsFso(account.org) && (
             <FsoGenerateForm accountId={accountId} year={year} month={month} />
           )}
         </div>
-        {account.org.outputTemplate === "FSO" && (
+        {orgSupportsFso(account.org) && (
           <p className="text-xs text-fg-subtle">
-            This account is on the HCL <strong>FSO</strong> template, so it can also export the
+            This is an HCL account, so it can also export the
             FSO workbook (Dedicated / Dispatch / SV / Project sheets).
           </p>
         )}

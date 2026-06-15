@@ -3,18 +3,30 @@
 import { useActionState, useState } from "react";
 import { OutputTemplate } from "@prisma/client";
 import { updateOrg } from "@/lib/actions/org";
-import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import {
+  FormError,
+  SelectField,
+  SubmitButton,
+  TextAreaField,
+  TextField,
+} from "@/components/admin/field";
 
 export function OrgEditForm({
   id,
   name,
   outputTemplate,
   defaultCurrency,
+  remitClientCode,
+  remitClientName,
+  remitClientAddress,
 }: {
   id: string;
   name: string;
   outputTemplate: OutputTemplate;
   defaultCurrency: string;
+  remitClientCode: string | null;
+  remitClientName: string | null;
+  remitClientAddress: string | null;
 }) {
   const [state, action] = useActionState(updateOrg, null);
   const [open, setOpen] = useState(false);
@@ -66,6 +78,34 @@ export function OrgEditForm({
         maxLength={3}
         errors={fieldErrors?.defaultCurrency}
       />
+      <fieldset className="flex flex-col gap-2 border-t border-border pt-2">
+        <legend className="text-xs font-semibold tracking-tightish text-fg-muted">
+          Remittance bill-to (optional)
+        </legend>
+        <TextField
+          label="Client code"
+          name="remitClientCode"
+          defaultValue={remitClientCode ?? ""}
+          placeholder="A009"
+          errors={fieldErrors?.remitClientCode}
+        />
+        <TextField
+          label="Client name"
+          name="remitClientName"
+          defaultValue={remitClientName ?? ""}
+          placeholder="HCL America Inc."
+          errors={fieldErrors?.remitClientName}
+        />
+        <TextAreaField
+          label="Client address"
+          name="remitClientAddress"
+          defaultValue={remitClientAddress ?? ""}
+          rows={3}
+          placeholder={"2600 Great America Way\nSanta Clara, CA 95054, United States"}
+          hint="One line per row. Shown under 'Client Details:' on every account's Remittance Advice."
+          errors={fieldErrors?.remitClientAddress}
+        />
+      </fieldset>
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>
         {state && state.ok && <span className="text-xs text-success">Saved.</span>}

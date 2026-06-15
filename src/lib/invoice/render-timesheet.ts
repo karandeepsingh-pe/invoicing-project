@@ -120,8 +120,9 @@ function writeGridSheet(
   wb: ExcelJS.Workbook,
   section: TimesheetExportSection,
   input: TimesheetExportInput,
+  prefix: string,
 ): void {
-  const ws = wb.addWorksheet(section.sheetName, {
+  const ws = wb.addWorksheet(`${prefix}${section.sheetName}`, {
     views: [{ state: "frozen", xSplit: 1, ySplit: 2 }],
   });
 
@@ -177,12 +178,12 @@ function writeGridSheet(
   }
 }
 
-function writeVisitsSheet(wb: ExcelJS.Workbook, input: TimesheetExportInput): void {
+function writeVisitsSheet(wb: ExcelJS.Workbook, input: TimesheetExportInput, prefix: string): void {
   const headers = [
     "Date", "Technician", "Ticket", "SLA", "Visit Type", "Status",
     "In–Out", "Total Hrs", "OOO Hrs", "Location",
   ];
-  const ws = wb.addWorksheet("Dispatch Visits", { views: [{ state: "frozen", ySplit: 1 }] });
+  const ws = wb.addWorksheet(`${prefix}Dispatch Visits`, { views: [{ state: "frozen", ySplit: 1 }] });
   const headerRow = ws.addRow(headers);
   headerRow.font = { bold: true };
   headerRow.eachCell((cell) => {
@@ -212,15 +213,30 @@ function writeVisitsSheet(wb: ExcelJS.Workbook, input: TimesheetExportInput): vo
   });
 }
 
+/**
+ * Add the timesheet sheets (one grid per non-empty category + a Dispatch Visits
+ * sheet) to an existing workbook. `prefix` namespaces the sheet titles so the
+ * sheets can be embedded alongside an invoice workbook without colliding with
+ * its own "Dedicated"/"Dispatch"/… sheet names.
+ */
+export function writeTimesheetSheets(
+  workbook: ExcelJS.Workbook,
+  input: TimesheetExportInput,
+  opts: { prefix?: string } = {},
+): void {
+  const prefix = opts.prefix ?? "";
+  for (const section of input.sections) {
+    if (section.rows.length > 0) writeGridSheet(workbook, section, input, prefix);
+  }
+  if (input.visits.length > 0) writeVisitsSheet(workbook, input, prefix);
+}
+
 export async function renderTimesheet(input: TimesheetExportInput): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
   workbook.created = new Date();
 
-  for (const section of input.sections) {
-    if (section.rows.length > 0) writeGridSheet(workbook, section, input);
-  }
-  if (input.visits.length > 0) writeVisitsSheet(workbook, input);
+  writeTimesheetSheets(workbook, input);
 
   // Never return an empty workbook — Excel refuses to open zero-sheet files.
   if (workbook.worksheets.length === 0) {

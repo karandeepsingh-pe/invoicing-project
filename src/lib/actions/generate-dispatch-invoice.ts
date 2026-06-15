@@ -7,6 +7,7 @@ import { z } from "zod";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { renderDispatchPreInvoice } from "@/lib/invoice/render-dispatch-preinvoice";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 const schema = z.object({
   accountId: z.string().min(1),
@@ -103,6 +104,9 @@ export async function generateDispatchInvoice(
     timeZone: "UTC",
   });
 
+  const invoiceTotal =
+    rows.reduce((n, r) => n + (r.billed || 0), 0) + retainerFee + reimbursements;
+
   const buffer = await renderDispatchPreInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
@@ -119,6 +123,7 @@ export async function generateDispatchInvoice(
     },
     rows,
     { retainerFee, reimbursements },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal }),
   );
 
   await prisma.invoiceRun.create({

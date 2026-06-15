@@ -15,6 +15,7 @@ import {
   renderProjectInvoice,
   type ProjectRow,
 } from "@/lib/invoice/render-project";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 const schema = z.object({
   accountId: z.string().min(1),
@@ -148,6 +149,9 @@ export async function generateProjectInvoice(
     timeZone: "UTC",
   });
 
+  const invoiceTotal =
+    rows.reduce((n, r) => n + r.extendedTotal, 0) + retainerFee + reimbursements;
+
   const buffer = await renderProjectInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
@@ -164,6 +168,7 @@ export async function generateProjectInvoice(
     },
     rows,
     { retainerFee, reimbursements },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal }),
   );
 
   await prisma.invoiceRun.create({

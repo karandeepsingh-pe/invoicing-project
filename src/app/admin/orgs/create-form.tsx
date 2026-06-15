@@ -3,7 +3,13 @@
 import { useActionState, useEffect } from "react";
 import { OutputTemplate } from "@prisma/client";
 import { createOrg } from "@/lib/actions/org";
-import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
+import {
+  FormError,
+  SelectField,
+  SubmitButton,
+  TextAreaField,
+  TextField,
+} from "@/components/admin/field";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
@@ -42,6 +48,31 @@ export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
         maxLength={3}
         errors={fieldErrors?.defaultCurrency}
       />
+      <fieldset className="mt-1 flex flex-col gap-3 border-t border-border pt-3">
+        <legend className="text-xs font-semibold tracking-tightish text-fg-muted">
+          Remittance bill-to (optional)
+        </legend>
+        <TextField
+          label="Client code"
+          name="remitClientCode"
+          placeholder="A009"
+          errors={fieldErrors?.remitClientCode}
+        />
+        <TextField
+          label="Client name"
+          name="remitClientName"
+          placeholder="HCL America Inc."
+          errors={fieldErrors?.remitClientName}
+        />
+        <TextAreaField
+          label="Client address"
+          name="remitClientAddress"
+          rows={3}
+          placeholder={"2600 Great America Way\nSanta Clara, CA 95054, United States"}
+          hint="One line per row. Shown under 'Client Details:' on every account's Remittance Advice."
+          errors={fieldErrors?.remitClientAddress}
+        />
+      </fieldset>
       <SubmitButton>Create org</SubmitButton>
       {state && state.ok && !onSuccess && <div className="text-sm text-success">Org created.</div>}
     </form>

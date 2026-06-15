@@ -9,6 +9,7 @@ import { renderPreInvoice } from "@/lib/invoice/render-pre-invoice";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
 import { expandFteLineItems } from "@/lib/invoice/fte-line-items";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 type SuccessPayload = { ok: true; filename: string; base64: string };
 type ErrorPayload = { ok: false; formError?: string };
@@ -130,6 +131,7 @@ export async function generatePreInvoice(
     },
     rows,
     { retainerFee, reimbursements, projectManagementFee, extraFees },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal }),
   );
 
   await prisma.invoiceRun.create({

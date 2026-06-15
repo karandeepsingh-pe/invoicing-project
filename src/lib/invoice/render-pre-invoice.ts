@@ -94,6 +94,7 @@ export async function renderPreInvoice(
   header: PreInvoiceHeader,
   rows: PreInvoiceRow[],
   footer: PreInvoiceFooter,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
@@ -104,6 +105,9 @@ export async function renderPreInvoice(
   });
 
   writePreInvoiceSheet(sheet, header, rows, footer);
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(workbook);
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer as ArrayBuffer);
