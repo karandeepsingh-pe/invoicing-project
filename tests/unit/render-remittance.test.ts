@@ -30,10 +30,12 @@ describe("writeRemittanceSheet", () => {
     expect(text).toContain("AMOUNTS PAYABLE IN U.S. FUNDS");
 
     // Total appears as a numeric cell (not blank).
-    const numbers = ws!.model.rows
-      .flatMap((r) => r.cells)
-      .filter((c) => typeof c.value === "number")
-      .map((c) => c.value);
+    const numbers: number[] = [];
+    ws!.eachRow((row) =>
+      row.eachCell((cell) => {
+        if (typeof cell.value === "number") numbers.push(cell.value);
+      }),
+    );
     expect(numbers).toContain(3800);
     expect(numbers).toContain(0); // tax row
   });

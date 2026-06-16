@@ -105,13 +105,13 @@ const SV_HEADERS = [
   "Service Month (MM/YYYY)", "Remarks",
 ];
 
-export async function renderFsoWorkbook(
-  meta: FsoMeta,
-  data: FsoData,
-  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "Ovation WPS";
+/**
+ * Add the four HCL FSO category sheets (Dedicated / Project Work / Dispatch /
+ * SV) to an existing workbook. Extracted so the Combined generator can embed the
+ * same FSO tabs inside its workbook for HCL accounts, while the standalone FSO
+ * download keeps calling renderFsoWorkbook unchanged.
+ */
+export function writeFsoSheets(wb: ExcelJS.Workbook, meta: FsoMeta, data: FsoData): void {
   const { customerName: cust, currency: cur, serviceMonth: sm } = meta;
 
   // Dedicated
@@ -174,6 +174,17 @@ export async function renderFsoWorkbook(
       r.halfDayRate, r.fullDayRate, 0, 0, 0, 0, 0, r.totalCost, 0, 0, r.totalCost, cur, "Yes", "NA", sm, "",
     ]),
   );
+}
+
+export async function renderFsoWorkbook(
+  meta: FsoMeta,
+  data: FsoData,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Ovation WPS";
+
+  writeFsoSheets(wb, meta, data);
 
   // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
   if (appendSheets) await appendSheets(wb);

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
 import { z } from "zod";
@@ -14,6 +15,14 @@ import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatc
 import { renderCombinedInvoice } from "@/lib/invoice/render-combined-invoice";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
 import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
+import { orgSupportsFso } from "@/lib/invoice/fso-eligibility";
+import { writeFsoSheets } from "@/lib/invoice/render-fso";
+import {
+  loadFsoDedicatedRows,
+  loadFsoDispatchRows,
+  loadFsoProjectRows,
+  loadFsoScheduledRows,
+} from "@/lib/invoice/fso-rows";
 import type { PreInvoiceRow } from "@/lib/invoice/render-pre-invoice";
 
 const schema = z.object({
@@ -197,6 +206,30 @@ export async function generateCombinedInvoice(
 
   const monthLabel = range.start.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
 
+  // For HCL accounts, embed the four FSO category sheets inside the combined
+  // workbook (the standalone "Generate FSO (HCL)" download is unaffected). Then
+  // always append the timesheet + rate sheet + remittance bundle.
+  const appendSheets = async (wb: ExcelJS.Workbook): Promise<void> => {
+    if (orgSupportsFso(account.org)) {
+      const [dedicated, project, scheduled, dispatch] = await Promise.all([
+        loadFsoDedicatedRows(accountId, range),
+        loadFsoProjectRows(accountId, range),
+        loadFsoScheduledRows(accountId, range),
+        loadFsoDispatchRows(accountId, range),
+      ]);
+      writeFsoSheets(
+        wb,
+        {
+          customerName: account.name,
+          currency: account.currency ?? account.org.defaultCurrency,
+          serviceMonth: `${monthLabel}-${String(range.start.getUTCFullYear()).slice(2)}`,
+        },
+        { dedicated, project, scheduled, dispatch },
+      );
+    }
+    await appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal });
+  };
+
   const buffer = await renderCombinedInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
@@ -214,7 +247,7 @@ export async function generateCombinedInvoice(
     rows,
     dispatchDetail,
     { retainerFee, reimbursements, projectManagementFee, extraFees },
-    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal }),
+    appendSheets,
   );
 
   await prisma.invoiceRun.create({
