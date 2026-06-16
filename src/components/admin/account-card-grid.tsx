@@ -44,7 +44,7 @@ export function AccountCardGrid({
             className="glass group flex flex-col gap-2 rounded-xl p-4 transition-all hover:-translate-y-0.5"
           >
             <span className="text-xs text-fg-subtle">{a.orgName}</span>
-            <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+            <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
               {a.name}
             </span>
             <span className="text-[11px] text-fg-subtle">{a.metaLine}</span>

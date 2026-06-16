@@ -20,7 +20,7 @@ export function AssignTechToAccountDialog({
       trigger={
         <button
           type="button"
-          className="text-[11px] font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-[11px] font-medium"
         >
           Assign
         </button>

@@ -75,14 +75,14 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                     {initials(a.name)}
                   </div>
                   <div className="flex flex-col leading-tight">
-                    <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+                    <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
                       {a.name}
                     </span>
                     <span className="mt-0.5 text-xs text-fg-subtle">
                       under{" "}
                       <Link
                         href={`/admin/orgs/${a.orgId}` as never}
-                        className="text-fg-muted hover:text-accent"
+                        className="ui-link text-fg-muted"
                       >
                         {a.orgName}
                       </Link>
@@ -141,7 +141,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
                 <Link
                   href={`/admin/accounts/${a.id}` as never}
-                  className="text-xs font-medium text-accent hover:text-accent-hover"
+                  className="ui-link-accent text-xs font-medium"
                 >
                   Manage rates →
                 </Link>

@@ -77,7 +77,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
               toast.action!.onClick();
               onDismiss();
             }}
-            className="mt-1.5 self-start text-xs font-semibold text-accent hover:text-accent-hover"
+            className="mt-1.5 self-start ui-link-accent text-xs font-semibold"
           >
             {toast.action.label}
           </button>

@@ -154,7 +154,7 @@ export function AssignmentsTable({
                 </td>
                 <td className="px-4 py-2.5">
                   <Link
-                    className="font-medium text-fg hover:text-accent"
+                    className="ui-link font-medium text-fg"
                     href={`/admin/technicians/${r.techId}` as never}
                   >
                     {r.techName}

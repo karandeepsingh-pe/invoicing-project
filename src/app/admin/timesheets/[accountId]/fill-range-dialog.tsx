@@ -51,7 +51,7 @@ export function FillRangeDialog({
       trigger={
         <button
           type="button"
-          className="text-[11px] font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-[11px] font-medium"
         >
           Fill range
         </button>

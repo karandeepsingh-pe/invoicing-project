@@ -228,7 +228,7 @@ export default async function TechnicianDetailPage({
               {tech.assignments.map((a) => (
                 <tr key={a.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2">
                   <td className="px-4 py-2.5">
-                    <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${a.clientAccount.id}` as never}>
+                    <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${a.clientAccount.id}` as never}>
                       {a.clientAccount.org.name} / {a.clientAccount.name}
                     </Link>
                   </td>
@@ -284,7 +284,7 @@ export default async function TechnicianDetailPage({
                     <div className="flex items-baseline gap-2">
                       <Link
                         href={`/admin/accounts/${a.clientAccount.id}` as never}
-                        className="text-sm font-semibold tracking-tightish text-fg hover:text-accent"
+                        className="ui-link text-sm font-semibold tracking-tightish text-fg"
                       >
                         {a.clientAccount.org.name} / {a.clientAccount.name}
                       </Link>
@@ -301,7 +301,7 @@ export default async function TechnicianDetailPage({
                       No active rate rows for {categoryLabel[a.rateCategory]} at Band {tech.band} on{" "}
                       <Link
                         href={`/admin/accounts/${a.clientAccount.id}` as never}
-                        className="text-accent hover:text-accent-hover"
+                        className="ui-link-accent"
                       >
                         {a.clientAccount.name}
                       </Link>

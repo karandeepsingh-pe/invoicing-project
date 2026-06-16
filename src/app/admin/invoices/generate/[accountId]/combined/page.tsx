@@ -57,7 +57,7 @@ export default async function GenerateCombinedPage({
         <div className="flex gap-3 text-xs">
           <Link
             href={`/admin/timesheets/${accountId}?year=${year}&month=${month}`}
-            className="text-accent hover:text-accent-hover"
+            className="ui-link-accent"
           >
             Open timesheet →
           </Link>

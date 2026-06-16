@@ -70,7 +70,7 @@ export default async function OrgDetailPage({
                 className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
               >
                 <td className="px-4 py-2.5">
-                  <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${a.id}` as never}>
+                  <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${a.id}` as never}>
                     {a.name}
                   </Link>
                 </td>

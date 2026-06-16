@@ -181,7 +181,7 @@ export function AccountAssignmentCreateForm({
                     (prev) => new Set([...prev, ...visibleTechs.map((t) => t.id)]),
                   )
                 }
-                className="font-medium text-accent hover:text-accent-hover"
+                className="ui-link-accent font-medium"
               >
                 Select all
               </button>

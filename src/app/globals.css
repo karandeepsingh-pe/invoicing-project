@@ -170,6 +170,55 @@
   .glass-input::placeholder {
     font-style: italic;
   }
+
+  /* ── Clickable affordances ────────────────────────────────────────────
+     Make links/chips read as interactive AT REST (not only on hover), while
+     staying lighter than a button. Subtle underline for text links, hairline
+     border for chips; both strengthen to accent on hover. */
+
+  /* Text link in body/heading colour (account & technician names, etc.):
+     muted underline at rest → accent + solid underline on hover. */
+  .ui-link {
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: rgb(var(--fg) / 0.3);
+    transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+  }
+  .ui-link:hover {
+    color: rgb(var(--accent));
+    text-decoration-color: rgb(var(--accent));
+  }
+
+  /* Accent action link already in red (Assign / Timesheet / Invoice / "Open →"):
+     faint accent underline at rest → solid, deeper on hover. */
+  .ui-link-accent {
+    cursor: pointer;
+    color: rgb(var(--accent));
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: rgb(var(--accent) / 0.4);
+    transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+  }
+  .ui-link-accent:hover {
+    color: rgb(var(--accent-hover));
+    text-decoration-color: rgb(var(--accent-hover));
+  }
+
+  /* Interactive chip/pill (technician tags): hairline border + pointer at rest
+     → background lift + accent border/text on hover. */
+  .ui-chip {
+    cursor: pointer;
+    border: 1px solid rgb(var(--border-strong));
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  }
+  .ui-chip:hover {
+    background-color: rgb(var(--surface-2));
+    border-color: rgb(var(--accent) / 0.6);
+    color: rgb(var(--accent));
+  }
 }
 
 @layer utilities {

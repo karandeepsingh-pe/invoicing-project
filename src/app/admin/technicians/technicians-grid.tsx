@@ -129,7 +129,7 @@ function TechCardView({ tech, display }: { tech: TechCard; display?: TechDisplay
             {initials(tech.firstName, tech.lastName)}
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+            <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
               {tech.firstName} {tech.lastName}
               {display?.suffix && (
                 <span className="ml-1.5 align-middle text-xs font-medium text-fg-subtle">
@@ -191,7 +191,7 @@ function TechCardView({ tech, display }: { tech: TechCard; display?: TechDisplay
             <header className="flex items-baseline justify-between gap-2 border-b border-border bg-surface-2 px-3 py-2">
               <Link
                 href={`/admin/accounts/${g.accountId}` as never}
-                className="truncate text-xs font-semibold tracking-tightish text-fg hover:text-accent"
+                className="ui-link truncate text-xs font-semibold tracking-tightish text-fg"
                 title={`${g.orgName} / ${g.accountName}`}
               >
                 {g.orgName} / {g.accountName}
@@ -247,7 +247,7 @@ function TechCardView({ tech, display }: { tech: TechCard; display?: TechDisplay
       <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
         <Link
           href={`/admin/technicians/${tech.id}` as never}
-          className="text-xs font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-xs font-medium"
         >
           Open profile →
         </Link>

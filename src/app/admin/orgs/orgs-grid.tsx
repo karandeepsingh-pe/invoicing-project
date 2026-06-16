@@ -44,7 +44,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
                   {initials(o.name)}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+                  <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
                     {o.name}
                   </span>
                   <span className="mt-0.5 text-[11px] uppercase tracking-wider text-fg-subtle">
@@ -63,7 +63,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
             <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
               <Link
                 href={`/admin/orgs/${o.id}` as never}
-                className="text-xs font-medium text-accent hover:text-accent-hover"
+                className="ui-link-accent text-xs font-medium"
               >
                 Open →
               </Link>

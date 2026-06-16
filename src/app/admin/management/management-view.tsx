@@ -387,7 +387,7 @@ export function ManagementView({
                               <div key={a.id}>
                                 <Link
                                   href={`/admin/accounts/${a.id}` as never}
-                                  className="text-xs font-medium text-fg hover:text-accent"
+                                  className="ui-link text-xs font-medium text-fg"
                                 >
                                   {a.name}
                                 </Link>
@@ -398,7 +398,7 @@ export function ManagementView({
                                         key={t.id}
                                         href={`/admin/technicians/${t.id}` as never}
                                         title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
-                                        className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+                                        className="ui-chip inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted"
                                       >
                                         <span>{t.name}</span>
                                         <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
@@ -539,7 +539,7 @@ function AccountNameCell({
 }) {
   return (
     <>
-      <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${id}` as never}>
+      <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${id}` as never}>
         {name}
       </Link>
       <div className="text-[11px] text-fg-subtle">{currency}</div>
@@ -551,7 +551,7 @@ function AccountNameCell({
                 key={t.id}
                 href={`/admin/technicians/${t.id}` as never}
                 title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
-                className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+                className="ui-chip inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted"
               >
                 <span>{t.name}</span>
                 <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
@@ -583,10 +583,10 @@ function AccountActions({
         accountLabel={accountLabel}
         technicians={technicians}
       />
-      <Link href={`/admin/timesheets/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
+      <Link href={`/admin/timesheets/${id}` as never} className="ui-link-accent text-[11px] font-medium">
         Timesheet
       </Link>
-      <Link href={`/admin/invoices/generate/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
+      <Link href={`/admin/invoices/generate/${id}` as never} className="ui-link-accent text-[11px] font-medium">
         Invoice
       </Link>
       <DeleteAccountButton id={id} name={name} />
@@ -607,7 +607,7 @@ function TechNameCell({
 }) {
   return (
     <>
-      <Link className="font-medium text-fg hover:text-accent" href={`/admin/technicians/${id}` as never}>
+      <Link className="ui-link font-medium text-fg" href={`/admin/technicians/${id}` as never}>
         {firstName} {lastName}
       </Link>
       {location && <div className="text-[11px] text-fg-subtle">{location}</div>}

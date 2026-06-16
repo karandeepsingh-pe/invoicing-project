@@ -52,7 +52,7 @@ export default async function GenerateProjectPage({
         <div className="flex gap-3 text-xs">
           <Link
             href={`/admin/timesheets/${accountId}?year=${year}&month=${month}&type=project`}
-            className="text-accent hover:text-accent-hover"
+            className="ui-link-accent"
           >
             Open timesheet →
           </Link>

@@ -521,7 +521,7 @@ export function TimesheetGrid({
                   (prev) => new Set([...prev, ...visibleAssignments.map((a) => a.assignmentId)]),
                 )
               }
-              className="font-medium text-accent hover:text-accent-hover"
+              className="ui-link-accent font-medium"
             >
               Select all rows
             </button>

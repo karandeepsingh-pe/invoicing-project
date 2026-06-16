@@ -17,7 +17,7 @@ export function AddAccountForOrgDialog({
       trigger={
         <button
           type="button"
-          className="text-xs font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-xs font-medium"
         >
           + Add account
         </button>

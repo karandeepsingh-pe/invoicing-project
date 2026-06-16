@@ -52,7 +52,7 @@ export default async function GenerateDispatchPage({
         <div className="flex gap-3 text-xs">
           <Link
             href={`/admin/dispatch-visits/${accountId}?year=${year}&month=${month}`}
-            className="text-accent hover:text-accent-hover"
+            className="ui-link-accent"
           >
             Open visits log →
           </Link>
