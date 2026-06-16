@@ -97,7 +97,7 @@ export async function bulkUploadTechnicians(
       orgIdByName.set(orgKey, orgId);
     }
     if (!orgId) {
-      errors.push({ row: rowNumber, message: `Org "${r.orgName}" does not exist. Create it first (or via the account upload).` });
+      errors.push({ row: rowNumber, message: `Client "${r.orgName}" does not exist. Create it first (or via the account upload).` });
       continue;
     }
 

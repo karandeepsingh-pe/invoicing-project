@@ -65,7 +65,7 @@ export const BULK_ACCOUNT_COLUMNS = [
   { key: "outputTemplate", header: "Output Template (FSO|PRE_INVOICE, new clients)" },
   { key: "orgCurrency", header: "Client Currency (new clients, e.g. USD)" },
   { key: "accountName", header: "Account Name *" },
-  { key: "accountCurrency", header: "Account Currency (blank = org default)" },
+  { key: "accountCurrency", header: "Account Currency (blank = client default)" },
   { key: "clientPocName", header: "Client POC" },
   { key: "clientSpocEmail", header: "Client Email" },
   { key: "projectDescription", header: "Project Description" },

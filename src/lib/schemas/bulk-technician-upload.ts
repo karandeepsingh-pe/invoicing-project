@@ -97,7 +97,7 @@ export type BulkTechnicianRow = z.infer<typeof bulkTechnicianRowSchema>;
 
 // Column order + header labels for the template and the positional parser.
 export const BULK_TECHNICIAN_COLUMNS = [
-  { key: "orgName", header: "Employer Org *" },
+  { key: "orgName", header: "Employer Client *" },
   { key: "employeeId", header: "Employee ID" },
   { key: "firstName", header: "First Name *" },
   { key: "lastName", header: "Last Name *" },
