@@ -103,7 +103,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           name="employeeId"
           defaultValue={props.employeeId ?? ""}
           errors={fieldErrors?.employeeId}
-          hint="Optional. Unique per employer org."
+          hint="Optional. Unique per employer client."
         />
         <TextField
           label="Phone"
@@ -121,7 +121,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           hint="Contact email."
         />
         <SelectField
-          label="Employer org"
+          label="Employer client"
           name="employerOrgId"
           required
           defaultValue={props.employerOrgId}

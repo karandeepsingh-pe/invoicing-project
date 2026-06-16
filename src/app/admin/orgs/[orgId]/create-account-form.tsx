@@ -37,7 +37,7 @@ export function ClientAccountCreateForm({
         name="currency"
         maxLength={3}
         placeholder={defaultCurrency}
-        hint={`Leave blank to inherit org default (${defaultCurrency}).`}
+        hint={`Leave blank to inherit client default (${defaultCurrency}).`}
         errors={fieldErrors?.currency}
       />
       <TextField

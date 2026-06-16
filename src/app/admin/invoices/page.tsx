@@ -24,7 +24,7 @@ export default async function InvoicesLanding() {
       </header>
 
       <AccountCardGrid
-        placeholder="Search accounts by client or organization…"
+        placeholder="Search accounts by name or client…"
         accounts={accounts.map((a) => ({
           id: a.id,
           orgName: a.org.name,

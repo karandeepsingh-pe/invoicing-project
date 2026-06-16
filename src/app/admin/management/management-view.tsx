@@ -180,7 +180,7 @@ export function ManagementView({
   }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "orgs", label: "Orgs", count: grandTotals.orgs },
+    { key: "orgs", label: "Clients", count: grandTotals.orgs },
     { key: "accounts", label: "Accounts", count: grandTotals.accounts },
     { key: "technicians", label: "Technicians", count: grandTotals.techs },
   ];
@@ -189,7 +189,7 @@ export function ManagementView({
       ? "Search accounts…"
       : tab === "technicians"
         ? "Search technicians…"
-        : "Search orgs, accounts, technicians…";
+        : "Search clients, accounts, technicians…";
 
   return (
     <div className="flex flex-col gap-5">
@@ -249,7 +249,7 @@ export function ManagementView({
             {tab === "orgs" && (
               <>
                 <span className="tabular-nums">
-                  {totals.orgs} org{totals.orgs === 1 ? "" : "s"} · {totals.accounts} account
+                  {totals.orgs} client{totals.orgs === 1 ? "" : "s"} · {totals.accounts} account
                   {totals.accounts === 1 ? "" : "s"} · {totals.techs} tech{totals.techs === 1 ? "" : "s"}
                 </span>
                 <span className="text-fg-subtle/50">·</span>
@@ -280,7 +280,7 @@ export function ManagementView({
         <>
           {filtered.length === 0 && (
             <div className="glass rounded-lg p-8 text-center text-sm text-fg-muted">
-              {isFiltering ? `No matches for "${query}".` : "No orgs yet."}
+              {isFiltering ? `No matches for "${query}".` : "No clients yet."}
             </div>
           )}
           <div className="flex flex-col gap-3">
@@ -431,7 +431,7 @@ export function ManagementView({
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Account</th>
-                <th className="px-4 py-2 text-left font-medium">Org</th>
+                <th className="px-4 py-2 text-left font-medium">Client</th>
                 <th className="px-4 py-2 text-right font-medium">Rates</th>
                 <th className="px-4 py-2 text-right font-medium">Misc</th>
                 <th className="px-4 py-2 text-right font-medium">Assign.</th>
@@ -486,7 +486,7 @@ export function ManagementView({
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Name</th>
-                <th className="px-4 py-2 text-left font-medium">Org</th>
+                <th className="px-4 py-2 text-left font-medium">Client</th>
                 <th className="px-4 py-2 text-left font-medium">Category</th>
                 <th className="px-4 py-2 text-left font-medium">Band</th>
                 <th className="px-4 py-2 text-right font-medium">Assign.</th>

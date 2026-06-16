@@ -114,7 +114,7 @@ export async function bulkUploadAccounts(
           if (!r.outputTemplate) {
             errors.push({
               row: rowNumber,
-              message: `Org "${r.orgName}" does not exist. To auto-create it, set an Output Template (FSO or PRE_INVOICE).`,
+              message: `Client "${r.orgName}" does not exist. To auto-create it, set an Output Template (FSO or PRE_INVOICE).`,
             });
             continue;
           }

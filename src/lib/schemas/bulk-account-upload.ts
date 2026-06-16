@@ -61,9 +61,9 @@ export type BulkAccountRow = z.infer<typeof bulkAccountRowSchema>;
 
 // Column order + header labels for the template and the positional parser.
 export const BULK_ACCOUNT_COLUMNS = [
-  { key: "orgName", header: "Org Name *" },
-  { key: "outputTemplate", header: "Output Template (FSO|PRE_INVOICE, new orgs)" },
-  { key: "orgCurrency", header: "Org Currency (new orgs, e.g. USD)" },
+  { key: "orgName", header: "Client Name *" },
+  { key: "outputTemplate", header: "Output Template (FSO|PRE_INVOICE, new clients)" },
+  { key: "orgCurrency", header: "Client Currency (new clients, e.g. USD)" },
   { key: "accountName", header: "Account Name *" },
   { key: "accountCurrency", header: "Account Currency (blank = org default)" },
   { key: "clientPocName", header: "Client POC" },

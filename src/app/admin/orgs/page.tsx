@@ -22,14 +22,14 @@ export default async function OrgsPage() {
       <header className="flex flex-col gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Workspace</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Orgs</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Clients</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{orgs.length} total</span>
             <OrgCreateDialog />
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Vendor partners that own client accounts. HCL receives FSO output; every other org
+          Vendor partners that own accounts. HCL receives FSO output; every other client
           receives Pre-Invoice.
         </p>
       </header>

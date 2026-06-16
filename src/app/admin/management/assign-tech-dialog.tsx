@@ -26,7 +26,7 @@ export function AssignTechToAccountDialog({
         </button>
       }
       title={`Assign technicians to ${accountLabel}`}
-      description="Pick one or more employed technicians. Employ new techs from the org roster on the right."
+      description="Pick one or more employed technicians. Employ new techs from the client roster on the right."
       size="lg"
     >
       {({ close }) => (

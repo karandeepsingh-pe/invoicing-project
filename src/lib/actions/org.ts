@@ -29,7 +29,7 @@ export async function createOrg(_prev: ActionResult, formData: FormData): Promis
     return { ok: true, id: org.id };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { ok: false, fieldErrors: { name: ["An org with this name already exists"] } };
+      return { ok: false, fieldErrors: { name: ["A client with this name already exists"] } };
     }
     throw err;
   }
@@ -59,13 +59,13 @@ export async function updateOrg(_prev: ActionResult, formData: FormData): Promis
     revalidatePath("/admin/accounts");
     revalidatePath("/admin/management");
     revalidatePath("/admin/commercials");
-    return { ok: true, message: "Org updated." };
+    return { ok: true, message: "Client updated." };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { ok: false, fieldErrors: { name: ["An org with this name already exists"] } };
+      return { ok: false, fieldErrors: { name: ["A client with this name already exists"] } };
     }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
-      return { ok: false, formError: "Org not found." };
+      return { ok: false, formError: "Client not found." };
     }
     throw err;
   }
@@ -76,7 +76,7 @@ export async function deleteOrg(_prev: ActionResult, formData: FormData): Promis
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
-    return { ok: false, formError: "Missing org id." };
+    return { ok: false, formError: "Missing client id." };
   }
 
   const org = await prisma.org.findUnique({
@@ -86,13 +86,13 @@ export async function deleteOrg(_prev: ActionResult, formData: FormData): Promis
     },
   });
   if (!org) {
-    return { ok: false, formError: "Org not found." };
+    return { ok: false, formError: "Client not found." };
   }
 
   if (org._count.clientAccounts > 0 || org._count.technicians > 0) {
     const parts: string[] = [];
     if (org._count.clientAccounts > 0) {
-      parts.push(`${org._count.clientAccounts} client account(s)`);
+      parts.push(`${org._count.clientAccounts} account(s)`);
     }
     if (org._count.technicians > 0) {
       parts.push(`${org._count.technicians} technician(s)`);
@@ -113,7 +113,7 @@ export async function deleteOrg(_prev: ActionResult, formData: FormData): Promis
       return {
         ok: false,
         formError:
-          "Cannot delete this org because related records still reference it. Remove them first.",
+          "Cannot delete this client because related records still reference it. Remove them first.",
       };
     }
     throw err;

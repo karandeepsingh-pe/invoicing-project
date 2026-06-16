@@ -121,7 +121,7 @@ export default async function ManagementPage() {
           Client Management
         </span>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Orgs · Accounts · Technicians</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Clients · Accounts · Technicians</h1>
           <div className="flex flex-wrap items-center gap-2">
             <AccountBulkUploadDialog />
             <TechnicianBulkUploadDialog />
@@ -129,7 +129,7 @@ export default async function ManagementPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Single workspace for vendor orgs, their client accounts, rate sheets, and technicians.
+          Single workspace for vendor clients and their accounts, rate sheets, and technicians.
           Create, edit, and delete from here — changes propagate everywhere the data is used.
           Open an account to manage rate cards, misc fees, and assignments; open a technician to
           manage their employment and assignments.

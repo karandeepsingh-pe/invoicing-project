@@ -85,7 +85,7 @@ export function ClientAccountEditForm({
         maxLength={3}
         defaultValue={currency ?? ""}
         placeholder={orgDefaultCurrency}
-        hint={`Leave blank to inherit org default (${orgDefaultCurrency}).`}
+        hint={`Leave blank to inherit client default (${orgDefaultCurrency}).`}
         errors={fieldErrors?.currency}
       />
       <TextField

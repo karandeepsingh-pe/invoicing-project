@@ -95,7 +95,7 @@ export function TechnicianCreateForm({
           label="Employee ID"
           name="employeeId"
           errors={fieldErrors?.employeeId}
-          hint="Optional. Must be unique within the employer org."
+          hint="Optional. Must be unique within the employer client."
         />
         <TextField
           label="Phone"
@@ -111,12 +111,12 @@ export function TechnicianCreateForm({
           hint="Contact email (shown on dispatch tracker)."
         />
         <SelectField
-          label="Employer org"
+          label="Employer client"
           name="employerOrgId"
           required
           defaultValue={defaultEmployerOrgId}
           errors={fieldErrors?.employerOrgId}
-          hint="Org that employs this technician."
+          hint="Client that employs this technician."
         >
           {orgs.map((o) => (
             <option key={o.id} value={o.id}>

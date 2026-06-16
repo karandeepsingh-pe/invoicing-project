@@ -41,7 +41,7 @@ export function OrgEditForm({
         onClick={() => setOpen(true)}
         className="inline-flex items-center rounded-md border border-border-strong bg-surface px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
-        Edit org
+        Edit client
       </button>
     );
   }
@@ -49,7 +49,7 @@ export function OrgEditForm({
   return (
     <form action={action} className="glass-soft flex flex-col gap-2 rounded-md p-3">
       <div className="flex items-baseline justify-between">
-        <span className="text-xs font-semibold tracking-tightish">Edit org</span>
+        <span className="text-xs font-semibold tracking-tightish">Edit client</span>
         <button
           type="button"
           onClick={() => setOpen(false)}

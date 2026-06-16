@@ -57,7 +57,7 @@ export function CommercialsView({ orgs }: { orgs: CommercialOrg[] }) {
       <SearchBar
         value={query}
         onChange={setQuery}
-        placeholder="Search by org or account name…"
+        placeholder="Search by client or account name…"
         countLabel={`${totals.accounts} account${totals.accounts === 1 ? "" : "s"} · ${totals.rates} rate row${totals.rates === 1 ? "" : "s"} · ${totals.misc} misc fee${totals.misc === 1 ? "" : "s"}`}
       />
 
@@ -120,7 +120,7 @@ export function CommercialsView({ orgs }: { orgs: CommercialOrg[] }) {
                 {o.accounts.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-4 text-sm text-fg-subtle">
-                      No accounts under this org yet.{" "}
+                      No accounts under this client yet.{" "}
                       <Link
                         className="text-accent hover:text-accent-hover"
                         href={`/admin/orgs/${o.id}` as never}
@@ -138,7 +138,7 @@ export function CommercialsView({ orgs }: { orgs: CommercialOrg[] }) {
 
         {filtered.length === 0 && (
           <div className="rounded-lg border border-dashed border-border bg-surface p-8 text-center text-sm text-fg-muted">
-            {isFiltering ? `No matches for "${query}".` : "No orgs yet."}
+            {isFiltering ? `No matches for "${query}".` : "No clients yet."}
           </div>
         )}
       </div>

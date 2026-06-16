@@ -18,8 +18,8 @@ export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const formError = state && state.ok === false ? state.formError : undefined;
 
   useActionToast(state, {
-    success: { title: "Org created" },
-    error: { fallbackTitle: "Failed to create org" },
+    success: { title: "Client created" },
+    error: { fallbackTitle: "Failed to create client" },
   });
 
   useEffect(() => {
@@ -73,8 +73,8 @@ export function OrgCreateForm({ onSuccess }: { onSuccess?: () => void } = {}) {
           errors={fieldErrors?.remitClientAddress}
         />
       </fieldset>
-      <SubmitButton>Create org</SubmitButton>
-      {state && state.ok && !onSuccess && <div className="text-sm text-success">Org created.</div>}
+      <SubmitButton>Create client</SubmitButton>
+      {state && state.ok && !onSuccess && <div className="text-sm text-success">Client created.</div>}
     </form>
   );
 }

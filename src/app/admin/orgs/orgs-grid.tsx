@@ -28,7 +28,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
       <SearchBar
         value={query}
         onChange={setQuery}
-        placeholder="Search orgs by name…"
+        placeholder="Search clients by name…"
         countLabel={`${filtered.length} of ${orgs.length}`}
       />
 
@@ -74,7 +74,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
 
         {filtered.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-fg-muted">
-            {q ? `No orgs match "${query}".` : "No orgs yet. Create one below."}
+            {q ? `No clients match "${query}".` : "No clients yet. Create one below."}
           </div>
         )}
       </section>

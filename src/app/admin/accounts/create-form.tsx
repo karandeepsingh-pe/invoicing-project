@@ -31,7 +31,7 @@ export function ClientAccountCreateAnywhereForm({
   if (orgs.length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        Create an org first so the account has a parent.
+        Create a client first so the account has a parent.
       </p>
     );
   }
@@ -40,7 +40,7 @@ export function ClientAccountCreateAnywhereForm({
     <form action={action} className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <FormError error={formError} />
       <SelectField
-        label="Org"
+        label="Client"
         name="orgId"
         value={orgId}
         onChange={(e) => setOrgId(e.target.value)}
@@ -59,7 +59,7 @@ export function ClientAccountCreateAnywhereForm({
         name="currency"
         maxLength={3}
         placeholder={selectedOrg?.defaultCurrency ?? ""}
-        hint={`Blank inherits org default${selectedOrg ? ` (${selectedOrg.defaultCurrency})` : ""}.`}
+        hint={`Blank inherits client default${selectedOrg ? ` (${selectedOrg.defaultCurrency})` : ""}.`}
         errors={fieldErrors?.currency}
       />
       <TextField

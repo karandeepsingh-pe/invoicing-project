@@ -20,7 +20,7 @@ export default function HomePage() {
           <span className="italic text-fg-muted">end to end.</span>
         </h1>
         <p className="max-w-xl text-base leading-relaxed text-fg-muted">
-          Admins configure orgs, accounts, rate cards, technicians, and assignments. SDMs capture
+          Admins configure clients, accounts, rate cards, technicians, and assignments. SDMs capture
           timesheets. The engine generates FSO and Pre-Invoice sheets on demand.
         </p>
       </div>

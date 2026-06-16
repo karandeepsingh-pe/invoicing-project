@@ -59,9 +59,9 @@ export function DeleteOrgButton({ id, name }: { id: string; name: string }) {
   return (
     <GuardedDelete
       id={id}
-      noun="org"
+      noun="client"
       label={name}
-      body="Blocked if it still has any client accounts or technicians."
+      body="Blocked if it still has any accounts or technicians."
       action={deleteOrg}
     />
   );

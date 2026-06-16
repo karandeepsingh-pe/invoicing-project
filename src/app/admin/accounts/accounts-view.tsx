@@ -53,7 +53,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
       <SearchBar
         value={query}
         onChange={setQuery}
-        placeholder="Search by account or org name…"
+        placeholder="Search by account or client name…"
         countLabel={`${filtered.length} of ${accounts.length}`}
       />
 
@@ -106,7 +106,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                   {effectiveCurrency}
                 </span>
                 {isOverride && (
-                  <span className="text-fg-subtle">override (org default {a.orgDefaultCurrency})</span>
+                  <span className="text-fg-subtle">override (client default {a.orgDefaultCurrency})</span>
                 )}
               </div>
 

@@ -35,7 +35,7 @@ export function BulkUploadDialog() {
         </span>
       }
       title="Bulk upload accounts"
-      description="Create many accounts at once from a spreadsheet. Each row's org is matched by name; a missing org is created automatically when the row sets an Output Template."
+      description="Create many accounts at once from a spreadsheet. Each row's client is matched by name; a missing client is created automatically when the row sets an Output Template."
       size="lg"
     >
       {({ close }) => <BulkUploadForm onClose={close} />}
@@ -116,7 +116,7 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
             {result.created === 1 ? "" : "s"}
             {result.orgsCreated > 0 && (
               <>
-                {" "}· <strong>{result.orgsCreated}</strong> new org
+                {" "}· <strong>{result.orgsCreated}</strong> new client
                 {result.orgsCreated === 1 ? "" : "s"}
               </>
             )}

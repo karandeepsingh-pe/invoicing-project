@@ -26,7 +26,7 @@ export function TechnicianCreateDialog({
       {({ close }) =>
         orgs.length === 0 ? (
           <p className="text-sm text-fg-muted">
-            Create an org first so the technician has an employer.
+            Create a client first so the technician has an employer.
           </p>
         ) : (
           <TechnicianCreateForm

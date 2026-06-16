@@ -73,7 +73,7 @@ export default async function AccountsPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Client billing units owned by orgs. Each account holds a rate sheet, misc fees, and the
+          Billing units owned by clients. Each account holds a rate sheet, misc fees, and the
           technicians assigned to it.
         </p>
       </header>

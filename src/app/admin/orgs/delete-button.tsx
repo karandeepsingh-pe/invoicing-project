@@ -10,7 +10,7 @@ export function OrgDeleteButton({ id, name }: { id: string; name: string }) {
   const [pending, startTransition] = useTransition();
 
   useActionToast(state, {
-    success: { title: `Deleted org "${name}"` },
+    success: { title: `Deleted client "${name}"` },
     error: { fallbackTitle: `Cannot delete "${name}"` },
   });
 
@@ -25,10 +25,10 @@ export function OrgDeleteButton({ id, name }: { id: string; name: string }) {
           {pending ? "Deleting…" : "Delete"}
         </button>
       }
-      title={`Delete org "${name}"?`}
+      title={`Delete client "${name}"?`}
       body={
         <span>
-          This permanently removes the org. Blocked if it still has any client accounts
+          This permanently removes the client. Blocked if it still has any accounts
           or technicians.
         </span>
       }

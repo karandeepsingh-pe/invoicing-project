@@ -23,7 +23,7 @@ export function AddAccountForOrgDialog({
         </button>
       }
       title={`Create account under ${orgName}`}
-      description={`Defaults to org currency (${defaultCurrency}) unless overridden.`}
+      description={`Defaults to client currency (${defaultCurrency}) unless overridden.`}
     >
       {({ close }) => (
         <ClientAccountCreateForm
