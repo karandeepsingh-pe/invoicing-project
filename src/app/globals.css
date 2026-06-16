@@ -176,19 +176,27 @@
      staying lighter than a button. Subtle underline for text links, hairline
      border for chips; both strengthen to accent on hover. */
 
-  /* Text link in body/heading colour (account & technician names, etc.):
-     muted underline at rest → accent + solid underline on hover. */
+  /* Clickable text link (account & technician names, etc.): accent (red) +
+     underline AT REST so it reads as a link without hovering, deepening on
+     hover. Element-qualified selectors give the colour enough specificity to
+     win over a co-applied `text-fg`/`text-fg-muted` utility still in the
+     markup, so the call sites don't need editing. */
   .ui-link {
     cursor: pointer;
     text-decoration-line: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
-    text-decoration-color: rgb(var(--fg) / 0.3);
+    text-decoration-color: rgb(var(--accent) / 0.4);
     transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
   }
-  .ui-link:hover {
+  a.ui-link,
+  span.ui-link,
+  button.ui-link {
     color: rgb(var(--accent));
-    text-decoration-color: rgb(var(--accent));
+  }
+  .ui-link:hover {
+    color: rgb(var(--accent-hover));
+    text-decoration-color: rgb(var(--accent-hover));
   }
 
   /* Accent action link already in red (Assign / Timesheet / Invoice / "Open →"):
