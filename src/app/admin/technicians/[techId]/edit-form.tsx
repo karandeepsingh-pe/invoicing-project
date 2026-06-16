@@ -156,7 +156,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           required
           defaultValue={String(props.band)}
           errors={fieldErrors?.band}
-          hint="Existing assignments inherit rates per band — changing this affects future rate look-ups."
+          hint="Existing assignments keep their band's rates. Changing this only affects future lookups."
         >
           {[0, 1, 2, 3, 4].map((b) => (
             <option key={b} value={b}>
@@ -171,7 +171,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             required
             defaultValue={props.defaultSlaTier === "NONE" ? "" : props.defaultSlaTier}
             errors={fieldErrors?.defaultSlaTier}
-            hint="Dedicated rates differ with vs without backfill."
+            hint="Dedicated rates depend on backfill."
           >
             <option value="" disabled>
               Select…

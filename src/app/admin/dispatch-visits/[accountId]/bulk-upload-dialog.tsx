@@ -48,7 +48,7 @@ export function DispatchBulkUploadDialog({
         </span>
       }
       title={`Bulk upload dispatch visits — ${monthLabel}`}
-      description={`Uploads only for ${monthLabel}: rows dated outside it are skipped, and re-uploading replaces ${monthLabel}'s dispatch visits for this account. Charges are computed from this account's rate sheet — the sheet carries inputs only.`}
+      description={`Uploads visits for ${monthLabel} only. Rows for other months are skipped, and uploading again replaces ${monthLabel}'s visits for this account. The sheet holds the inputs; charges come from the account's rate sheet.`}
       size="lg"
     >
       {({ close }) => (
@@ -107,7 +107,7 @@ function BulkUploadForm({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-surface-2 px-3 py-2.5">
         <p className="text-xs text-fg-muted">
           The template&apos;s Reference sheet lists this account&apos;s technicians, SLA codes,
-          and visit types. Re-uploading the same sheet skips rows already imported.
+          and visit types.
         </p>
         <button
           type="button"

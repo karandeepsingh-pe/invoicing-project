@@ -42,7 +42,7 @@ export function PostalCodeRowActions({
           </button>
         }
         title={`Edit postal code "${zipcode}"`}
-        description="Country drives the state options; state drives the city options."
+        description="Pick a country to narrow the states, then a state to narrow the cities."
         size="lg"
       >
         {({ close }) => (

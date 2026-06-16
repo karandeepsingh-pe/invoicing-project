@@ -20,9 +20,9 @@ export default async function PostalCodesMastersPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Canonical zipcode → city / state / country mapping. Entering a zipcode on a technician
-          form auto-fills the rest from here. Unknown zipcodes can be added inline from the
-          technician form too — they land in this list automatically.
+          Maps each zipcode to a city, state, and country. Enter a zipcode on a technician form and
+          the rest fills in from here. New zipcodes you add on the technician form show up in this
+          list too.
         </p>
       </header>
 

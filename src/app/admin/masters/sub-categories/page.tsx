@@ -29,8 +29,8 @@ export default async function SubCategoriesMastersPage() {
           <span className="text-sm text-fg-subtle">{rows.length} total</span>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Rows in the rate matrix. Each (rate category, code) is unique. Adding new sub-categories
-          here exposes them in every account&rsquo;s &ldquo;Add rate row&rdquo; form.
+          The rows in the rate matrix. Each (rate category, code) pair is unique. Add one here and
+          it shows up in every account&rsquo;s &ldquo;Add rate row&rdquo; form.
         </p>
       </header>
 

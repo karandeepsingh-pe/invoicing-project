@@ -152,7 +152,7 @@ export function TechnicianCreateForm({
             required
             defaultValue=""
             errors={fieldErrors?.defaultSlaTier}
-            hint="Dedicated rates differ with vs without backfill — pick one."
+            hint="Dedicated rates depend on backfill, so pick one."
           >
             <option value="" disabled>
               Select…

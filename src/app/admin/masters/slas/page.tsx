@@ -20,8 +20,8 @@ export default async function SlasMastersPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Service level codes referenced on every rate row. Adding, renaming, or removing an SLA
-          here propagates to all account rate sheets and dropdowns.
+          Service-level codes used on every rate row. Add, rename, or remove one here and it
+          updates across all account rate sheets and dropdowns.
         </p>
       </header>
 

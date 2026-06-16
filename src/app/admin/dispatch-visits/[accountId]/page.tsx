@@ -148,9 +148,9 @@ export default async function DispatchVisitsPage({
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
-          One row per technician site visit. Per-visit charge =
-          {" "}<code>FIRST_HOUR + max(0, hours-1) × ADDITIONAL_HOUR</code>, with
-          after-hours / weekend uplifts when applicable.
+          One row per site visit. Each visit charges
+          {" "}<code>FIRST_HOUR + max(0, hours-1) × ADDITIONAL_HOUR</code>, plus
+          after-hours or weekend uplifts where they apply.
         </p>
 
         <TimesheetTypeTabs accountId={accountId} year={year} month={month} active="DISPATCH" />

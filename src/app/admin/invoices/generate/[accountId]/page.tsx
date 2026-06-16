@@ -49,7 +49,7 @@ export default async function GeneratePreInvoicePage({
         </h1>
         <p className="text-sm text-fg-muted">
           Period {range.start.toISOString().slice(0, 10)} → {lastDay.toISOString().slice(0, 10)}.
-          Business days auto-derive from weekdays minus PH dates on the timesheet.
+          Business days come from the month&apos;s weekdays minus any PH dates on the timesheet.
         </p>
         <div className="flex gap-3 text-xs">
           <Link

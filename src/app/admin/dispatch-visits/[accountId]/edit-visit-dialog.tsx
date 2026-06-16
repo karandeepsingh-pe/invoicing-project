@@ -80,7 +80,7 @@ export function EditDispatchVisitDialog(props: Props) {
         </button>
       }
       title="Edit visit"
-      description="Update this dispatch visit; the charge recomputes from the rate sheet."
+      description="Edit this visit. The charge recalculates from the rate sheet."
       size="xl"
     >
       {({ close }) => <EditVisitForm {...props} close={close} />}

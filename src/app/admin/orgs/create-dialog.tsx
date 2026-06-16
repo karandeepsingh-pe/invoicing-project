@@ -8,7 +8,7 @@ export function OrgCreateDialog() {
     <Dialog
       trigger={<AddButton label="Add client" size="md" />}
       title="Create client"
-      description="Pick the output template — HCL gets FSO; everyone else gets PRE_INVOICE."
+      description="Choose the output template. HCL uses FSO; everyone else uses Pre-Invoice."
     >
       {({ close }) => <OrgCreateForm onSuccess={close} />}
     </Dialog>

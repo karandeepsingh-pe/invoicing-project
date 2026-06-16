@@ -22,27 +22,29 @@ export default async function TimesheetsLanding() {
         </p>
         <details className="glass-soft mt-2 max-w-2xl rounded-md p-3 text-xs text-fg-muted">
           <summary className="cursor-pointer font-semibold text-fg">
-            Cell codes — quick reference
+            What the cell codes mean
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              <strong>Number</strong> — hours worked. Weekday: regular up to
-              Default Hours, OT above. Sat/Sun: Weekend bucket.
+              <strong>A number</strong> is the hours worked. On weekdays, hours up to
+              Default Hours are regular and the rest is OT. Saturday and Sunday hours go
+              into the weekend bucket.
             </li>
             <li>
-              <strong><code>PH</code></strong> — Public Holiday. Reduces Business
-              Days for the month.
+              <strong><code>PH</code></strong> is a public holiday. It isn&apos;t a worked
+              day, and it lowers the month&apos;s business days.
             </li>
             <li>
-              <strong><code>AB</code></strong> — Absent. On BACKFILL tier, log a
-              coverage event under the account&apos;s Backfill log.
+              <strong><code>AB</code></strong> is absent. On a Backfill assignment, log
+              who covered in the account&apos;s Backfill log.
             </li>
             <li>
-              <strong><code>NA</code></strong> — Terminated / Not Applicable.
+              <strong><code>NA</code></strong> means not applicable, or the technician has
+              left.
             </li>
             <li>
-              <strong>Blank</strong> — pre-fills with Default Hours on next
-              reload. Use <code>AB</code>/<code>PH</code> for intentional zeros.
+              A <strong>blank</strong> weekday fills with Default Hours when the page
+              reloads. Use <code>AB</code> or <code>PH</code> when you really mean zero.
             </li>
           </ul>
         </details>

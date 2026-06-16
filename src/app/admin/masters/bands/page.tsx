@@ -13,9 +13,8 @@ export default function BandsMastersPage() {
         <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Bands</h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Bands 0–4 are hardcoded into the schema and used on every technician and rate row.
-          They are not editable from the UI to keep referential integrity simple. Labels below
-          are conventions, not stored in the database.
+          Bands 0–4 are fixed in the schema and used on every technician and rate row. You
+          can&apos;t edit them here. The labels below are just conventions and aren&apos;t stored.
         </p>
       </header>
 
@@ -39,8 +38,8 @@ export default function BandsMastersPage() {
       </section>
 
       <div className="glass rounded-xl p-5 text-sm text-fg-muted">
-        Need to add or rename bands? That requires a schema change (Prisma migration) — drop a
-        note to engineering. The current range matches the rate matrix structure.
+        To add or rename a band you&apos;d need a schema change (a Prisma migration), so ask
+        engineering. The current 0–4 range matches the rate matrix.
       </div>
     </div>
   );

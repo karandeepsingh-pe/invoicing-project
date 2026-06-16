@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
           <section className="flex flex-col gap-3">
             <h2 className="text-xl">Month readiness</h2>
             <p className="text-xs text-fg-muted">
-              Everything that must be clean before {o.month.label} can be invoiced.
+              What still needs sorting before {o.month.label} can be invoiced.
             </p>
             <div className="glass overflow-x-auto">
               <table className="w-full text-sm">
@@ -153,7 +153,7 @@ export default async function AdminDashboard() {
                   {active.length === 0 && (
                     <tr className="border-t border-border">
                       <td colSpan={6} className="px-3 py-6 text-sm text-fg-subtle">
-                        No billable activity recorded for {o.month.label} yet.
+                        Nothing billable for {o.month.label} yet.
                       </td>
                     </tr>
                   )}
@@ -190,8 +190,8 @@ export default async function AdminDashboard() {
               </div>
             </div>
             <p className="text-[10px] text-fg-subtle">
-              Computed live from the rate sheets — matches the Generate previews. Excludes
-              retainers, standby, and misc fees added at generation.
+              Calculated from the rate sheets, so it matches the Generate previews. It leaves out
+              retainers, standby, and misc fees, which are added at generation time.
             </p>
           </section>
         </div>
@@ -299,7 +299,7 @@ export default async function AdminDashboard() {
       <p className="border-t border-border pt-4 text-xs text-fg-subtle">
         <Link href={"/admin/management" as never} className="transition-colors hover:text-fg">
           {o.counts.accounts} accounts · {o.counts.technicians} technicians ·{" "}
-          {o.counts.assignments} assignments — manage in Client Management →
+          {o.counts.assignments} assignments · manage in Client Management →
         </Link>
       </p>
     </div>

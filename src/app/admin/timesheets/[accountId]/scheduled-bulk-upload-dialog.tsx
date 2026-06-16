@@ -48,7 +48,7 @@ export function ScheduledBulkUploadDialog({
         </span>
       }
       title={`Bulk upload scheduled visits — ${monthLabel}`}
-      description={`Uploads only for ${monthLabel}: rows dated outside it are skipped, and re-uploading replaces ${monthLabel}'s scheduled visits for this account. Billing uses the account's FULL_DAY / HALF_DAY rates at invoice time — the sheet carries inputs only.`}
+      description={`Uploads visits for ${monthLabel} only. Rows for other months are skipped, and uploading again replaces ${monthLabel}'s visits for this account. The sheet holds the inputs; billing uses the account's FULL_DAY / HALF_DAY rates.`}
       size="md"
     >
       {({ close }) => (
@@ -106,8 +106,8 @@ function BulkUploadForm({
     <form onSubmit={handleUpload} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/60 bg-surface-2 px-3 py-2.5">
         <p className="text-xs text-fg-muted">
-          The template&apos;s Reference sheet lists the technicians with Scheduled assignments
-          here. Re-uploading updates changed rows and skips identical ones.
+          The template&apos;s Reference sheet lists the technicians with Scheduled assignments on
+          this account.
         </p>
         <button
           type="button"

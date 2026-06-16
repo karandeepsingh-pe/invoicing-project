@@ -57,7 +57,7 @@ export function FillRangeDialog({
         </button>
       }
       title={`Fill ${technicianName}'s month`}
-      description="Set one value across a range of days, then review and Save month to persist."
+      description="Fill one value across a range of days, then review the grid and save."
       size="sm"
     >
       {({ close }) => (

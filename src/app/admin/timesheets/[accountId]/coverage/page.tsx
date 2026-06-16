@@ -85,11 +85,11 @@ export default async function CoveragePage({
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
-          Log who covered whom. Only valid when the covered technician&apos;s
-          assignment slaTier = <code>BACKFILL</code>. Any active pool technician
-          can cover — no assignment on this account needed. The pre-invoice gets
-          a separate <em>FTE (Backfill)</em> line at the covered tech&apos;s
-          rates, showing the hours.
+          Log who covered whom. This only applies when the covered technician&apos;s
+          assignment is on the <code>BACKFILL</code> tier. Any active pool technician can
+          cover; they don&apos;t need an assignment on this account. The pre-invoice then gets
+          a separate <em>FTE (Backfill)</em> line at the covered tech&apos;s rates, showing the
+          hours.
         </p>
 
         <details className="glass-soft rounded-md p-3 text-xs text-fg-muted">
@@ -98,19 +98,18 @@ export default async function CoveragePage({
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              <strong>Weekday event</strong>: hours up to Default Hours count as
-              one regular day on the covering tech&apos;s line (the covered tech
-              loses the same day). Anything above goes on the covering tech&apos;s
-              OT bucket at the covered tech&apos;s OT rate.
+              <strong>On a weekday</strong>, hours up to Default Hours count as one regular
+              day for the covering tech, and the covered tech loses that day. Anything above
+              goes to the covering tech&apos;s OT at the covered tech&apos;s OT rate.
             </li>
             <li>
-              <strong>Sat / Sun event</strong>: every hour goes into the covering
-              tech&apos;s Weekend bucket at the covered tech&apos;s Weekend rate.
-              No day delta on either side.
+              <strong>On Saturday or Sunday</strong>, every hour goes to the covering
+              tech&apos;s Weekend bucket at the covered tech&apos;s Weekend rate. Neither
+              tech&apos;s day count changes.
             </li>
             <li>
-              <strong>NO_BACKFILL / NONE</strong> covered tier: event is skipped
-              at invoice time and surfaced as a warning.
+              If the covered tier is <strong>NO_BACKFILL</strong> or <strong>NONE</strong>, the
+              event is skipped at invoice time and flagged as a warning.
             </li>
           </ul>
         </details>

@@ -362,8 +362,8 @@ export default async function AccountDetailPage({
           </span>
         </div>
         <p className="-mt-1 text-xs text-fg-subtle">
-          Audit record written each time a pre-invoice is generated. Delete runs here to
-          free the account for deletion.
+          One row is logged each time a pre-invoice is generated. Delete the runs here if you
+          need to delete the account.
         </p>
         <div className="glass overflow-hidden rounded-xl">
           <table className="w-full text-sm">

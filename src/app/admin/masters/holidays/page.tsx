@@ -24,8 +24,9 @@ export default async function HolidaysMastersPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Gazetted public holidays (global). Each date auto-fills PH on every technician&apos;s
-          Dedicated timesheet for that month (overridable), and a PH day bills as a paid day.
+          Public holidays, shared across all accounts. Each date fills in PH on every
+          technician&apos;s Dedicated timesheet for that month (you can override it), and a PH day
+          bills as a paid day.
         </p>
       </header>
 

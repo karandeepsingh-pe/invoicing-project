@@ -20,8 +20,8 @@ export default async function VisitTypesMastersPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Install / Repair / Audit / … picked per dispatch visit. Descriptive metadata for
-          now; the dispatch picker only offers active types.
+          The visit types you can pick on a dispatch visit (Install, Repair, Audit, and so on).
+          The picker only shows the active ones.
         </p>
       </header>
 

@@ -29,8 +29,8 @@ export default async function OrgsPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Vendor partners that own accounts. HCL receives FSO output; every other client
-          receives Pre-Invoice.
+          Vendor partners that own accounts. HCL gets the FSO format. Everyone else gets
+          Pre-Invoice.
         </p>
       </header>
 

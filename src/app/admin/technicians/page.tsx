@@ -148,8 +148,8 @@ export default async function TechniciansPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Field techs assignable to client accounts. The rate sheet on each card is computed
-          live from the tech&rsquo;s active assignments at their current band.
+          Field techs you can assign to accounts. The rate sheet on each card comes from the
+          tech&rsquo;s active assignments at their current band.
         </p>
       </header>
 

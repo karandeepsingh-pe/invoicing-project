@@ -123,34 +123,35 @@ export default async function TimesheetPage({
 
         <details className="glass-soft rounded-md p-3 text-xs text-fg-muted">
           <summary className="cursor-pointer font-semibold text-fg">
-            Codes &amp; rules — what to enter
+            What to enter in each cell
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              <strong>Number</strong> (e.g. <code>8</code>, <code>10</code>) —
-              hours worked. Weekday hours up to Default Hours count as regular
-              time; anything above is OT.
+              <strong>A number</strong> (like <code>8</code> or <code>10</code>) is the
+              hours worked. On weekdays, hours up to Default Hours are regular time and
+              anything above is OT.
             </li>
             <li>
-              <strong>Sat / Sun number</strong> — any value goes into the
-              separate Weekend Hours bucket (no day count, no OT).
+              <strong>A number on Saturday or Sunday</strong> goes into the separate
+              Weekend Hours bucket. It doesn&apos;t count as a day or as OT.
             </li>
             <li>
-              <strong><code>PH</code></strong> — Public Holiday. Bills to the
-              client as a full paid day. (<code>PTO</code> is paid to the
-              technician but <strong>not billed</strong>.)
+              <strong><code>PH</code></strong> is a public holiday. The client is billed
+              for it as a full paid day. (<code>PTO</code> is paid to the technician but{" "}
+              <strong>not billed</strong>.)
             </li>
             <li>
-              <strong><code>AB</code></strong> — Absent. On a <code>BACKFILL</code>
-              -tier assignment, log a coverage event on the Backfill log.
+              <strong><code>AB</code></strong> is absent. On a <code>BACKFILL</code>{" "}
+              assignment, log who covered on the Backfill log.
             </li>
             <li>
-              <strong><code>NA</code></strong> — Not Applicable / Terminated.
+              <strong><code>NA</code></strong> means not applicable, or the technician has
+              left.
             </li>
             <li>
-              <strong>Dedicated</strong> weekdays pre-fill Default Hours and save
-              automatically; <strong>Project</strong> and <strong>Scheduled</strong>{" "}
-              start blank (enter only the days worked).
+              <strong>Dedicated</strong> weekdays pre-fill with Default Hours and save on
+              their own. <strong>Project</strong> and <strong>Scheduled</strong> start
+              blank, so enter only the days worked.
             </li>
           </ul>
         </details>
@@ -167,7 +168,7 @@ export default async function TimesheetPage({
         <div className="glass-soft rounded-md px-3 py-2 text-xs text-fg-muted">
           <span className="font-semibold text-fg">Holidays this month:</span>{" "}
           {holidays.map((h) => `${fmtIso(h.date)} ${h.name}`).join(" · ")}
-          {" — pre-filled as PH (a billed paid day) on Dedicated; type hours over a cell if someone works that day."}
+          {". These pre-fill as PH (a paid, billed day) on Dedicated timesheets. If someone works that day, type their hours over the cell."}
         </div>
       )}
 

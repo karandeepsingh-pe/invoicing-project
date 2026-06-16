@@ -129,10 +129,9 @@ export default async function ManagementPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Single workspace for vendor clients and their accounts, rate sheets, and technicians.
-          Create, edit, and delete from here — changes propagate everywhere the data is used.
-          Open an account to manage rate cards, misc fees, and assignments; open a technician to
-          manage their employment and assignments.
+          Your clients, their accounts, and technicians in one place. Anything you change here
+          updates wherever the data is used. Open an account to manage its rate card, misc fees,
+          and assignments. Open a technician to manage their details and assignments.
         </p>
       </header>
 

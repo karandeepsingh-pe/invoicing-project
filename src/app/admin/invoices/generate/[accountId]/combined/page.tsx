@@ -49,9 +49,9 @@ export default async function GenerateCombinedPage({
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="max-w-2xl text-sm text-fg-muted">
-          One Load shows <strong>every category</strong> for this month. Download each
-          category on its own, or the <strong>combined workbook</strong> (FTE + Project / T&amp;M
-          + Dispatch sheets plus a Summary grand total).
+          One load shows <strong>every category</strong> for this month. Download each
+          category on its own, or the <strong>combined workbook</strong> (FTE, Project / T&amp;M,
+          and Dispatch sheets plus a Summary total).
           Period {range.start.toISOString().slice(0, 10)} → {lastDay.toISOString().slice(0, 10)}.
         </p>
         <div className="flex gap-3 text-xs">

@@ -106,7 +106,7 @@ export function CoverageView({
                   required
                   options={poolTechs.map((t) => ({ value: t.id, label: t.label }))}
                   errors={fieldErrors?.coveringTechnicianId}
-                  hint="Active Project/Dispatch pool — no assignment on this account needed. Bills at the covered tech's rates."
+                  hint="Anyone in the active Project/Dispatch pool can cover; no assignment on this account needed. Billed at the covered tech's rates."
                 />
                 <TextField
                   label="Date"
@@ -136,7 +136,7 @@ export function CoverageView({
                   inputMode="decimal"
                   placeholder="e.g. 10"
                   errors={fieldErrors?.expenseAmount}
-                  hint="Paid to the covering tech (travel etc.) — billed to the client under Reimbursements."
+                  hint="Paid to the covering tech (travel, etc.) and billed to the client under Reimbursements."
                 />
                 <TextField
                   label="Expense note"

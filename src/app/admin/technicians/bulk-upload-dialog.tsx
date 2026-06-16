@@ -35,7 +35,7 @@ export function TechnicianBulkUploadDialog() {
         </span>
       }
       title="Bulk upload technicians"
-      description="Create many technicians at once from a spreadsheet. Each row's employer client is matched by name and must already exist (create or upload the client first)."
+      description="Add many technicians at once from a spreadsheet. Each row's employer client is matched by name and must already exist, so create or upload the client first."
       size="lg"
     >
       {({ close }) => <BulkUploadForm onClose={close} />}

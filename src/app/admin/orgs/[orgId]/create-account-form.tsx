@@ -69,7 +69,7 @@ export function ClientAccountCreateForm({
         max={24}
         defaultValue={8}
         errors={fieldErrors?.defaultHours}
-        hint="Hours counted as one full working day. Pre-fills FTE weekday cells; anything above becomes OT."
+        hint="Hours that count as one full working day. Pre-fills FTE weekday cells; anything above becomes OT."
       />
       <SubmitButton>Create account</SubmitButton>
       {state && state.ok && !onSuccess && <div className="text-sm text-success">Account created.</div>}

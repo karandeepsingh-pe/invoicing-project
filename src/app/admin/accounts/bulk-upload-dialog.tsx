@@ -35,7 +35,7 @@ export function BulkUploadDialog() {
         </span>
       }
       title="Bulk upload accounts"
-      description="Create many accounts at once from a spreadsheet. Each row's client is matched by name; a missing client is created automatically when the row sets an Output Template."
+      description="Add many accounts at once from a spreadsheet. Each row's client is matched by name. If the client doesn't exist yet, it's created when the row has an Output Template."
       size="lg"
     >
       {({ close }) => <BulkUploadForm onClose={close} />}
