@@ -117,7 +117,7 @@ export function writeFsoSheets(wb: ExcelJS.Workbook, meta: FsoMeta, data: FsoDat
   // Dedicated
   writeSheet(
     wb,
-    "Dedicated",
+    "FSO Dedicated",
     DEDICATED_HEADERS,
     data.dedicated.map((r) => {
       const total = r.actualCost + r.otCost + r.weekendCost;
@@ -133,7 +133,7 @@ export function writeFsoSheets(wb: ExcelJS.Workbook, meta: FsoMeta, data: FsoDat
   // Project Work
   writeSheet(
     wb,
-    "Project Work",
+    "FSO Project Work",
     PROJECT_HEADERS,
     data.project.map((r) => {
       const total = r.actualCost + r.otCost + r.weekendCost;
@@ -149,7 +149,7 @@ export function writeFsoSheets(wb: ExcelJS.Workbook, meta: FsoMeta, data: FsoDat
   // Dispatch
   writeSheet(
     wb,
-    "Dispatch",
+    "FSO Dispatch",
     DISPATCH_HEADERS,
     data.dispatch.map((r) => {
       const contact = [r.technicianName, r.phone, r.email].filter(Boolean).join("\n");
@@ -166,7 +166,7 @@ export function writeFsoSheets(wb: ExcelJS.Workbook, meta: FsoMeta, data: FsoDat
   // SV, Full & Half day Visit
   writeSheet(
     wb,
-    "SV,Full & Half day Visit",
+    "FSO SV,Full & Half day Visit",
     SV_HEADERS,
     data.scheduled.map((r) => [
       "Schedule Visits", cust, PARTNER, "NA", "NA", "NA", "Email", "", r.country, r.state, r.city, r.street,

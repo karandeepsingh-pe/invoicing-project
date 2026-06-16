@@ -29,6 +29,14 @@ const emailOptional = z
   .optional()
   .or(z.literal("").transform(() => undefined));
 
+// Employment start date — optional ISO, blank → undefined.
+const optionalIsoDate = z
+  .union([
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+    z.literal("").transform(() => undefined),
+  ])
+  .optional();
+
 const availabilityFlags = {
   isAvailableForDedicated: z.coerce.boolean().optional().default(false),
   isAvailableForProject: z.coerce.boolean().optional().default(false),
@@ -65,6 +73,7 @@ export const technicianCreateSchema = z.object({
   locationState: placeOptional,
   locationCountry: placeOptional,
   addressLine1: addressOptional,
+  startDate: optionalIsoDate,
   initialAccountId: z.string().optional(),
   initialCategory: z.nativeEnum(RateCategory).optional(),
   initialStartDate: z
@@ -106,6 +115,7 @@ export const technicianUpdateSchema = z.object({
   locationState: placeOptional,
   locationCountry: placeOptional,
   addressLine1: addressOptional,
+  startDate: optionalIsoDate,
 });
 
 export type TechnicianUpdateInput = z.infer<typeof technicianUpdateSchema>;

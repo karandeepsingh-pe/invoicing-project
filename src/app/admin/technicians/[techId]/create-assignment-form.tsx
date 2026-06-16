@@ -41,6 +41,7 @@ export function AssignmentCreateForm({
   accounts,
   flags,
   hasActiveDedication,
+  technicianStartDate,
   onSuccess,
 }: {
   technicianId: string;
@@ -50,6 +51,8 @@ export function AssignmentCreateForm({
   accounts: AccountOption[];
   flags: TechnicianFlags;
   hasActiveDedication: boolean;
+  // Employment start (HR field) — prefills the assignment Start date.
+  technicianStartDate?: string | null;
   onSuccess?: () => void;
 }) {
   const [state, action] = useActionState(createAssignment, null);
@@ -128,6 +131,7 @@ export function AssignmentCreateForm({
           name="startDate"
           type="date"
           required
+          defaultValue={technicianStartDate ?? undefined}
           errors={fieldErrors?.startDate}
         />
         <TextField

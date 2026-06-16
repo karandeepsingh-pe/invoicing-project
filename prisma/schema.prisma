@@ -312,6 +312,10 @@ model Technician {
   rebadgedWeekendRate Decimal? @db.Decimal(12, 4)
   postalCodeId    String?
   addressLine1    String? // street address line 1
+  // Employment start date (HR record, editable). Prefills the Start date when
+  // creating an assignment; does NOT itself gate timesheets (the assignment
+  // window does). Nullable for technicians created before this field existed.
+  startDate       DateTime?    @db.Date
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 

@@ -4,11 +4,16 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dev-session";
-import { assignmentCreateSchema, assignmentBulkCreateSchema } from "@/lib/schemas/assignment";
+import {
+  assignmentCreateSchema,
+  assignmentBulkCreateSchema,
+  assignmentUpdateDatesSchema,
+} from "@/lib/schemas/assignment";
 import {
   validateAssignment,
   deriveAssignmentSlaTier,
 } from "@/lib/domain/assignment-validation";
+import { toDayIso } from "@/lib/invoice/assignment-window";
 import type { ActionResult } from "./result";
 
 export async function createAssignment(
@@ -238,6 +243,100 @@ export async function endAssignment(_prev: ActionResult, formData: FormData): Pr
     where: { id },
     data: { endDate: new Date(endDateStr) },
   });
+  revalidatePath(`/admin/technicians/${a.technicianId}`);
+  revalidatePath(`/admin/accounts/${a.clientAccountId}`);
+  revalidatePath("/admin/management");
+  return { ok: true };
+}
+
+/**
+ * Inline edit of an assignment's dates. Start is always updatable. The end date
+ * may only be SET when it is currently open (null) — once an end exists it is
+ * immutable here (use `reopenAssignment` to clear it). Keeps the day-level
+ * window honest so the timesheet/billing clamp reflects exactly these dates.
+ */
+export async function updateAssignmentDates(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+  const parsed = assignmentUpdateDatesSchema.safeParse({
+    id: formData.get("id"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate") || undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  const existing = await prisma.assignment.findUnique({
+    where: { id: parsed.data.id },
+    select: { id: true, technicianId: true, clientAccountId: true, endDate: true },
+  });
+  if (!existing) return { ok: false, formError: "Assignment not found." };
+
+  // End is immutable once set: only apply a new end when the current one is open.
+  const newEnd =
+    existing.endDate === null && parsed.data.endDate
+      ? new Date(parsed.data.endDate)
+      : existing.endDate;
+
+  if (newEnd && parsed.data.startDate > toDayIso(newEnd)) {
+    return {
+      ok: false,
+      fieldErrors: { startDate: ["Start date must be on or before the end date."] },
+    };
+  }
+
+  const a = await prisma.assignment.update({
+    where: { id: parsed.data.id },
+    data: { startDate: new Date(parsed.data.startDate), endDate: newEnd },
+  });
+  revalidatePath(`/admin/technicians/${a.technicianId}`);
+  revalidatePath(`/admin/accounts/${a.clientAccountId}`);
+  revalidatePath("/admin/management");
+  return { ok: true };
+}
+
+/**
+ * Clear an assignment's end date (reopen → ongoing). For DEDICATED this is
+ * blocked when the technician already has another open-ended Dedicated
+ * assignment (the single-active rule).
+ */
+export async function reopenAssignment(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, formError: "Missing assignment id." };
+
+  const a = await prisma.assignment.findUnique({
+    where: { id },
+    select: { id: true, technicianId: true, clientAccountId: true, rateCategory: true },
+  });
+  if (!a) return { ok: false, formError: "Assignment not found." };
+
+  if (a.rateCategory === "DEDICATED") {
+    const other = await prisma.assignment.findFirst({
+      where: {
+        technicianId: a.technicianId,
+        rateCategory: "DEDICATED",
+        endDate: null,
+        id: { not: id },
+      },
+      select: { id: true },
+    });
+    if (other) {
+      return {
+        ok: false,
+        formError:
+          "This technician already has an active (open-ended) Dedicated assignment. End that one first.",
+      };
+    }
+  }
+
+  await prisma.assignment.update({ where: { id }, data: { endDate: null } });
   revalidatePath(`/admin/technicians/${a.technicianId}`);
   revalidatePath(`/admin/accounts/${a.clientAccountId}`);
   revalidatePath("/admin/management");

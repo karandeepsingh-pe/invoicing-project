@@ -15,11 +15,12 @@ import {
   cellToTimeString,
 } from "@/lib/domain/bulk-cells";
 import { executeDispatchVisitCreate } from "@/lib/domain/dispatch-visit-create";
+import { monthRange } from "@/lib/invoice/period";
 
 export type BulkRowError = { row: number; message: string };
 
 export type BulkDispatchUploadResult =
-  | { ok: true; created: number; skipped: number; errors: BulkRowError[] }
+  | { ok: true; created: number; skipped: number; skippedOffMonth: number; errors: BulkRowError[] }
   | { ok: false; formError: string }
   | null;
 
@@ -129,6 +130,13 @@ export async function bulkUploadDispatchVisits(
   const accountId = String(formData.get("accountId") ?? "");
   if (!accountId) return { ok: false, formError: "Missing account." };
 
+  const year = Number(formData.get("year"));
+  const month = Number(formData.get("month"));
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return { ok: false, formError: "Missing upload month." };
+  }
+  const range = monthRange(year, month);
+
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, formError: "Choose an .xlsx file to upload." };
@@ -142,6 +150,18 @@ export async function bulkUploadDispatchVisits(
   }
   const sheet = workbook.getWorksheet("Visits") ?? workbook.worksheets[0];
   if (!sheet) return { ok: false, formError: "The workbook has no sheets." };
+
+  // Replace this month: soft-delete the account's existing live dispatch visits
+  // for the selected month before importing, so a re-upload refreshes the month
+  // cleanly (other months untouched).
+  await prisma.dispatchVisit.updateMany({
+    where: {
+      deletedAt: null,
+      visitDate: { gte: range.start, lt: range.end },
+      assignment: { clientAccountId: accountId },
+    },
+    data: { deletedAt: new Date(), deletedById: admin.userId },
+  });
 
   // Resolution maps: technician full name -> assignment, SLA code -> id,
   // visit type code/label -> id. Names are matched case-insensitively;
@@ -174,6 +194,7 @@ export async function bulkUploadDispatchVisits(
   const errors: BulkRowError[] = [];
   let created = 0;
   let skipped = 0;
+  let skippedOffMonth = 0;
 
   for (const { rowNumber, row } of dataRows) {
     const raw: Record<string, string> = {};
@@ -199,6 +220,13 @@ export async function bulkUploadDispatchVisits(
       continue;
     }
     const r = parsed.data;
+
+    // Month-scope: rows dated outside the selected month are skipped (reported).
+    const visitDate = new Date(`${r.visitDate}T00:00:00.000Z`);
+    if (visitDate < range.start || visitDate >= range.end) {
+      skippedOffMonth += 1;
+      continue;
+    }
 
     const techMatch = assignmentByName.get(r.technician.toLowerCase());
     if (!techMatch) {
@@ -320,9 +348,9 @@ export async function bulkUploadDispatchVisits(
     }
   }
 
-  if (created > 0) {
-    revalidatePath(`/admin/dispatch-visits/${accountId}`);
-    revalidatePath(`/admin/timesheets/${accountId}`);
-  }
-  return { ok: true, created, skipped, errors };
+  // Always revalidate — the replace step may have removed rows even if the file
+  // added none.
+  revalidatePath(`/admin/dispatch-visits/${accountId}`);
+  revalidatePath(`/admin/timesheets/${accountId}`);
+  return { ok: true, created, skipped, skippedOffMonth, errors };
 }

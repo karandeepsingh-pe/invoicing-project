@@ -41,6 +41,7 @@ export type TechEditFormProps = {
   orgs: { id: string; name: string }[];
   postalCodeId: string | null;
   addressLine1: string | null;
+  startDate: string | null;
   zipcode: string | null;
   city: string | null;
   state: string | null;
@@ -216,6 +217,15 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           rebadgedOtRate: props.rebadgedOtRate,
           rebadgedWeekendRate: props.rebadgedWeekendRate,
         }}
+      />
+
+      <TextField
+        label="Start date"
+        name="startDate"
+        type="date"
+        defaultValue={props.startDate ?? ""}
+        errors={fieldErrors?.startDate}
+        hint="Employment start (optional)."
       />
 
       <TextField

@@ -348,9 +348,8 @@ export default async function AccountDetailPage({
             techName: `${a.technician.firstName} ${a.technician.lastName}`,
             band: a.technician.band,
             categoryLabel: categoryLabel[a.rateCategory],
-            start: fmtDate(a.startDate),
-            end: fmtDate(a.endDate),
-            isActive: a.endDate === null,
+            startIso: a.startDate.toISOString().slice(0, 10),
+            endIso: a.endDate ? a.endDate.toISOString().slice(0, 10) : null,
           }))}
         />
       </section>

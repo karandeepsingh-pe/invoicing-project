@@ -5,6 +5,7 @@ import {
   type ScheduledRateRow,
   type ScheduledTimesheetCell,
 } from "./scheduled-calculator";
+import { isWithinWindow, toDayIso } from "./assignment-window";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 /**
@@ -56,11 +57,15 @@ export async function loadScheduledRows(
 
   const rows: PreInvoiceRow[] = [];
   for (const a of assignments) {
-    const entries: ScheduledTimesheetCell[] = a.timesheetEntries.map((e) => ({
-      hours: e.hours,
-      status: e.status,
-      date: e.date,
-    }));
+    const startIso = toDayIso(a.startDate);
+    const endIso = a.endDate ? toDayIso(a.endDate) : null;
+    const entries: ScheduledTimesheetCell[] = a.timesheetEntries
+      .filter((e) => isWithinWindow(toDayIso(e.date), startIso, endIso))
+      .map((e) => ({
+        hours: e.hours,
+        status: e.status,
+        date: e.date,
+      }));
     const calc = calculateScheduledRow({
       defaultHours: account.defaultHours,
       band: a.technician.band,

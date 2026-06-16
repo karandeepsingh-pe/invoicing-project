@@ -16,6 +16,7 @@ import {
   type CoveringTechInfo,
 } from "./coverage";
 import { pickBandAnnual, resolveDedicatedDayRate, resolveRebadgedDayRate } from "./billing-basis";
+import { isWithinWindow, toDayIso } from "./assignment-window";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 function slaTierLabel(tier: "BACKFILL" | "NO_BACKFILL" | "NONE"): string {
@@ -231,11 +232,17 @@ export async function loadFteRows(
       { rateAmount: rr.ot, rateSubCategory: { code: "OT_HOURLY_RATE" }, sla: { code: a.slaTier } },
       { rateAmount: rr.weekend, rateSubCategory: { code: "WEEKEND_HOURLY_RATE" }, sla: { code: a.slaTier } },
     ];
-    const entries: TimesheetCell[] = a.timesheetEntries.map((e) => ({
-      date: e.date,
-      hours: e.hours,
-      status: e.status,
-    }));
+    // Clamp to the assignment's active window (end inclusive): days before the
+    // start or after the end never bill, even if a stray entry exists.
+    const startIso = toDayIso(a.startDate);
+    const endIso = a.endDate ? toDayIso(a.endDate) : null;
+    const entries: TimesheetCell[] = a.timesheetEntries
+      .filter((e) => isWithinWindow(toDayIso(e.date), startIso, endIso))
+      .map((e) => ({
+        date: e.date,
+        hours: e.hours,
+        status: e.status,
+      }));
 
     const calc = calculateDedicatedFteRow({
       defaultHours,

@@ -177,6 +177,7 @@ export default async function TechnicianDetailPage({
             orgs={orgs}
             postalCodeId={tech.postalCodeId}
             addressLine1={tech.addressLine1}
+            startDate={tech.startDate ? tech.startDate.toISOString().slice(0, 10) : null}
             zipcode={tech.postalCode?.zipcode ?? null}
             city={tech.postalCode?.city ?? null}
             state={tech.postalCode?.state ?? null}
@@ -210,6 +211,7 @@ export default async function TechnicianDetailPage({
                 isAvailableForDispatch: tech.isAvailableForDispatch,
               }}
               hasActiveDedication={Boolean(activeDedicated)}
+              technicianStartDate={tech.startDate ? tech.startDate.toISOString().slice(0, 10) : null}
             />
           </div>
         </div>

@@ -5,7 +5,7 @@
 //   • a Remittance Advice slip (Ovation bank block + per-org bill-to + editable PO#).
 //
 // Sheet titles are namespaced ("TS - …") so they never collide with the invoice
-// workbook's own sheet names (FSO already uses "Dedicated"/"Project Work"/…).
+// workbook's own sheet names (FSO uses "FSO Dedicated"/"FSO Project Work"/…).
 
 import type ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";

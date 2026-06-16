@@ -26,7 +26,20 @@ function downloadBase64(base64: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function ScheduledBulkUploadDialog({ accountId }: { accountId: string }) {
+export function ScheduledBulkUploadDialog({
+  accountId,
+  year,
+  month,
+}: {
+  accountId: string;
+  year: number;
+  month: number;
+}) {
+  const monthLabel = new Date(Date.UTC(year, month - 1, 1)).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
   return (
     <Dialog
       trigger={
@@ -34,16 +47,28 @@ export function ScheduledBulkUploadDialog({ accountId }: { accountId: string }) 
           Bulk upload visits (.xlsx)
         </span>
       }
-      title="Bulk upload scheduled visits"
-      description="One row per visit: technician, date, FULL or HALF. Billing uses the account's FULL_DAY / HALF_DAY rates at invoice time — the sheet carries inputs only."
+      title={`Bulk upload scheduled visits — ${monthLabel}`}
+      description={`Uploads only for ${monthLabel}: rows dated outside it are skipped, and re-uploading replaces ${monthLabel}'s scheduled visits for this account. Billing uses the account's FULL_DAY / HALF_DAY rates at invoice time — the sheet carries inputs only.`}
       size="md"
     >
-      {({ close }) => <BulkUploadForm accountId={accountId} onClose={close} />}
+      {({ close }) => (
+        <BulkUploadForm accountId={accountId} year={year} month={month} onClose={close} />
+      )}
     </Dialog>
   );
 }
 
-function BulkUploadForm({ accountId, onClose }: { accountId: string; onClose: () => void }) {
+function BulkUploadForm({
+  accountId,
+  year,
+  month,
+  onClose,
+}: {
+  accountId: string;
+  year: number;
+  month: number;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -59,11 +84,13 @@ function BulkUploadForm({ accountId, onClose }: { accountId: string; onClose: ()
     }
     const fd = new FormData();
     fd.append("accountId", accountId);
+    fd.append("year", String(year));
+    fd.append("month", String(month));
     fd.append("file", file);
     startTransition(async () => {
       const res = await bulkUploadScheduledVisits(null, fd);
       setResult(res);
-      if (res && res.ok && (res.created > 0 || res.updated > 0)) router.refresh();
+      if (res && res.ok) router.refresh();
     });
   }
 
@@ -115,7 +142,10 @@ function BulkUploadForm({ accountId, onClose }: { accountId: string; onClose: ()
           <div className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-fg">
             Created <strong>{result.created}</strong>
             {result.updated > 0 && <> · updated {result.updated}</>}
-            {result.skipped > 0 && <> · {result.skipped} unchanged</>}.
+            {result.skipped > 0 && <> · {result.skipped} unchanged</>}
+            {result.skippedOffMonth > 0 && (
+              <> · {result.skippedOffMonth} off-month skipped</>
+            )}.
           </div>
           {result.errors.length > 0 && (
             <div className="max-h-48 overflow-y-auto rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">

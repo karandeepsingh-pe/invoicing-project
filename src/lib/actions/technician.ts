@@ -63,6 +63,7 @@ export async function createTechnician(
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
+    startDate: formData.get("startDate") || undefined,
     defaultSlaTier: formData.get("defaultSlaTier") || undefined,
     dedicatedBillingBasis: formData.get("dedicatedBillingBasis") || undefined,
     initialAccountId: rawAccount && rawAccount !== "" ? rawAccount : undefined,
@@ -83,8 +84,10 @@ export async function createTechnician(
     locationCity,
     locationState,
     locationCountry,
+    startDate: startDateStr,
     ...techData
   } = parsed.data;
+  const startDate = startDateStr ? new Date(startDateStr) : null;
 
   // Backfill trait: required for Dedicated techs (their rate splits by tier),
   // meaningless otherwise → force NONE. Applies whether or not we assign now.
@@ -92,7 +95,7 @@ export async function createTechnician(
   if (!tierResult.ok) {
     return { ok: false, fieldErrors: { defaultSlaTier: [tierResult.message] } };
   }
-  const techDataWithTier = { ...techData, defaultSlaTier: tierResult.value };
+  const techDataWithTier = { ...techData, defaultSlaTier: tierResult.value, startDate };
 
   const locationInput: LocationInput = {
     zipcode,
@@ -268,6 +271,7 @@ export async function updateTechnician(
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
+    startDate: formData.get("startDate") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -279,8 +283,10 @@ export async function updateTechnician(
     locationCity,
     locationState,
     locationCountry,
+    startDate: startDateStr,
     ...data
   } = parsed.data;
+  const startDate = startDateStr ? new Date(startDateStr) : null;
 
   const tierResult = resolveTechSlaTier(data.primaryCategory, data.defaultSlaTier);
   if (!tierResult.ok) {
@@ -300,7 +306,7 @@ export async function updateTechnician(
       if (!loc.ok) return { kind: "validation" as const, fieldErrors: loc.fieldErrors };
       await tx.technician.update({
         where: { id },
-        data: { ...data, defaultSlaTier: tierResult.value, postalCodeId: loc.postalCodeId },
+        data: { ...data, defaultSlaTier: tierResult.value, postalCodeId: loc.postalCodeId, startDate },
       });
       return { kind: "updated" as const };
     });

@@ -4,6 +4,7 @@ import { notDeleted } from "@/lib/domain/soft-delete";
 import { calculateDispatchVisit, type DispatchRateRow } from "./dispatch-calculator";
 import { profileFor } from "./dispatch-pricing-profiles";
 import { isBillableStatus } from "./dispatch-status";
+import { isWithinWindow } from "./assignment-window";
 import type { DispatchTrackerRow } from "./render-dispatch";
 
 type AccountRateLike = {
@@ -78,7 +79,17 @@ export async function loadDispatchTrackerRows(
   // manual flag OR a Saturday/Sunday visit date.
   const holidaySet = new Set(holidays.map((h) => isoDate(h.date)));
 
-  return visits.map((v) => {
+  return visits
+    // Clamp to the assignment window (end inclusive): a visit dated after the
+    // assignment ends (or before it starts) never bills.
+    .filter((v) =>
+      isWithinWindow(
+        isoDate(v.visitDate),
+        isoDate(v.assignment.startDate),
+        v.assignment.endDate ? isoDate(v.assignment.endDate) : null,
+      ),
+    )
+    .map((v) => {
     const tech = v.assignment.technician;
     // Calendar weekend / holiday only count when the profile opts in (JLL yes,
     // TCS no — TCS bills weekends from its explicit flag).

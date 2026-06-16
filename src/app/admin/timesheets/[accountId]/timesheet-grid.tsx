@@ -45,6 +45,10 @@ export type GridAssignment = {
   location: string;
   band: number;
   slaTier: "BACKFILL" | "NO_BACKFILL" | "NONE";
+  // Active window (end inclusive). Day cells outside [startIso, endIso] are
+  // locked (read-only, 0) — the assignment isn't active then.
+  startIso: string;
+  endIso: string | null;
 };
 
 // A cell to persist via the autosave action: an upsert (value/status) or a clear.
@@ -105,6 +109,11 @@ export function TimesheetGrid({
     for (const a of assignments) {
       for (const d of days) {
         const key = cellKey(a.assignmentId, d);
+        // Outside the assignment window → locked, never prefilled (stays 0).
+        if (d < a.startIso || (a.endIso !== null && d > a.endIso)) {
+          out[key] = "";
+          continue;
+        }
         const saved = initialCells[key];
         if (prefillHolidaysAsPh) {
           // Dedicated: the live holiday master is authoritative over an untouched
@@ -335,6 +344,7 @@ export function TimesheetGrid({
     for (const a of assignments) {
       for (const d of days) {
         if (isWeekend(d)) continue;
+        if (d < a.startIso || (a.endIso !== null && d > a.endIso)) continue; // out of window
         const key = cellKey(a.assignmentId, d);
         if (parsedByKey[key].kind === "blank") out.add(key);
       }
@@ -349,6 +359,7 @@ export function TimesheetGrid({
     let n = 0;
     for (const a of assignments) {
       for (const d of days) {
+        if (d < a.startIso || (a.endIso !== null && d > a.endIso)) continue; // out of window
         const key = cellKey(a.assignmentId, d);
         if (parsedByKey[key].kind === "invalid") continue;
         if (normalizeCellText(text[key] ?? "") !== (savedText[key] ?? "")) n += 1;
@@ -363,6 +374,7 @@ export function TimesheetGrid({
       let otHours = 0;
       let weekendHours = 0;
       for (const d of days) {
+        if (d < a.startIso || (a.endIso !== null && d > a.endIso)) continue; // out of window → 0
         const p = parsedByKey[cellKey(a.assignmentId, d)];
         if (p.kind === "status") {
           // Mirror the invoice engine (hours-split.ts) so the displayed "Days"
@@ -709,52 +721,68 @@ export function TimesheetGrid({
                   </td>
                   {days.map((d) => {
                     const key = cellKey(a.assignmentId, d);
-                    const value = text[key] ?? "";
+                    // Outside the assignment's active window (end inclusive):
+                    // the row isn't active that day → locked + greyed, =0.
+                    const outOfWindow =
+                      d < a.startIso || (a.endIso !== null && d > a.endIso);
+                    const value = outOfWindow ? "" : text[key] ?? "";
                     const parse = parsedByKey[key];
-                    const isStatus = parse.kind === "status";
-                    const isInvalid = parse.kind === "invalid";
-                    const isBlankWeekday = blankWeekdayKeys.has(key);
+                    const isStatus = !outOfWindow && parse.kind === "status";
+                    const isInvalid = !outOfWindow && parse.kind === "invalid";
+                    const isBlankWeekday = !outOfWindow && blankWeekdayKeys.has(key);
                     const isUnsaved =
                       parse.kind !== "invalid" &&
                       normalizeCellText(value) !== (savedText[key] ?? "");
                     const isProvisional =
-                      (parse.kind === "value" || parse.kind === "status") && isUnsaved;
+                      !outOfWindow &&
+                      (parse.kind === "value" || parse.kind === "status") &&
+                      isUnsaved;
                     const canDeleteCell =
+                      !outOfWindow &&
                       softDeleteEnabled &&
                       (parse.kind === "value" || parse.kind === "status");
                     return (
                       <td
                         key={d}
                         className={`group/cell relative border-b border-r border-border/60 ${
-                          isWeekend(d) ? "bg-surface-2/50" : ""
+                          outOfWindow
+                            ? "bg-surface-2/70"
+                            : isWeekend(d)
+                              ? "bg-surface-2/50"
+                              : ""
                         }`}
                       >
                         <input
                           type="text"
                           value={value}
+                          disabled={outOfWindow}
                           onChange={(e) => handleChange(a.assignmentId, d, e)}
                           onBlur={() => handleBlur(a.assignmentId, d)}
                           aria-invalid={isInvalid || isBlankWeekday}
                           title={
-                            isInvalid && parse.kind === "invalid"
-                              ? parse.reason
-                              : isBlankWeekday
-                                ? "Working day is blank — enter hours or PH / AB / NA / PTO / HALF_DAY"
-                                : undefined
+                            outOfWindow
+                              ? "Outside the assignment's active dates"
+                              : isInvalid && parse.kind === "invalid"
+                                ? parse.reason
+                                : isBlankWeekday
+                                  ? "Working day is blank — enter hours or PH / AB / NA / PTO / HALF_DAY"
+                                  : undefined
                           }
                           inputMode="decimal"
                           maxLength={5}
                           className={
                             "w-10 bg-transparent px-0.5 py-1 text-center text-xs outline-none focus:bg-surface focus:ring-1 focus:ring-accent/40 " +
-                            (isInvalid
-                              ? "rounded-sm ring-1 ring-danger text-danger"
-                              : isBlankWeekday
-                                ? "rounded-sm ring-1 ring-warning"
-                                : isStatus
-                                  ? `font-semibold text-accent${isProvisional ? " opacity-60" : ""}`
-                                  : isProvisional
-                                    ? "tabular-nums text-fg-subtle/60"
-                                    : "tabular-nums text-fg")
+                            (outOfWindow
+                              ? "cursor-not-allowed text-fg-subtle/30"
+                              : isInvalid
+                                ? "rounded-sm ring-1 ring-danger text-danger"
+                                : isBlankWeekday
+                                  ? "rounded-sm ring-1 ring-warning"
+                                  : isStatus
+                                    ? `font-semibold text-accent${isProvisional ? " opacity-60" : ""}`
+                                    : isProvisional
+                                      ? "tabular-nums text-fg-subtle/60"
+                                      : "tabular-nums text-fg")
                           }
                           placeholder=""
                         />

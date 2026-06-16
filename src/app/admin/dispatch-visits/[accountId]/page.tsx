@@ -155,7 +155,7 @@ export default async function DispatchVisitsPage({
 
         <TimesheetTypeTabs accountId={accountId} year={year} month={month} active="DISPATCH" />
         <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
-          <DispatchBulkUploadDialog accountId={accountId} />
+          <DispatchBulkUploadDialog accountId={accountId} year={year} month={month} />
           <Link
             href={`/admin/invoices/generate/${accountId}/dispatch?year=${year}&month=${month}`}
             className="rounded-md border border-border-strong bg-surface px-2.5 py-1 font-medium text-fg transition-colors hover:bg-surface-2"

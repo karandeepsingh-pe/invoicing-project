@@ -10,11 +10,19 @@ import {
   bulkScheduledRowSchema,
 } from "@/lib/schemas/bulk-scheduled-upload";
 import { cellToString, cellToDateString } from "@/lib/domain/bulk-cells";
+import { monthRange } from "@/lib/invoice/period";
 
 export type BulkRowError = { row: number; message: string };
 
 export type BulkScheduledUploadResult =
-  | { ok: true; created: number; updated: number; skipped: number; errors: BulkRowError[] }
+  | {
+      ok: true;
+      created: number;
+      updated: number;
+      skipped: number;
+      skippedOffMonth: number;
+      errors: BulkRowError[];
+    }
   | { ok: false; formError: string }
   | null;
 
@@ -87,6 +95,13 @@ export async function bulkUploadScheduledVisits(
   const accountId = String(formData.get("accountId") ?? "");
   if (!accountId) return { ok: false, formError: "Missing account." };
 
+  const year = Number(formData.get("year"));
+  const month = Number(formData.get("month"));
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return { ok: false, formError: "Missing upload month." };
+  }
+  const range = monthRange(year, month);
+
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, formError: "Choose an .xlsx file to upload." };
@@ -97,6 +112,18 @@ export async function bulkUploadScheduledVisits(
     select: { defaultHours: true },
   });
   if (!account) return { ok: false, formError: "Account not found." };
+
+  // Replace this month: soft-delete the account's existing live SCHEDULED entries
+  // for the selected month before importing, so a re-upload refreshes the month
+  // cleanly (other months untouched).
+  await prisma.timesheetEntry.updateMany({
+    where: {
+      deletedAt: null,
+      date: { gte: range.start, lt: range.end },
+      assignment: { clientAccountId: accountId, rateCategory: "SCHEDULED" },
+    },
+    data: { deletedAt: new Date() },
+  });
 
   const workbook = new ExcelJS.Workbook();
   try {
@@ -125,6 +152,7 @@ export async function bulkUploadScheduledVisits(
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let skippedOffMonth = 0;
 
   for (const { rowNumber, row } of dataRows) {
     const raw: Record<string, string> = {};
@@ -146,6 +174,13 @@ export async function bulkUploadScheduledVisits(
     }
     const r = parsed.data;
     const date = new Date(`${r.visitDate}T00:00:00.000Z`);
+
+    // Month-scope: rows dated outside the selected month are skipped (reported),
+    // not imported — keeps an upload confined to the month it was made for.
+    if (date < range.start || date >= range.end) {
+      skippedOffMonth += 1;
+      continue;
+    }
 
     // Resolve the SCHEDULED assignment active on the visit date.
     const candidates = (byName.get(r.technician.toLowerCase()) ?? []).filter(
@@ -215,8 +250,8 @@ export async function bulkUploadScheduledVisits(
     }
   }
 
-  if (created > 0 || updated > 0) {
-    revalidatePath(`/admin/timesheets/${accountId}`);
-  }
-  return { ok: true, created, updated, skipped, errors };
+  // Always revalidate — the replace step may have removed rows even if the file
+  // added none.
+  revalidatePath(`/admin/timesheets/${accountId}`);
+  return { ok: true, created, updated, skipped, skippedOffMonth, errors };
 }

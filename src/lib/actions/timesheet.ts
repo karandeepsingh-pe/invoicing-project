@@ -10,6 +10,7 @@ import {
 } from "@/lib/schemas/timesheet";
 import { monthRange } from "@/lib/invoice/period";
 import { isWeekendUtc } from "@/lib/invoice/hours-split";
+import { isWithinWindow, toDayIso } from "@/lib/invoice/assignment-window";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { diffTimesheetCells } from "@/lib/domain/timesheet-diff";
 import type { ActionResult } from "./result";
@@ -188,10 +189,24 @@ export async function saveTimesheetCells(
   const assignmentIds = Array.from(new Set(cells.map((c) => c.assignmentId)));
   const owned = await prisma.assignment.findMany({
     where: { id: { in: assignmentIds }, clientAccountId: accountId },
-    select: { id: true },
+    select: { id: true, startDate: true, endDate: true },
   });
   if (owned.length !== assignmentIds.length) {
     return { ok: false, formError: "One or more assignments do not belong to this account." };
+  }
+
+  // Defense in depth: never persist a value/status for a day outside the
+  // assignment's active window (end inclusive). Clearing a stray cell is always
+  // allowed. The grid already locks these cells; this guards tampered POSTs.
+  const windowById = new Map(
+    owned.map((a) => [a.id, { start: toDayIso(a.startDate), end: a.endDate ? toDayIso(a.endDate) : null }]),
+  );
+  for (const c of cells) {
+    if (c.clear) continue;
+    const w = windowById.get(c.assignmentId);
+    if (w && !isWithinWindow(c.date, w.start, w.end)) {
+      return { ok: false, formError: `${c.date} is outside the assignment's active dates.` };
+    }
   }
 
   try {

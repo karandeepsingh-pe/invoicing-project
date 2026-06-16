@@ -12,6 +12,7 @@ import { loadFteRows } from "./fte-rows";
 import { loadProjectRows } from "./project-rows";
 import { calculateDispatchVisit } from "./dispatch-calculator";
 import { dispatchRateRows } from "./dispatch-rows";
+import { isWithinWindow, toDayIso } from "./assignment-window";
 import { Prisma } from "@prisma/client";
 
 type Range = { start: Date; end: Date };
@@ -189,6 +190,8 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
   const out: FsoScheduledRow[] = [];
   for (const a of assignments) {
     const t = a.technician;
+    const startIso = toDayIso(a.startDate);
+    const endIso = a.endDate ? toDayIso(a.endDate) : null;
     const fullRate = pickRate(t.band, "FULL_DAY");
     const halfRate = pickRate(t.band, "HALF_DAY");
     const hourlyRate = pickRate(t.band, "HOURLY_BUSINESS");
@@ -203,6 +206,7 @@ export async function loadFsoScheduledRows(accountId: string, range: Range): Pro
       email: t.email ?? "",
     };
     for (const e of a.timesheetEntries) {
+      if (!isWithinWindow(toDayIso(e.date), startIso, endIso)) continue;
       let kind: "Full Day" | "Half Day" | "Hourly" | null = null;
       let hours = 0;
       if (e.status === "HALF_DAY") kind = "Half Day";
@@ -258,6 +262,16 @@ export async function loadFsoDispatchRows(accountId: string, range: Range): Prom
 
   const out: FsoDispatchRow[] = [];
   for (const v of visits) {
+    const a = v.assignment;
+    if (
+      !isWithinWindow(
+        toDayIso(v.visitDate),
+        toDayIso(a.startDate),
+        a.endDate ? toDayIso(a.endDate) : null,
+      )
+    ) {
+      continue;
+    }
     const tech = v.assignment.technician;
     const pc = v.postalCode ?? tech.postalCode;
     const calc = calculateDispatchVisit(

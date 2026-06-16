@@ -36,9 +36,9 @@ const timesheetInput: TimesheetExportInput = {
 describe("invoice bundle sheets", () => {
   it("namespaces timesheet sheets so they never collide with FSO sheet names", () => {
     const wb = new ExcelJS.Workbook();
-    // Simulate the FSO workbook, which already owns a "Dedicated" sheet.
-    wb.addWorksheet("Dedicated");
-    wb.addWorksheet("Project Work");
+    // Simulate the FSO workbook, which already owns an "FSO Dedicated" sheet.
+    wb.addWorksheet("FSO Dedicated");
+    wb.addWorksheet("FSO Project Work");
 
     writeTimesheetSheets(wb, timesheetInput, { prefix: "TS - " });
     writeRateSheet(
@@ -66,7 +66,7 @@ describe("invoice bundle sheets", () => {
     const names = wb.worksheets.map((w) => w.name);
     // No duplicates (ExcelJS would otherwise have thrown on add).
     expect(new Set(names).size).toBe(names.length);
-    expect(names).toContain("Dedicated"); // the original FSO sheet
+    expect(names).toContain("FSO Dedicated"); // the original FSO sheet
     expect(names).toContain("TS - Dedicated"); // the namespaced timesheet sheet
     expect(names).toContain("Rate Sheet");
     expect(names).toContain("Remittance Advice");

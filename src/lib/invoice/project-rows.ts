@@ -7,6 +7,7 @@ import {
   type ProjectRateRow,
   type ProjectTimesheetCell,
 } from "./project-calculator";
+import { isWithinWindow, toDayIso } from "./assignment-window";
 import type { ProjectRow } from "./render-project";
 
 /** Load + compute the Project / T&M pre-invoice rows for an account + month. */
@@ -57,11 +58,15 @@ export async function loadProjectRows(
 
   const rows: ProjectRow[] = [];
   for (const a of assignments) {
-    const entries: ProjectTimesheetCell[] = a.timesheetEntries.map((e) => ({
-      hours: e.hours,
-      status: e.status,
-      date: e.date,
-    }));
+    const startIso = toDayIso(a.startDate);
+    const endIso = a.endDate ? toDayIso(a.endDate) : null;
+    const entries: ProjectTimesheetCell[] = a.timesheetEntries
+      .filter((e) => isWithinWindow(toDayIso(e.date), startIso, endIso))
+      .map((e) => ({
+        hours: e.hours,
+        status: e.status,
+        date: e.date,
+      }));
     const calc = calculateProjectRow({
       defaultHours: account.defaultHours,
       band: a.technician.band,

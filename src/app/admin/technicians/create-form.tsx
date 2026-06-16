@@ -170,6 +170,14 @@ export function TechnicianCreateForm({
       <RebadgedFields primaryCategory={primaryCategory} />
 
       <TextField
+        label="Start date"
+        name="startDate"
+        type="date"
+        errors={fieldErrors?.startDate}
+        hint="Employment start (optional). Prefills the start date when you assign this technician."
+      />
+
+      <TextField
         label="Address line 1"
         name="addressLine1"
         errors={fieldErrors?.addressLine1}

@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { deleteAssignments } from "@/lib/actions/assignment";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { useToast } from "@/components/admin/toast-provider";
-import { DeleteAssignmentButton } from "../../technicians/[techId]/delete-assignment-button";
-import { EndAssignmentButton } from "../../technicians/[techId]/end-assignment-button";
+import { AssignmentDatesEditor } from "./assignment-dates-editor";
 
 export type AssignmentRow = {
   id: string;
@@ -15,9 +14,8 @@ export type AssignmentRow = {
   techName: string;
   band: number;
   categoryLabel: string;
-  start: string;
-  end: string;
-  isActive: boolean;
+  startIso: string;
+  endIso: string | null;
 };
 
 export function AssignmentsTable({
@@ -162,14 +160,12 @@ export function AssignmentsTable({
                 </td>
                 <td className="px-4 py-2.5 text-fg-muted">Band {r.band}</td>
                 <td className="px-4 py-2.5 text-fg-muted">{r.categoryLabel}</td>
-                <td className="px-4 py-2.5 text-fg-muted">{r.start}</td>
-                <td className="px-4 py-2.5 text-fg-muted">{r.end}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    {r.isActive && <EndAssignmentButton id={r.id} />}
-                    <DeleteAssignmentButton id={r.id} accountLabel={accountLabel} />
-                  </div>
-                </td>
+                <AssignmentDatesEditor
+                  id={r.id}
+                  startIso={r.startIso}
+                  endIso={r.endIso}
+                  accountLabel={accountLabel}
+                />
               </tr>
             ))}
             {rows.length === 0 && (

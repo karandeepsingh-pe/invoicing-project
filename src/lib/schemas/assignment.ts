@@ -51,3 +51,19 @@ export const assignmentBulkCreateSchema = z
   .refine(requireEndForNonDedicated, { path: ["endDate"], message: END_REQUIRED_MESSAGE });
 
 export type AssignmentBulkCreateInput = z.infer<typeof assignmentBulkCreateSchema>;
+
+// Inline date edit on an existing assignment. Start is always editable; end is
+// optional (blank keeps it open / unchanged depending on the action). End is
+// INCLUSIVE so a same-day window (end === start) is valid.
+export const assignmentUpdateDatesSchema = z
+  .object({
+    id: z.string().min(1),
+    startDate: isoDate,
+    endDate: z.union([isoDate, z.literal("").transform(() => undefined)]).optional(),
+  })
+  .refine((v) => !v.endDate || v.endDate >= v.startDate, {
+    path: ["endDate"],
+    message: "End date must be on or after the start date",
+  });
+
+export type AssignmentUpdateDatesInput = z.infer<typeof assignmentUpdateDatesSchema>;

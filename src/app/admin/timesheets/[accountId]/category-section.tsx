@@ -6,6 +6,7 @@ import { TimesheetGrid, type GridAssignment, type GridCell } from "./timesheet-g
 import { DeleteMonthButton } from "./delete-month-button";
 import { DeletedRowsSection } from "./deleted-rows-section";
 import { ScheduledBulkUploadDialog } from "./scheduled-bulk-upload-dialog";
+import { isWithinWindow } from "@/lib/invoice/assignment-window";
 
 type DayCategory = "DEDICATED" | "PROJECT_TM" | "SCHEDULED";
 
@@ -95,9 +96,22 @@ export async function TimesheetCategorySection({
       deletedDays: partition.deletedCountById.get(a.id) ?? 0,
     }));
 
+  // Per-assignment active window (end inclusive) — drives both which cells load
+  // and which day columns the grid locks.
+  const windowById = new Map<string, { start: string; end: string | null }>();
+  for (const a of assignments) {
+    windowById.set(a.id, {
+      start: fmtIso(a.startDate),
+      end: a.endDate ? fmtIso(a.endDate) : null,
+    });
+  }
+
   const cellsByAssignmentDate = new Map<string, GridCell>();
   for (const e of monthEntries) {
     if (e.deletedAt !== null) continue;
+    const w = windowById.get(e.assignmentId);
+    // Defensive: never surface an entry that falls outside its assignment window.
+    if (w && !isWithinWindow(fmtIso(e.date), w.start, w.end)) continue;
     cellsByAssignmentDate.set(`${e.assignmentId}|${fmtIso(e.date)}`, {
       hours: e.status ? null : Number(e.hours.toString()),
       status: e.status,
@@ -119,6 +133,8 @@ export async function TimesheetCategorySection({
       : "—",
     band: a.technician.band,
     slaTier: a.slaTier,
+    startIso: fmtIso(a.startDate),
+    endIso: a.endDate ? fmtIso(a.endDate) : null,
   }));
 
   const isDedicated = rateCategory === "DEDICATED";
@@ -136,7 +152,9 @@ export async function TimesheetCategorySection({
           </span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {rateCategory === "SCHEDULED" && <ScheduledBulkUploadDialog accountId={accountId} />}
+          {rateCategory === "SCHEDULED" && (
+            <ScheduledBulkUploadDialog accountId={accountId} year={year} month={month} />
+          )}
           {showEditLink && (
             <Link
               href={editHref}

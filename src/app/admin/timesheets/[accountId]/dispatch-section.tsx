@@ -140,7 +140,7 @@ export async function DispatchCategorySection({
           </span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <DispatchBulkUploadDialog accountId={accountId} />
+          <DispatchBulkUploadDialog accountId={accountId} year={year} month={month} />
           <Link
             href={`/admin/dispatch-visits/${accountId}?${qs}`}
             className="rounded-md border border-border-strong bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted hover:bg-surface-2"

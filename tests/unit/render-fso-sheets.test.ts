@@ -10,7 +10,12 @@ describe("writeFsoSheets", () => {
     const wb = new ExcelJS.Workbook();
     writeFsoSheets(wb, meta, emptyData);
     const names = wb.worksheets.map((w) => w.name);
-    expect(names).toEqual(["Dedicated", "Project Work", "Dispatch", "SV,Full & Half day Visit"]);
+    expect(names).toEqual([
+      "FSO Dedicated",
+      "FSO Project Work",
+      "FSO Dispatch",
+      "FSO SV,Full & Half day Visit",
+    ]);
   });
 
   it("coexists with the Combined workbook sheets without name collisions", () => {
@@ -24,7 +29,7 @@ describe("writeFsoSheets", () => {
     expect(new Set(names).size).toBe(names.length); // no duplicates
     expect(names).toContain("Fiserv_Pre-Invoice");
     expect(names).toContain("Dispatch Visit"); // combined dispatch tab
-    expect(names).toContain("Dispatch"); // FSO dispatch tab — distinct name
-    expect(names).toContain("SV,Full & Half day Visit");
+    expect(names).toContain("FSO Dispatch"); // FSO dispatch tab — distinct name
+    expect(names).toContain("FSO SV,Full & Half day Visit");
   });
 });
