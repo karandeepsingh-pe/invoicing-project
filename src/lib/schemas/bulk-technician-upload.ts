@@ -43,6 +43,12 @@ const optionalNumber = z.preprocess(
   z.coerce.number().nonnegative().max(99_999_999).optional(),
 );
 
+// Employment start date cell: blank → null, else must be ISO YYYY-MM-DD.
+const dateOrNull = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null),
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").nullable(),
+);
+
 const bandField = z.preprocess(
   (v) => (v === "" || v === null || v === undefined ? undefined : v),
   z.coerce.number().int().min(0).max(4),
@@ -91,6 +97,7 @@ export const bulkTechnicianRowSchema = z.object({
   state: optionalText(80),
   country: optionalText(80),
   addressLine1: optionalText(120),
+  startDate: dateOrNull,
 });
 
 export type BulkTechnicianRow = z.infer<typeof bulkTechnicianRowSchema>;
@@ -121,6 +128,8 @@ export const BULK_TECHNICIAN_COLUMNS = [
   { key: "state", header: "State" },
   { key: "country", header: "Country" },
   { key: "addressLine1", header: "Address Line 1" },
+  // Appended last so existing (column-positional) templates keep parsing.
+  { key: "startDate", header: "Start Date (YYYY-MM-DD)" },
 ] as const;
 
 export type BulkTechnicianColumnKey = (typeof BULK_TECHNICIAN_COLUMNS)[number]["key"];

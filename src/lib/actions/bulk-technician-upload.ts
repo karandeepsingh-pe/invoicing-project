@@ -192,6 +192,7 @@ export async function bulkUploadTechnicians(
           rebadgedWeekendRate: r.rebadgedWeekendRate != null ? new Prisma.Decimal(r.rebadgedWeekendRate) : null,
           postalCodeId: loc.postalCodeId,
           addressLine1: r.addressLine1 ?? null,
+          startDate: r.startDate ? new Date(r.startDate) : null,
         },
       });
       created += 1;
@@ -224,7 +225,7 @@ export async function downloadBulkTechnicianTemplate(): Promise<TemplateResult> 
     "Acme Corp", "ACME-001", "Jane", "Doe", "Dedicated", 2, "Backfill",
     "yes", "no", "no", "(555) 123-4567", "jane@acme.com", 74100, "no",
     "", "", "", "", "",
-    "94016", "San Francisco", "CA", "USA", "123 Main Street",
+    "94016", "San Francisco", "CA", "USA", "123 Main Street", "2026-01-01",
   ]);
   sheet.columns.forEach((col) => { col.width = 24; });
   const buffer = await workbook.xlsx.writeBuffer();

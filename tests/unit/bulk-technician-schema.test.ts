@@ -60,4 +60,11 @@ describe("bulkTechnicianRowSchema", () => {
     expect(bulkTechnicianRowSchema.parse({ ...base, employeeId: " ACME-001 " }).employeeId).toBe("ACME-001");
     expect(bulkTechnicianRowSchema.parse({ ...base, employeeId: "NA-7" }).employeeId).toBe("NA-7");
   });
+
+  it("accepts an ISO start date, treats blank/absent as null, rejects non-ISO", () => {
+    expect(bulkTechnicianRowSchema.parse({ ...base, startDate: "2026-01-01" }).startDate).toBe("2026-01-01");
+    expect(bulkTechnicianRowSchema.parse({ ...base, startDate: "" }).startDate).toBeNull();
+    expect(bulkTechnicianRowSchema.parse({ ...base }).startDate).toBeNull();
+    expect(bulkTechnicianRowSchema.safeParse({ ...base, startDate: "01/01/2026" }).success).toBe(false);
+  });
 });
