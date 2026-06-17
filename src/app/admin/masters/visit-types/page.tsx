@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { VisitTypeRowActions } from "./visit-type-row";
 import { VisitTypeCreateDialog } from "./create-dialog";
 
 export default async function VisitTypesMastersPage() {
+  await requireAdmin();
   const types = await prisma.dispatchVisitType.findMany({
     orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { visits: true } } },

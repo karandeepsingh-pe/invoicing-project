@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import {
@@ -52,7 +52,7 @@ export async function generateProjectInvoice(
   _prev: GenerateProjectResult,
   formData: FormData,
 ): Promise<GenerateProjectResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -65,6 +65,7 @@ export async function generateProjectInvoice(
     return { ok: false, formError: "Validation failed." };
   }
   const { accountId, year, month } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },

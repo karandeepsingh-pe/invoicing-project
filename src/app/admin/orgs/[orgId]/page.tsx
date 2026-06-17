@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { CreateAccountUnderOrgDialog } from "./create-account-dialog";
 import { OrgEditForm } from "./org-edit-form";
 
@@ -10,6 +11,7 @@ export default async function OrgDetailPage({
   params: Promise<{ orgId: string }>;
 }) {
   const { orgId } = await params;
+  await requireAdmin();
   const org = await prisma.org.findUnique({
     where: { id: orgId },
     include: {

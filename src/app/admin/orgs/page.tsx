@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { OrgCreateDialog } from "./create-dialog";
 import { OrgsGrid, type OrgCard } from "./orgs-grid";
 
 export default async function OrgsPage() {
+  await requireAdmin();
   const rows = await prisma.org.findMany({
     include: { _count: { select: { clientAccounts: true, technicians: true } } },
     orderBy: { name: "asc" },

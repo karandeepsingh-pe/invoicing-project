@@ -1,15 +1,19 @@
 import { prisma } from "@/lib/db";
+import { accountScopeWhere, requireSession } from "@/lib/auth/session";
 import { AccountsView, type AccountCard } from "./accounts-view";
 import { ClientAccountCreateDialog } from "./create-dialog";
 import { BulkUploadDialog } from "./bulk-upload-dialog";
 
 export default async function AccountsPage() {
+  const session = await requireSession();
+  const isAdmin = session.role === "ADMIN";
   const [orgs, accounts] = await Promise.all([
     prisma.org.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, defaultCurrency: true },
     }),
     prisma.clientAccount.findMany({
+      where: accountScopeWhere(session),
       orderBy: { name: "asc" },
       include: {
         org: {
@@ -71,8 +75,8 @@ export default async function AccountsPage() {
           <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Accounts</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{cards.length} total</span>
-            <BulkUploadDialog />
-            {orgs.length > 0 && <ClientAccountCreateDialog orgs={orgs} />}
+            {isAdmin && <BulkUploadDialog />}
+            {isAdmin && orgs.length > 0 && <ClientAccountCreateDialog orgs={orgs} />}
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">

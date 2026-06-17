@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MiscFeeKind, RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { AccountRateCreateDialog, MiscFeeCreateDialog } from "./create-dialogs";
 import { AccountRateRowActions } from "./rate-row-actions";
 import { RateMatrix } from "./rate-matrix";
@@ -65,6 +66,7 @@ export default async function AccountDetailPage({
   params: Promise<{ accountId: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
 
   const [account, subCategories, slas, allTechs] = await Promise.all([
     prisma.clientAccount.findUnique({

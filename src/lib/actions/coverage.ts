@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import {
   coverageCreateSchema,
   coverageDeleteSchema,
@@ -14,7 +14,7 @@ export async function createCoverageEvent(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   const parsed = coverageCreateSchema.safeParse({
     coveredAssignmentId: formData.get("coveredAssignmentId"),
@@ -42,6 +42,8 @@ export async function createCoverageEvent(
   if (!covered) {
     return { ok: false, formError: "Covered assignment not found." };
   }
+  // SDM may only log coverage on accounts they own (admin: any).
+  await requireAccountAccess(covered.clientAccountId);
   if (covered.slaTier !== "BACKFILL") {
     return {
       ok: false,
@@ -138,15 +140,20 @@ export async function deleteCoverageEvent(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  await requireSession();
   const parsed = coverageDeleteSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) {
     return { ok: false, formError: "Missing event id." };
   }
-  const event = await prisma.coverageEvent.delete({
+  // Resolve the owning account and gate before deleting.
+  const existing = await prisma.coverageEvent.findUnique({
     where: { id: parsed.data.id },
     include: { coveredAssignment: { select: { clientAccountId: true } } },
   });
-  revalidatePath(`/admin/timesheets/${event.coveredAssignment.clientAccountId}/coverage`);
+  if (!existing) return { ok: false, formError: "Coverage event not found." };
+  await requireAccountAccess(existing.coveredAssignment.clientAccountId);
+
+  await prisma.coverageEvent.delete({ where: { id: parsed.data.id } });
+  revalidatePath(`/admin/timesheets/${existing.coveredAssignment.clientAccountId}/coverage`);
   return { ok: true, message: "Coverage event deleted." };
 }

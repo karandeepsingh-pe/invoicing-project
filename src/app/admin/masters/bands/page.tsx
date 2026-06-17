@@ -1,4 +1,7 @@
-export default function BandsMastersPage() {
+import { requireAdmin } from "@/lib/auth/session";
+
+export default async function BandsMastersPage() {
+  await requireAdmin();
   const bands = [
     { band: 0, label: "L0 — entry / shadow" },
     { band: 1, label: "L1 — junior" },

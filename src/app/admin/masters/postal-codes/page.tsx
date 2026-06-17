@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { PostalCodeRowActions } from "./postal-code-row";
 import { PostalCodeCreateDialog } from "./create-dialog";
 
 export default async function PostalCodesMastersPage() {
+  await requireAdmin();
   const rows = await prisma.postalCode.findMany({
     orderBy: [{ sortOrder: "asc" }, { zipcode: "asc" }],
     include: { _count: { select: { technicians: true } } },

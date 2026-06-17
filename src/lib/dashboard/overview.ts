@@ -3,6 +3,7 @@
 // TODO: past ~25 accounts, cache per-account results (unstable_cache keyed on
 // account+month) — at current scale live computation is fast enough.
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { holidayDatesInRange } from "@/lib/domain/holidays";
@@ -55,26 +56,41 @@ export type DashboardOverview = {
 
 const MONTH_LABEL: Intl.DateTimeFormatOptions = { month: "long", timeZone: "UTC" };
 
-export async function loadDashboardOverview(now: Date): Promise<DashboardOverview> {
+export async function loadDashboardOverview(
+  now: Date,
+  scope: Prisma.ClientAccountWhereInput = {},
+): Promise<DashboardOverview> {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth() + 1;
   const range = monthRange(year, month);
   const todayIso = now.toISOString().slice(0, 10);
+  // SDM dashboards are scoped to their owned accounts; admin scope is {} (all).
+  const scoped = Object.keys(scope).length > 0;
 
-  const [phDates, holidayRows, accounts, runs, techCount, assignmentCount] = await Promise.all([
+  const [phDates, holidayRows, accounts] = await Promise.all([
     holidayDatesInRange(range),
     prisma.holiday.findMany({
       where: { date: { gte: range.start, lt: range.end } },
       orderBy: { date: "asc" },
     }),
     prisma.clientAccount.findMany({
+      where: scope,
       orderBy: { name: "asc" },
       include: {
         org: { select: { name: true } },
         accountRates: { include: { rateSubCategory: true, sla: true } },
       },
     }),
+  ]);
+
+  // Everything else keys off the in-scope accounts so SDM totals/lists never
+  // leak other accounts. For admin (scope {}) accountIds is every account.
+  const accountIds = accounts.map((a) => a.id);
+  const accountIn = { clientAccountId: { in: accountIds } };
+
+  const [runs, techCount, assignmentCount] = await Promise.all([
     prisma.invoiceRun.findMany({
+      where: { clientAccountId: { in: accountIds } },
       take: 8,
       orderBy: { generatedAt: "desc" },
       include: {
@@ -82,8 +98,10 @@ export async function loadDashboardOverview(now: Date): Promise<DashboardOvervie
         generatedBy: { select: { email: true, name: true } },
       },
     }),
-    prisma.technician.count(),
-    prisma.assignment.count(),
+    scoped
+      ? prisma.technician.count({ where: { assignments: { some: accountIn } } })
+      : prisma.technician.count(),
+    scoped ? prisma.assignment.count({ where: accountIn }) : prisma.assignment.count(),
   ]);
 
   const businessDays = businessDaysInRange(range, phDates);
@@ -197,17 +215,36 @@ export async function loadDashboardOverview(now: Date): Promise<DashboardOvervie
     }),
   );
 
+  // TechnicianBooking has no account relation (flat assignmentId), so scope its
+  // count via the in-scope assignment ids. Only needed when scoped (admin = all).
+  const assignmentIdsInScope = scoped
+    ? (
+        await prisma.assignment.findMany({ where: accountIn, select: { id: true } })
+      ).map((a) => a.id)
+    : null;
+
   const [overriddenBookings, statusGroups, standbyCandidates] = await Promise.all([
     prisma.technicianBooking.count({
-      where: { deletedAt: null, isOverride: true, startDateTime: { gte: range.start, lt: range.end } },
+      where: {
+        deletedAt: null,
+        isOverride: true,
+        startDateTime: { gte: range.start, lt: range.end },
+        ...(assignmentIdsInScope ? { assignmentId: { in: assignmentIdsInScope } } : {}),
+      },
     }),
     prisma.timesheetEntry.groupBy({
       by: ["status"],
-      where: { ...notDeleted, status: { in: ["PTO", "AB"] }, date: { gte: range.start, lt: range.end } },
+      where: {
+        ...notDeleted,
+        status: { in: ["PTO", "AB"] },
+        date: { gte: range.start, lt: range.end },
+        assignment: accountIn,
+      },
       _count: true,
     }),
     prisma.clientAccount.findMany({
       where: {
+        id: { in: accountIds },
         dispatchStandbyPerSite: null,
         assignments: {
           some: {

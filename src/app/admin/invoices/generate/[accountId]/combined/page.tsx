@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { CombinedGenerateForm } from "./generate-form";
 import { FsoGenerateForm } from "./fso-generate-form";
@@ -21,6 +22,7 @@ export default async function GenerateCombinedPage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();

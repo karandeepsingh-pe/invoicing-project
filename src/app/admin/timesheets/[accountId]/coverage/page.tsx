@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
 import { CoverageView } from "./coverage-view";
@@ -13,6 +14,7 @@ export default async function CoveragePage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();

@@ -15,6 +15,19 @@ const serverSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
   DEV_ADMIN_EMAIL: z.preprocess(emptyToUndefined, z.string().email().optional()),
+  // Comma-separated allowlist of admin emails. A signed-in user whose email is
+  // in this list gets role ADMIN; everyone else is SDM. Parsed to a lowercased
+  // string[] (blank/unset -> empty list).
+  ADMIN_EMAILS: z
+    .string()
+    .optional()
+    .default("")
+    .transform((s) =>
+      s
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e.length > 0),
+    ),
   // Testing-phase gate for the soft-delete affordances (cell/row/month). Off in
   // prod; flip to "true" while testing. z.coerce.boolean would treat "false" as
   // true, so parse an explicit enum instead.
@@ -37,6 +50,7 @@ const processEnv = {
   AUTH_MICROSOFT_ENTRA_ID_TENANT_ID:
     process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID,
   DEV_ADMIN_EMAIL: process.env.DEV_ADMIN_EMAIL,
+  ADMIN_EMAILS: process.env.ADMIN_EMAILS,
   SOFT_DELETE_ENABLED: process.env.SOFT_DELETE_ENABLED,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
 };

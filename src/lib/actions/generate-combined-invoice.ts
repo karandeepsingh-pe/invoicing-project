@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth, businessDaysInRange } from "@/lib/invoice/period";
 import { holidayDatesInRange } from "@/lib/domain/holidays";
@@ -57,7 +57,7 @@ export async function generateCombinedInvoice(
   _prev: GenerateCombinedResult,
   formData: FormData,
 ): Promise<GenerateCombinedResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -68,6 +68,7 @@ export async function generateCombinedInvoice(
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return { ok: false, formError: "Validation failed." };
   const { accountId, year, month, dedicatedSites, dispatchSites } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },

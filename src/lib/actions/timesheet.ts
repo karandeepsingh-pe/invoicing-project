@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma, type TimesheetDayStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import {
   saveTimesheetMonthSchema,
   saveTimesheetCellsSchema,
@@ -23,7 +23,7 @@ export async function saveTimesheetMonth(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -40,6 +40,7 @@ export async function saveTimesheetMonth(
     };
   }
   const { accountId, year, month, cells } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const range = monthRange(year, month);
   // Reject cells outside the month — defensive.
@@ -171,7 +172,7 @@ export async function saveTimesheetCells(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -184,6 +185,7 @@ export async function saveTimesheetCells(
     return { ok: false, formError: "Validation failed for one or more cells." };
   }
   const { accountId, cells } = parsed.data;
+  await requireAccountAccess(accountId);
 
   // Security: every assignment in the payload must belong to this account.
   const assignmentIds = Array.from(new Set(cells.map((c) => c.assignmentId)));

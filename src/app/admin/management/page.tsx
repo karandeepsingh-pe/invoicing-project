@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ManagementView, type OrgRow } from "./management-view";
 import { OrgCreateDialog } from "@/app/admin/orgs/create-dialog";
 import { BulkUploadDialog as AccountBulkUploadDialog } from "@/app/admin/accounts/bulk-upload-dialog";
@@ -6,6 +7,7 @@ import { TechnicianBulkUploadDialog } from "@/app/admin/technicians/bulk-upload-
 import type { TechOption } from "@/app/admin/accounts/[accountId]/create-assignment-form";
 
 export default async function ManagementPage() {
+  await requireAdmin();
   // Active = not yet ended as of today. An ended assignment no longer attaches
   // the technician to the account.
   const today = new Date();

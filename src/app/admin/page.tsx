@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { loadDashboardOverview } from "@/lib/dashboard/overview";
+import { accountScopeWhere, requireSession } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,9 @@ function fmtRunTime(d: Date): string {
 }
 
 export default async function AdminDashboard() {
-  const o = await loadDashboardOverview(new Date());
+  const session = await requireSession();
+  const isAdmin = session.role === "ADMIN";
+  const o = await loadDashboardOverview(new Date(), accountScopeWhere(session));
   const qs = `year=${o.month.year}&month=${o.month.month}`;
   const active = o.accounts.filter((a) => a.hasActivity);
   const idle = o.accounts.filter((a) => !a.hasActivity);
@@ -229,12 +232,14 @@ export default async function AdminDashboard() {
                   </span>
                 </div>
               ))}
-              <Link
-                href={"/admin/masters/holidays" as never}
-                className="py-2 text-xs text-fg-muted transition-colors hover:text-fg"
-              >
-                Public holidays master →
-              </Link>
+              {isAdmin && (
+                <Link
+                  href={"/admin/masters/holidays" as never}
+                  className="py-2 text-xs text-fg-muted transition-colors hover:text-fg"
+                >
+                  Public holidays master →
+                </Link>
+              )}
             </div>
           </section>
 
@@ -297,10 +302,17 @@ export default async function AdminDashboard() {
 
       {/* ── Footer counts ── */}
       <p className="border-t border-border pt-4 text-xs text-fg-subtle">
-        <Link href={"/admin/management" as never} className="transition-colors hover:text-fg">
-          {o.counts.accounts} accounts · {o.counts.technicians} technicians ·{" "}
-          {o.counts.assignments} assignments · manage in Client Management →
-        </Link>
+        {isAdmin ? (
+          <Link href={"/admin/management" as never} className="transition-colors hover:text-fg">
+            {o.counts.accounts} accounts · {o.counts.technicians} technicians ·{" "}
+            {o.counts.assignments} assignments · manage in Client Management →
+          </Link>
+        ) : (
+          <span>
+            {o.counts.accounts} account{o.counts.accounts === 1 ? "" : "s"} ·{" "}
+            {o.counts.assignments} assignment{o.counts.assignments === 1 ? "" : "s"}
+          </span>
+        )}
       </p>
     </div>
   );

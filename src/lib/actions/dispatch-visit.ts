@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, AuditKind, BookingKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import {
   dispatchVisitCreateSchema,
   dispatchVisitUpdateSchema,
@@ -54,7 +54,7 @@ export async function createDispatchVisit(
   _prev: DispatchVisitResult,
   formData: FormData,
 ): Promise<DispatchVisitResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   const parsed = dispatchVisitCreateSchema.safeParse({
     assignmentId: formData.get("assignmentId"),
@@ -91,6 +91,14 @@ export async function createDispatchVisit(
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
+  // SDM may only add visits to assignments on accounts they own (admin: any).
+  const owner = await prisma.assignment.findUnique({
+    where: { id: parsed.data.assignmentId },
+    select: { clientAccountId: true },
+  });
+  if (!owner) return { ok: false, formError: "Assignment not found." };
+  await requireAccountAccess(owner.clientAccountId);
+
   // Shared core (also used by the bulk xlsx upload) — same validation,
   // conflict, booking, and audit behavior for every visit.
   const outcome = await executeDispatchVisitCreate(parsed.data, admin.userId);
@@ -118,7 +126,7 @@ export async function updateDispatchVisit(
   _prev: DispatchVisitResult,
   formData: FormData,
 ): Promise<DispatchVisitResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   const parsed = dispatchVisitUpdateSchema.safeParse({
     id: formData.get("id"),
@@ -168,6 +176,7 @@ export async function updateDispatchVisit(
     select: { id: true, technicianId: true, clientAccountId: true },
   });
   if (!assignment) return { ok: false, formError: "Assignment not found." };
+  await requireAccountAccess(assignment.clientAccountId);
 
   const acct = await prisma.clientAccount.findUnique({
     where: { id: assignment.clientAccountId },
@@ -328,7 +337,7 @@ export async function deleteDispatchVisit(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
   // Soft-delete (testing-phase), gated. Cascade-soft-deletes the linked booking.
   if (!env.SOFT_DELETE_ENABLED) {
     return {
@@ -341,6 +350,14 @@ export async function deleteDispatchVisit(
   if (!parsed.success) {
     return { ok: false, formError: "Missing visit id." };
   }
+  // Resolve the owning account and gate before soft-deleting.
+  const owner = await prisma.dispatchVisit.findUnique({
+    where: { id: parsed.data.id },
+    include: { assignment: { select: { clientAccountId: true } } },
+  });
+  if (!owner) return { ok: false, formError: "Visit not found." };
+  await requireAccountAccess(owner.assignment.clientAccountId);
+
   const now = new Date();
   const visit = await prisma.$transaction(async (tx) => {
     const v = await tx.dispatchVisit.update({

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { type AccountOption } from "./create-assignment-form";
 import { AssignmentCreateDialog } from "./create-assignment-dialog";
@@ -31,6 +32,7 @@ export default async function TechnicianDetailPage({
   params: Promise<{ techId: string }>;
 }) {
   const { techId } = await params;
+  await requireAdmin();
   const tech = await prisma.technician.findUnique({
     where: { id: techId },
     include: {

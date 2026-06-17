@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/db";
+import { accountScopeWhere, requireSession } from "@/lib/auth/session";
 import { AccountCardGrid } from "@/components/admin/account-card-grid";
 
 export default async function InvoicesLanding() {
+  const session = await requireSession();
   const accounts = await prisma.clientAccount.findMany({
+    where: accountScopeWhere(session),
     orderBy: { name: "asc" },
     include: {
       org: { select: { name: true } },

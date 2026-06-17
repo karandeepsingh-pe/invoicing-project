@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { generatePreInvoiceSchema } from "@/lib/schemas/generate-pre-invoice";
 import { lastDayOfMonth, monthRange } from "@/lib/invoice/period";
 import { renderPreInvoice } from "@/lib/invoice/render-pre-invoice";
@@ -39,7 +39,7 @@ export async function generatePreInvoice(
   _prev: GeneratePreInvoiceResult,
   formData: FormData,
 ): Promise<GeneratePreInvoiceResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -52,6 +52,7 @@ export async function generatePreInvoice(
     return { ok: false, formError: "Validation failed." };
   }
   const { accountId, year, month, dedicatedSites } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },

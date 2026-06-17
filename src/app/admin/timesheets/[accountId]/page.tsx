@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import { TimesheetCategorySection } from "./category-section";
@@ -27,6 +28,7 @@ export default async function TimesheetPage({
   searchParams: Promise<{ year?: string; month?: string; type?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
 
   const now = new Date();

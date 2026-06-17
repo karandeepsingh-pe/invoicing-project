@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { HolidayCreateDialog } from "./create-dialog";
 import { HolidayRowActions } from "./holiday-row";
 
@@ -10,6 +11,7 @@ function weekday(d: Date): string {
 }
 
 export default async function HolidaysMastersPage() {
+  await requireAdmin();
   const holidays = await prisma.holiday.findMany({ orderBy: { date: "asc" } });
 
   return (

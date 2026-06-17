@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
@@ -28,6 +29,7 @@ export default async function DispatchVisitsPage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();

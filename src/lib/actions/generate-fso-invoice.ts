@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { monthRange } from "@/lib/invoice/period";
 import {
   loadFsoDedicatedRows,
@@ -29,7 +29,7 @@ export async function generateFsoInvoice(
   _prev: GenerateFsoResult,
   formData: FormData,
 ): Promise<GenerateFsoResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -40,6 +40,7 @@ export async function generateFsoInvoice(
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return { ok: false, formError: "Validation failed." };
   const { accountId, year, month } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },

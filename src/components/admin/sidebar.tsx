@@ -5,20 +5,28 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { OvationLogo } from "@/components/brand/ovation-logo";
+import { SignOutButton } from "@/components/admin/sign-out-button";
 
-type FlatLink = { kind: "link"; href: string; label: string };
-type Group = { kind: "group"; id: string; label: string; children: FlatLink[] };
+type FlatLink = { kind: "link"; href: string; label: string; adminOnly?: boolean };
+type Group = {
+  kind: "group";
+  id: string;
+  label: string;
+  adminOnly?: boolean;
+  children: FlatLink[];
+};
 type Section = FlatLink | Group;
 
 const sections: Section[] = [
   { kind: "link", href: "/admin", label: "Dashboard" },
-  { kind: "link", href: "/admin/management", label: "Client Management" },
+  { kind: "link", href: "/admin/management", label: "Client Management", adminOnly: true },
   { kind: "link", href: "/admin/timesheets", label: "Timesheets" },
   { kind: "link", href: "/admin/invoices", label: "Invoices" },
   {
     kind: "group",
     id: "masters",
     label: "Masters",
+    adminOnly: true,
     children: [
       { kind: "link", href: "/admin/masters/slas", label: "SLAs" },
       { kind: "link", href: "/admin/masters/sub-categories", label: "Sub-categories" },
@@ -39,23 +47,35 @@ function groupContainsActive(pathname: string, group: Group): boolean {
   return group.children.some((c) => isActive(pathname, c.href));
 }
 
-export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
+export function AdminSidebar({
+  userEmail,
+  isAdmin,
+  showSignOut = false,
+}: {
+  userEmail: string;
+  isAdmin: boolean;
+  showSignOut?: boolean;
+}) {
   const pathname = usePathname() ?? "/admin";
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // SDMs get a slimmed nav — admin-only sections are dropped entirely (and the
+  // pages enforce the same server-side).
+  const visibleSections = isAdmin ? sections : sections.filter((s) => !s.adminOnly);
 
   // Auto-open the group whose child is active (on first mount + when path changes).
   useEffect(() => {
     setOpenGroups((prev) => {
       const next = new Set(prev);
-      for (const s of sections) {
+      for (const s of visibleSections) {
         if (s.kind === "group" && groupContainsActive(pathname, s)) {
           next.add(s.id);
         }
       }
       return next;
     });
-  }, [pathname]);
+  }, [pathname, visibleSections]);
 
   // Drawer follows navigation closed; Escape + scroll lock mirror dialog.tsx.
   useEffect(() => {
@@ -134,7 +154,7 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
           <span className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-fg-subtle">
             Workspace
           </span>
-          {sections.map((s) => {
+          {visibleSections.map((s) => {
             if (s.kind === "link") {
               const active = isActive(pathname, s.href);
               return (
@@ -210,10 +230,13 @@ export function AdminSidebar({ adminEmail }: { adminEmail: string }) {
 
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <div className="px-1">
-          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">Signed in</div>
-          <div className="truncate text-xs font-medium text-fg">{adminEmail}</div>
+          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">
+            Signed in{isAdmin ? " · Admin" : " · SDM"}
+          </div>
+          <div className="truncate text-xs font-medium text-fg">{userEmail}</div>
         </div>
         <ThemeToggle />
+        {showSignOut && <SignOutButton />}
       </div>
       </>
     );

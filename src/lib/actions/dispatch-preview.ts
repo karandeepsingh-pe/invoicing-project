@@ -2,7 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { dispatchRateRows } from "@/lib/invoice/dispatch-rows";
 import { profileFor } from "@/lib/invoice/dispatch-pricing-profiles";
 import { calculateDispatchVisit } from "@/lib/invoice/dispatch-calculator";
@@ -46,11 +46,10 @@ function isWeekendDate(iso: string): boolean {
 export async function previewDispatchCharge(
   input: DispatchPreviewInput,
 ): Promise<DispatchPreviewResult> {
-  await requireAdmin();
-
   if (!input.accountId || !input.assignmentId || !input.slaId) {
     return { ok: false, error: "Pick a technician and SLA to preview." };
   }
+  await requireAccountAccess(input.accountId);
   const hours = Number(input.hoursOnSite);
   if (!Number.isFinite(hours) || hours < 0) return { ok: false, error: "Enter valid hours." };
 

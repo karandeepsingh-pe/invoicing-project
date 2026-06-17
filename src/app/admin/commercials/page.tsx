@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { CommercialsView, type CommercialOrg } from "./commercials-view";
 
 export default async function CommercialsPage() {
+  await requireAdmin();
   const data = await prisma.org.findMany({
     orderBy: { name: "asc" },
     include: {

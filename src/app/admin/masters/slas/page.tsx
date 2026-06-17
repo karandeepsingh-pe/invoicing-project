@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { SlaRowActions } from "./sla-row";
 import { SlaCreateDialog } from "./create-dialog";
 
 export default async function SlasMastersPage() {
+  await requireAdmin();
   const slas = await prisma.sla.findMany({
     orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { accountRates: true } } },

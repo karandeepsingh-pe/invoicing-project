@@ -1,5 +1,6 @@
 import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { SubCategoryRowActions } from "./sub-cat-row";
 import { SubCategoryCreateDialog } from "./create-dialog";
 
@@ -11,6 +12,7 @@ const categoryLabel: Record<RateCategory, string> = {
 };
 
 export default async function SubCategoriesMastersPage() {
+  await requireAdmin();
   const rows = await prisma.rateSubCategory.findMany({
     orderBy: [{ rateCategory: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { accountRates: true } } },

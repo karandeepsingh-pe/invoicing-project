@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { TechnicianCreateDialog } from "./create-dialog";
 import {
@@ -13,6 +14,7 @@ function fmtDate(d: Date | null): string {
 }
 
 export default async function TechniciansPage() {
+  await requireAdmin();
   const [techs, orgs, accounts] = await Promise.all([
     prisma.technician.findMany({
       include: {

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess } from "@/lib/auth/session";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -35,10 +35,10 @@ export async function getDispatchBusyWindows(input: {
   visitDate: string;
   excludeDispatchVisitId?: string;
 }): Promise<BusyWindowsResult> {
-  await requireAdmin();
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { ok: false };
   const { accountId, visitDate, excludeDispatchVisitId } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const dayStart = new Date(`${visitDate}T00:00:00.000Z`);
   const dayEnd = new Date(dayStart.getTime() + DAY_MS);

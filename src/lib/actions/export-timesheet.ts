@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { monthRange } from "@/lib/invoice/period";
 import { renderTimesheet } from "@/lib/invoice/render-timesheet";
 import { loadTimesheetExportInput } from "@/lib/invoice/timesheet-export-data";
@@ -26,10 +26,10 @@ export async function exportTimesheetXlsx(input: {
   year: number;
   month: number;
 }): Promise<ExportTimesheetResult> {
-  await requireAdmin();
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, formError: "Invalid export request." };
   const { accountId, year, month } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const exportInput = await loadTimesheetExportInput(accountId, year, month);
   if (!exportInput) return { ok: false, formError: "Account not found." };
