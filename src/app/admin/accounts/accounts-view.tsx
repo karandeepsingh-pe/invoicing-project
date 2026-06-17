@@ -20,6 +20,9 @@ export type AccountCard = {
   invoiceRunCount: number;
   clientPocName: string | null;
   clientSpocEmail: string | null;
+  sdmName: string | null;
+  sdmEmail: string | null;
+  sdmPhone: string | null;
   projectDescription: string | null;
   defaultHours: number;
   addressLine1: string | null;
@@ -124,6 +127,9 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 orgDefaultCurrency={a.orgDefaultCurrency}
                 clientPocName={a.clientPocName}
                 clientSpocEmail={a.clientSpocEmail}
+                sdmName={a.sdmName}
+                sdmEmail={a.sdmEmail}
+                sdmPhone={a.sdmPhone}
                 projectDescription={a.projectDescription}
                 defaultHours={a.defaultHours}
                 addressLine1={a.addressLine1}

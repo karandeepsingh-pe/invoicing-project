@@ -55,6 +55,29 @@ export function ClientAccountCreateForm({
         errors={fieldErrors?.clientSpocEmail}
       />
       <TextField
+        label="SDM name"
+        name="sdmName"
+        required
+        placeholder="e.g. Karandeep Talwar"
+        errors={fieldErrors?.sdmName}
+        hint="Owns this account. Required."
+      />
+      <TextField
+        label="SDM email"
+        name="sdmEmail"
+        type="email"
+        required
+        placeholder="name@ovationwps.com"
+        errors={fieldErrors?.sdmEmail}
+        hint="Must be @ovationwps.com — drives who can see this account."
+      />
+      <TextField
+        label="SDM phone"
+        name="sdmPhone"
+        placeholder="Optional"
+        errors={fieldErrors?.sdmPhone}
+      />
+      <TextField
         label="Project description"
         name="projectDescription"
         placeholder="FTE - Dedicated Support"

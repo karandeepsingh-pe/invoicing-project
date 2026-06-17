@@ -177,6 +177,9 @@ export default async function AccountDetailPage({
             orgDefaultCurrency={account.org.defaultCurrency}
             clientPocName={account.clientPocName}
             clientSpocEmail={account.clientSpocEmail}
+            sdmName={account.sdmName}
+            sdmEmail={account.sdmEmail}
+            sdmPhone={account.sdmPhone}
             projectDescription={account.projectDescription}
             defaultHours={account.defaultHours}
             addressLine1={account.addressLine1}

@@ -26,6 +26,21 @@ const emailOrEmpty = z
   .nullable()
   .optional();
 
+// SDM owner email. Bulk leaves it optional by design (blank -> account is
+// admin-only until assigned), but when present it must be a valid Ovation email.
+const sdmEmailOrEmpty = z
+  .union([
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email()
+      .refine((v) => v.endsWith("@ovationwps.com"), "Must be an @ovationwps.com email"),
+    z.literal("").transform(() => null),
+  ])
+  .nullable()
+  .optional();
+
 // Empty cell -> undefined -> default 8; otherwise coerce + bound.
 const defaultHoursField = z.preprocess(
   (v) => (v === "" || v === null || v === undefined ? undefined : v),
@@ -55,6 +70,9 @@ export const bulkAccountRowSchema = z.object({
   state: optionalText(80),
   postalCode: optionalText(12),
   country: optionalText(80),
+  sdmName: optionalText(120),
+  sdmEmail: sdmEmailOrEmpty,
+  sdmPhone: optionalText(40),
 });
 
 export type BulkAccountRow = z.infer<typeof bulkAccountRowSchema>;
@@ -75,6 +93,9 @@ export const BULK_ACCOUNT_COLUMNS = [
   { key: "state", header: "State" },
   { key: "postalCode", header: "Zip / Postal Code" },
   { key: "country", header: "Country" },
+  { key: "sdmName", header: "SDM Name" },
+  { key: "sdmEmail", header: "SDM Email (@ovationwps.com)" },
+  { key: "sdmPhone", header: "SDM Phone" },
 ] as const;
 
 export type BulkAccountColumnKey = (typeof BULK_ACCOUNT_COLUMNS)[number]["key"];

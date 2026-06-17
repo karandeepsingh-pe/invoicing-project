@@ -11,6 +11,9 @@ export function ClientAccountEditForm({
   orgDefaultCurrency,
   clientPocName,
   clientSpocEmail,
+  sdmName,
+  sdmEmail,
+  sdmPhone,
   projectDescription,
   defaultHours,
   addressLine1,
@@ -30,6 +33,9 @@ export function ClientAccountEditForm({
   orgDefaultCurrency: string;
   clientPocName: string | null;
   clientSpocEmail: string | null;
+  sdmName: string | null;
+  sdmEmail: string | null;
+  sdmPhone: string | null;
   projectDescription: string | null;
   defaultHours: number;
   addressLine1: string | null;
@@ -103,6 +109,34 @@ export function ClientAccountEditForm({
         placeholder="poc@client.com"
         errors={fieldErrors?.clientSpocEmail}
       />
+
+      <div className="mt-1 border-t border-border pt-2">
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">SDM owner</span>
+      </div>
+      <TextField
+        label="SDM name"
+        name="sdmName"
+        defaultValue={sdmName ?? ""}
+        placeholder="e.g. Karandeep Talwar"
+        errors={fieldErrors?.sdmName}
+      />
+      <TextField
+        label="SDM email"
+        name="sdmEmail"
+        type="email"
+        defaultValue={sdmEmail ?? ""}
+        placeholder="name@ovationwps.com"
+        errors={fieldErrors?.sdmEmail}
+        hint="Must be @ovationwps.com — the SDM who signs in with this email sees this account."
+      />
+      <TextField
+        label="SDM phone"
+        name="sdmPhone"
+        defaultValue={sdmPhone ?? ""}
+        placeholder="Optional"
+        errors={fieldErrors?.sdmPhone}
+      />
+
       <TextField
         label="Project description"
         name="projectDescription"

@@ -136,6 +136,13 @@ model ClientAccount {
   currency           String?
   clientPocName      String?
   clientSpocEmail    String?
+  // SDM owner — drives row-level visibility. An SDM sees an account when
+  // sdmEmail == their signed-in email (case-insensitive). Nullable: existing
+  // accounts have no owner (admin-only) until one is assigned. New accounts
+  // require an SDM via the form; bulk upload may leave it blank by design.
+  sdmName            String?
+  sdmEmail           String?
+  sdmPhone           String?
   projectDescription String?
   defaultHours       Int      @default(8)
   // Which dispatch pricing model this account bills under (default keeps every
@@ -169,6 +176,7 @@ model ClientAccount {
   userAccess   UserAccountAccess[]
 
   @@unique([orgId, name])
+  @@index([sdmEmail])
   @@map("client_accounts")
 }
 

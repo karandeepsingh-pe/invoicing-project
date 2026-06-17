@@ -84,6 +84,36 @@ function refineBusinessHours(
   }
 }
 
+// SDM owner — drives row-level visibility. Domain-locked to Ovation. On CREATE
+// both name + email are required (every new account gets an owner). On UPDATE
+// they're optional: blank -> undefined so Prisma skips the column (legacy
+// blank-SDM accounts stay editable without being forced to assign an owner),
+// rather than null which would clear an existing owner.
+const SDM_DOMAIN = "@ovationwps.com";
+
+const sdmEmailRequired = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email("Enter a valid email")
+  .refine((v) => v.endsWith(SDM_DOMAIN), `Must be an ${SDM_DOMAIN} email`);
+
+const sdmFieldsCreate = {
+  sdmName: z.string().trim().min(1, "SDM name is required").max(120),
+  sdmEmail: sdmEmailRequired,
+  sdmPhone: optionalText(40),
+};
+
+const sdmFieldsUpdate = {
+  sdmName: z
+    .union([z.string().trim().min(1).max(120), z.literal("").transform(() => undefined)])
+    .optional(),
+  sdmEmail: z
+    .union([sdmEmailRequired, z.literal("").transform(() => undefined)])
+    .optional(),
+  sdmPhone: optionalText(40),
+};
+
 // Billing / site address. Stored as plain nullable text columns (no postal-code
 // master FK — that master is for technician/dispatch geography).
 const addressFields = {
@@ -101,6 +131,7 @@ export const clientAccountCreateSchema = z
     currency: currencyField,
     clientPocName: optionalText(120),
     clientSpocEmail: emailOrEmpty,
+    ...sdmFieldsCreate,
     projectDescription: optionalText(200),
     defaultHours: defaultHoursField,
     ...addressFields,
@@ -117,6 +148,7 @@ export const clientAccountUpdateSchema = z
     currency: currencyField,
     clientPocName: optionalText(120),
     clientSpocEmail: emailOrEmpty,
+    ...sdmFieldsUpdate,
     projectDescription: optionalText(200),
     defaultHours: defaultHoursField,
     ...addressFields,
