@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { HolidayCreateDialog } from "./create-dialog";
 import { HolidayRowActions } from "./holiday-row";
 
@@ -10,22 +11,24 @@ function weekday(d: Date): string {
 }
 
 export default async function HolidaysMastersPage() {
+  await requireAdmin();
   const holidays = await prisma.holiday.findMany({ orderBy: { date: "asc" } });
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Holidays</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Holidays</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{holidays.length} total</span>
             <HolidayCreateDialog />
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Gazetted public holidays (global). Each date auto-fills PH on every technician&apos;s
-          Dedicated timesheet for that month (overridable), and a PH day bills as a paid day.
+          Public holidays, shared across all accounts. Each date fills in PH on every
+          technician&apos;s Dedicated timesheet for that month (you can override it), and a PH day
+          bills as a paid day.
         </p>
       </header>
 

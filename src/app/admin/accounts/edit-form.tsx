@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateClientAccount } from "@/lib/actions/client-account";
-import { FormError, SubmitButton, TextField } from "@/components/admin/field";
+import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
 
 export function ClientAccountEditForm({
   id,
@@ -11,6 +11,9 @@ export function ClientAccountEditForm({
   orgDefaultCurrency,
   clientPocName,
   clientSpocEmail,
+  sdmName,
+  sdmEmail,
+  sdmPhone,
   projectDescription,
   defaultHours,
   addressLine1,
@@ -18,6 +21,11 @@ export function ClientAccountEditForm({
   state: stateValue,
   postalCode,
   country,
+  dispatchPricingModel,
+  businessHoursStart,
+  businessHoursEnd,
+  dedicatedRetainerPerSite,
+  dispatchStandbyPerSite,
 }: {
   id: string;
   name: string;
@@ -25,6 +33,9 @@ export function ClientAccountEditForm({
   orgDefaultCurrency: string;
   clientPocName: string | null;
   clientSpocEmail: string | null;
+  sdmName: string | null;
+  sdmEmail: string | null;
+  sdmPhone: string | null;
   projectDescription: string | null;
   defaultHours: number;
   addressLine1: string | null;
@@ -32,6 +43,11 @@ export function ClientAccountEditForm({
   state: string | null;
   postalCode: string | null;
   country: string | null;
+  dispatchPricingModel: string;
+  businessHoursStart: string | null;
+  businessHoursEnd: string | null;
+  dedicatedRetainerPerSite: string | null;
+  dispatchStandbyPerSite: string | null;
 }) {
   const [state, action] = useActionState(updateClientAccount, null);
   const [open, setOpen] = useState(false);
@@ -75,7 +91,7 @@ export function ClientAccountEditForm({
         maxLength={3}
         defaultValue={currency ?? ""}
         placeholder={orgDefaultCurrency}
-        hint={`Leave blank to inherit org default (${orgDefaultCurrency}).`}
+        hint={`Leave blank to inherit client default (${orgDefaultCurrency}).`}
         errors={fieldErrors?.currency}
       />
       <TextField
@@ -93,6 +109,34 @@ export function ClientAccountEditForm({
         placeholder="poc@client.com"
         errors={fieldErrors?.clientSpocEmail}
       />
+
+      <div className="mt-1 border-t border-border pt-2">
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">SDM owner</span>
+      </div>
+      <TextField
+        label="SDM name"
+        name="sdmName"
+        defaultValue={sdmName ?? ""}
+        placeholder="e.g. Karandeep Talwar"
+        errors={fieldErrors?.sdmName}
+      />
+      <TextField
+        label="SDM email"
+        name="sdmEmail"
+        type="email"
+        defaultValue={sdmEmail ?? ""}
+        placeholder="name@ovationwps.com"
+        errors={fieldErrors?.sdmEmail}
+        hint="Must be @ovationwps.com — the SDM who signs in with this email sees this account."
+      />
+      <TextField
+        label="SDM phone"
+        name="sdmPhone"
+        defaultValue={sdmPhone ?? ""}
+        placeholder="Optional"
+        errors={fieldErrors?.sdmPhone}
+      />
+
       <TextField
         label="Project description"
         name="projectDescription"
@@ -126,6 +170,70 @@ export function ClientAccountEditForm({
         errors={fieldErrors?.postalCode}
       />
       <TextField label="Country" name="country" defaultValue={country ?? ""} errors={fieldErrors?.country} />
+
+      <div className="mt-1 border-t border-border pt-2">
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">Dispatch billing</span>
+      </div>
+      <SelectField
+        label="Dispatch pricing model"
+        name="dispatchPricingModel"
+        defaultValue={dispatchPricingModel}
+        errors={fieldErrors?.dispatchPricingModel}
+        hint="STANDARD = band + SLA hourly math. TCS = priority-keyed first-hour."
+      >
+        <option value="STANDARD">Standard (band + SLA)</option>
+        <option value="TCS_PRIORITY">TCS priority</option>
+      </SelectField>
+      <div className="grid grid-cols-2 gap-2">
+        <TextField
+          label="Business hours start"
+          name="businessHoursStart"
+          type="time"
+          defaultValue={businessHoursStart ?? ""}
+          errors={fieldErrors?.businessHoursStart}
+        />
+        <TextField
+          label="Business hours end"
+          name="businessHoursEnd"
+          type="time"
+          defaultValue={businessHoursEnd ?? ""}
+          errors={fieldErrors?.businessHoursEnd}
+        />
+      </div>
+      <span className="text-xs text-fg-subtle">
+        Set both to auto-split dispatch visits: weekday hours after the end time bill at after-hours
+        rates; a weekend date bills the whole visit at weekend rates. Leave blank to bill each visit by
+        the manual after-hours/weekend flags.
+      </span>
+
+      <div className="mt-1 border-t border-border pt-2">
+        <span className="text-xs font-semibold tracking-tightish text-fg-muted">Per-site recurring fees</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <TextField
+          label="Dedicated retainer $/site"
+          name="dedicatedRetainerPerSite"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={dedicatedRetainerPerSite ?? ""}
+          errors={fieldErrors?.dedicatedRetainerPerSite}
+        />
+        <TextField
+          label="Dispatch standby $/site"
+          name="dispatchStandbyPerSite"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={dispatchStandbyPerSite ?? ""}
+          errors={fieldErrors?.dispatchStandbyPerSite}
+        />
+      </div>
+      <span className="text-xs text-fg-subtle">
+        At invoice generation you enter site counts; the fee bills count × price as labeled
+        Retainer / Standby lines. Blank = not offered for this account.
+      </span>
+
       <div className="flex items-center gap-2">
         <SubmitButton>Save</SubmitButton>
         {state && state.ok && <span className="text-xs text-success">Saved.</span>}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { CreateAccountUnderOrgDialog } from "./create-account-dialog";
 import { OrgEditForm } from "./org-edit-form";
 
@@ -10,6 +11,7 @@ export default async function OrgDetailPage({
   params: Promise<{ orgId: string }>;
 }) {
   const { orgId } = await params;
+  await requireAdmin();
   const org = await prisma.org.findUnique({
     where: { id: orgId },
     include: {
@@ -25,11 +27,11 @@ export default async function OrgDetailPage({
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
-          ← Partner Management
+          ← Client Management
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-semibold tracking-tight">{org.name}</h1>
+            <h1 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">{org.name}</h1>
             <p className="text-sm text-fg-muted">
               {org.outputTemplate} · default currency {org.defaultCurrency}
             </p>
@@ -39,6 +41,9 @@ export default async function OrgDetailPage({
             name={org.name}
             outputTemplate={org.outputTemplate}
             defaultCurrency={org.defaultCurrency}
+            remitClientCode={org.remitClientCode}
+            remitClientName={org.remitClientName}
+            remitClientAddress={org.remitClientAddress}
           />
         </div>
       </header>
@@ -67,7 +72,7 @@ export default async function OrgDetailPage({
                 className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2"
               >
                 <td className="px-4 py-2.5">
-                  <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${a.id}` as never}>
+                  <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${a.id}` as never}>
                     {a.name}
                   </Link>
                 </td>

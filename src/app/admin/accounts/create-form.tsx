@@ -31,7 +31,7 @@ export function ClientAccountCreateAnywhereForm({
   if (orgs.length === 0) {
     return (
       <p className="text-sm text-fg-muted">
-        Create an org first so the account has a parent.
+        Create a client first so the account has a parent.
       </p>
     );
   }
@@ -40,7 +40,7 @@ export function ClientAccountCreateAnywhereForm({
     <form action={action} className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <FormError error={formError} />
       <SelectField
-        label="Org"
+        label="Client"
         name="orgId"
         value={orgId}
         onChange={(e) => setOrgId(e.target.value)}
@@ -59,7 +59,7 @@ export function ClientAccountCreateAnywhereForm({
         name="currency"
         maxLength={3}
         placeholder={selectedOrg?.defaultCurrency ?? ""}
-        hint={`Blank inherits org default${selectedOrg ? ` (${selectedOrg.defaultCurrency})` : ""}.`}
+        hint={`Blank inherits client default${selectedOrg ? ` (${selectedOrg.defaultCurrency})` : ""}.`}
         errors={fieldErrors?.currency}
       />
       <TextField
@@ -74,6 +74,29 @@ export function ClientAccountCreateAnywhereForm({
         type="email"
         placeholder="poc@client.com"
         errors={fieldErrors?.clientSpocEmail}
+      />
+      <TextField
+        label="SDM name"
+        name="sdmName"
+        required
+        placeholder="e.g. Karandeep Talwar"
+        errors={fieldErrors?.sdmName}
+        hint="Owns this account. Required."
+      />
+      <TextField
+        label="SDM email"
+        name="sdmEmail"
+        type="email"
+        required
+        placeholder="name@ovationwps.com"
+        errors={fieldErrors?.sdmEmail}
+        hint="Must be @ovationwps.com — drives who can see this account."
+      />
+      <TextField
+        label="SDM phone"
+        name="sdmPhone"
+        placeholder="Optional"
+        errors={fieldErrors?.sdmPhone}
       />
       <TextField
         label="Project description"
@@ -101,6 +124,31 @@ export function ClientAccountCreateAnywhereForm({
       <TextField label="State / Region" name="state" errors={fieldErrors?.state} />
       <TextField label="Zip / Postal code" name="postalCode" errors={fieldErrors?.postalCode} />
       <TextField label="Country" name="country" errors={fieldErrors?.country} />
+      <SelectField
+        label="Dispatch pricing model"
+        name="dispatchPricingModel"
+        defaultValue="STANDARD"
+        errors={fieldErrors?.dispatchPricingModel}
+        hint="Standard = band + SLA hourly. TCS = priority-keyed."
+      >
+        <option value="STANDARD">Standard (band + SLA)</option>
+        <option value="TCS_PRIORITY">TCS priority</option>
+      </SelectField>
+      <TextField
+        label="Business hours start"
+        name="businessHoursStart"
+        type="time"
+        defaultValue="09:00"
+        errors={fieldErrors?.businessHoursStart}
+        hint="Dispatch auto-split: hours after the end time bill after-hours. Blank both = off."
+      />
+      <TextField
+        label="Business hours end"
+        name="businessHoursEnd"
+        type="time"
+        defaultValue="17:00"
+        errors={fieldErrors?.businessHoursEnd}
+      />
       <div className="md:col-span-3">
         <SubmitButton>Create account</SubmitButton>
         {state && state.ok && !onSuccess && <span className="ml-3 text-sm text-success">Created.</span>}

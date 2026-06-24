@@ -42,6 +42,9 @@ export type PreInvoiceFooter = {
   // Percentage add-on (e.g. a 3% project management fee), already computed to a
   // money amount by the engine. Rendered between the subtotal and grand total.
   projectManagementFee?: { label: string; amount: number };
+  // Additional labeled flat fees (e.g. per-site Retainer/Standby lines:
+  // "Standby — Dispatch (10 sites × $425)"). Rendered before the retainer row.
+  extraFees?: { label: string; amount: number }[];
 };
 
 const CURRENCY_FMT = '"$"#,##0.00';
@@ -91,6 +94,7 @@ export async function renderPreInvoice(
   header: PreInvoiceHeader,
   rows: PreInvoiceRow[],
   footer: PreInvoiceFooter,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
@@ -101,6 +105,9 @@ export async function renderPreInvoice(
   });
 
   writePreInvoiceSheet(sheet, header, rows, footer);
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(workbook);
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer as ArrayBuffer);
@@ -253,7 +260,9 @@ export function writePreInvoiceSheet(
   const lastDataRow = FIRST_DATA_ROW + Math.max(rows.length, 1) - 1;
   const totalRow1 = lastDataRow + 1;
   const pmRow = footer.projectManagementFee ? totalRow1 + 1 : null;
-  const retainerRow = (pmRow ?? totalRow1) + 1;
+  const extraFees = footer.extraFees ?? [];
+  const firstExtraRow = (pmRow ?? totalRow1) + 1;
+  const retainerRow = firstExtraRow + extraFees.length;
   const reimbursementsRow = retainerRow + 1;
   const totalRow2 = reimbursementsRow + 1;
   const noteRow = totalRow2 + 2;
@@ -289,6 +298,20 @@ export function writePreInvoiceSheet(
     applyBorder(pmCell);
   }
 
+  // ── Extra labeled fee rows (per-site Retainer/Standby lines) ──
+  extraFees.forEach((fee, i) => {
+    const r = firstExtraRow + i;
+    sheet.mergeCells(`B${r}:M${r}`);
+    const label = sheet.getCell(`B${r}`);
+    label.value = fee.label;
+    label.alignment = { horizontal: "right", vertical: "middle" };
+    applyBorder(label);
+    const cell = sheet.getCell(`N${r}`);
+    cell.value = fee.amount;
+    cell.numFmt = CURRENCY_FMT;
+    applyBorder(cell);
+  });
+
   // ── Retainer Fee row ──
   sheet.mergeCells(`B${retainerRow}:M${retainerRow}`);
   const retainerLabel = sheet.getCell(`B${retainerRow}`);
@@ -320,14 +343,20 @@ export function writePreInvoiceSheet(
   applyBlueFill(totalLabel2);
   applyBorder(totalLabel2);
   const totalCell2 = sheet.getCell(`N${totalRow2}`);
+  const extraFeeRefs = extraFees.map((_, i) => `N${firstExtraRow + i}`);
+  const sumRefs = [
+    `N${totalRow1}`,
+    ...(pmRow !== null ? [`N${pmRow}`] : []),
+    ...extraFeeRefs,
+    `N${retainerRow}`,
+    `N${reimbursementsRow}`,
+  ];
   totalCell2.value = {
-    formula:
-      pmRow !== null
-        ? `N${totalRow1}+N${pmRow}+N${retainerRow}+N${reimbursementsRow}`
-        : `N${totalRow1}+N${retainerRow}+N${reimbursementsRow}`,
+    formula: sumRefs.join("+"),
     result:
       rows.reduce((n, r) => n + r.extendedTotal, 0) +
       (footer.projectManagementFee?.amount ?? 0) +
+      extraFees.reduce((n, f) => n + f.amount, 0) +
       (footer.retainerFee ?? 0) +
       (footer.reimbursements ?? 0),
   };

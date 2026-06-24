@@ -55,6 +55,18 @@ describe("validateAssignment", () => {
     if (!result.ok) expect(result.reason).toBe("NO_RATE_CARD");
   });
 
+  it("ok for a salaried Dedicated tech with no band rate card (per-tech annual salary)", () => {
+    // No Dedicated rate row on the account, tech not rebadged, but has a per-tech
+    // annual salary -> prices off the salary, so it is assignable.
+    const result = validateAssignment({
+      ...baseInputs,
+      rateCategory: RateCategory.DEDICATED,
+      slaTier: "BACKFILL",
+      technicianAnnualSalary: 74100,
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it("blocks when rate row window is past", () => {
     const result = validateAssignment({
       ...baseInputs,

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
 import {
@@ -15,6 +15,7 @@ import {
   renderProjectInvoice,
   type ProjectRow,
 } from "@/lib/invoice/render-project";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 const schema = z.object({
   accountId: z.string().min(1),
@@ -51,7 +52,7 @@ export async function generateProjectInvoice(
   _prev: GenerateProjectResult,
   formData: FormData,
 ): Promise<GenerateProjectResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -64,6 +65,7 @@ export async function generateProjectInvoice(
     return { ok: false, formError: "Validation failed." };
   }
   const { accountId, year, month } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -92,8 +94,8 @@ export async function generateProjectInvoice(
       },
     },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 
@@ -148,6 +150,9 @@ export async function generateProjectInvoice(
     timeZone: "UTC",
   });
 
+  const invoiceTotal =
+    rows.reduce((n, r) => n + r.extendedTotal, 0) + retainerFee + reimbursements;
+
   const buffer = await renderProjectInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
@@ -164,6 +169,7 @@ export async function generateProjectInvoice(
     },
     rows,
     { retainerFee, reimbursements },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal }),
   );
 
   await prisma.invoiceRun.create({

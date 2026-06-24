@@ -29,6 +29,24 @@ enum OutputTemplate {
   PRE_INVOICE
 }
 
+// Per-account dispatch pricing model. STANDARD is the original band + SLA model
+// (first hour + additional, full-day cap). TCS_PRIORITY keys the first-hour charge
+// on the visit's priority tier (P1..MACd), includes the first two hours, rounds
+// onsite hours to the nearest 0.5, and bills a cancellation fee. See
+// src/lib/invoice/dispatch-pricing-profiles.ts for the per-model knobs.
+enum DispatchPricingModel {
+  STANDARD
+  TCS_PRIORITY
+}
+
+// How a Dedicated account bills regular work: a per-day rate (Annual/Day/Monthly
+// basis) or a per-hour rate (regular hours × Hourly Rate). OT + weekend are
+// per-hour either way.
+enum DedicatedBillingBasis {
+  DAY_RATE
+  HOURLY
+}
+
 // The top-level rate categories on every account's rate sheet.
 enum RateCategory {
   DEDICATED // formerly TechType.FTE
@@ -54,9 +72,12 @@ enum MiscFeeKind {
   OTHER
 }
 
-// Status codes for a TimesheetEntry day cell. PH / AB / NA / PTO count as 0
-// days worked; HALF_DAY counts as 0.5 of a day. PH dates additionally reduce
-// account-wide Business Days for the pre-invoice calculation.
+// Status codes for a TimesheetEntry day cell (Dedicated billing). PH (public
+// holiday) credits 0 worked days — the client pays for PH via the business-day
+// denominator instead (PH excluded from businessDays raises the day rate).
+// PTO is paid to the technician by Ovation but not billed. HALF_DAY counts as
+// 0.5 of a day. AB (absent) and NA (terminated / not active) count as 0. The
+// day-credit rule is centralised in src/lib/validation/cell.ts (statusDayCredit).
 enum TimesheetDayStatus {
   PH
   AB
@@ -93,6 +114,12 @@ model Org {
   name            String         @unique
   outputTemplate  OutputTemplate
   defaultCurrency String         @default("USD")
+  // Remittance "bill-to" entity shown on the Remittance Advice sheet for every
+  // account under this org (e.g. HCL → "( A009 ) HCL America Inc." + address).
+  // Optional: blank falls back to a built-in HCL default / the account address.
+  remitClientCode    String? // e.g. "A009"
+  remitClientName    String? // e.g. "HCL America Inc."
+  remitClientAddress String? // newline-separated address lines
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -109,8 +136,29 @@ model ClientAccount {
   currency           String?
   clientPocName      String?
   clientSpocEmail    String?
+  // SDM owner — drives row-level visibility. An SDM sees an account when
+  // sdmEmail == their signed-in email (case-insensitive). Nullable: existing
+  // accounts have no owner (admin-only) until one is assigned. New accounts
+  // require an SDM via the form; bulk upload may leave it blank by design.
+  sdmName            String?
+  sdmEmail           String?
+  sdmPhone           String?
   projectDescription String?
   defaultHours       Int      @default(8)
+  // Which dispatch pricing model this account bills under (default keeps every
+  // existing account on the original band + SLA math).
+  dispatchPricingModel DispatchPricingModel @default(STANDARD)
+  // Business-hours window ("HH:mm", wall-clock) for dispatch auto-split billing.
+  // When BOTH are set, a weekday visit with In/Out times bills its hours across
+  // business vs after-hours (anything after businessHoursEnd) at the matching
+  // rates. Null = auto-split off (single scenario from the manual after-hours flag).
+  businessHoursStart String?
+  businessHoursEnd   String?
+  // Per-site recurring fees: at invoice generation the admin enters site
+  // counts and the fee bills count x per-site price as labeled retainer lines
+  // ("Retainer — Dedicated", "Standby — Dispatch"). Null = not offered.
+  dedicatedRetainerPerSite Decimal? @db.Decimal(10, 2)
+  dispatchStandbyPerSite   Decimal? @db.Decimal(10, 2)
   // Billing / site address shown on generated invoices and dispatch context.
   addressLine1       String?
   city               String?
@@ -128,6 +176,7 @@ model ClientAccount {
   userAccess   UserAccountAccess[]
 
   @@unique([orgId, name])
+  @@index([sdmEmail])
   @@map("client_accounts")
 }
 
@@ -149,7 +198,8 @@ model Sla {
 }
 
 // Gazetted public-holiday master (global). A holiday date auto-prefills PH on the
-// Dedicated timesheet grid (overridable); a PH day bills as a paid full day.
+// Dedicated timesheet grid (overridable) and is excluded from the month's
+// business days — which is how the client pays for it (higher day rate).
 model Holiday {
   id        String   @id @default(cuid())
   date      DateTime @unique @db.Date
@@ -242,6 +292,10 @@ model Technician {
   // (BACKFILL vs NO_BACKFILL AccountRate rows), so this rides on the technician and
   // seeds the slaTier of any assignment they take. NONE for non-Dedicated techs.
   defaultSlaTier  AssignmentSlaTier @default(NONE)
+  // How a DEDICATED tech bills regular work: DAY_RATE (Annual/Day/Monthly basis) or
+  // HOURLY (regular hours × the band's Hourly Rate). OT + weekend stay per-hour.
+  // Ignored for non-Dedicated techs.
+  dedicatedBillingBasis DedicatedBillingBasis @default(DAY_RATE)
   active          Boolean      @default(true)
   // Pool availability flags. Opt-in (default false): a technician must be flagged
   // for a category before they appear in that category's new-assignment picker.
@@ -251,22 +305,32 @@ model Technician {
   isAvailableForDedicated Boolean @default(false)
   isAvailableForProject   Boolean @default(false)
   isAvailableForDispatch  Boolean @default(false)
-  // Rebadged engagement: a Dedicated tech billed off their annual salary, not the
-  // account's band rate sheet. hourly = annualSalary / 2080; day rate = hourly ×
-  // account Default Hours. OT / weekend hourly rates are entered manually (no fixed
-  // model yet). When isRebadged, band is shown as "Rebadged" in the UI.
+  // Rebadged engagement: a Dedicated tech billed off their OWN per-tech rates, not
+  // the account's band rate sheet. Each rebadged rate type is optional and entered
+  // individually on the technician. The billed day rate prefers, in order:
+  // rebadgedDayRate > rebadgedMonthlyRate/businessDays > annualSalary/12/businessDays
+  // > rebadgedHourlyRate × Default Hours. OT / weekend hourly are manual.
+  // When isRebadged, band is shown as "Rebadged" in the UI.
   isRebadged          Boolean  @default(false)
   annualSalary        Decimal? @db.Decimal(12, 2)
+  rebadgedHourlyRate  Decimal? @db.Decimal(12, 4)
+  rebadgedDayRate     Decimal? @db.Decimal(12, 4)
+  rebadgedMonthlyRate Decimal? @db.Decimal(12, 4)
   rebadgedOtRate      Decimal? @db.Decimal(12, 4)
   rebadgedWeekendRate Decimal? @db.Decimal(12, 4)
   postalCodeId    String?
   addressLine1    String? // street address line 1
+  // Employment start date (HR record, editable). Prefills the Start date when
+  // creating an assignment; does NOT itself gate timesheets (the assignment
+  // window does). Nullable for technicians created before this field existed.
+  startDate       DateTime?    @db.Date
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
   employerOrg Org          @relation(fields: [employerOrgId], references: [id])
-  assignments Assignment[]
-  postalCode  PostalCode?  @relation(fields: [postalCodeId], references: [id])
+  assignments    Assignment[]
+  postalCode     PostalCode?     @relation(fields: [postalCodeId], references: [id])
+  coveringEvents CoverageEvent[] @relation("coveringTechnician")
 
   @@unique([employerOrgId, employeeId])
   @@index([employerOrgId, active])
@@ -359,6 +423,9 @@ model DispatchVisit {
   siteCode            String?
   workStatus          DispatchWorkStatus @default(COMPLETED)
   oooHrs              Decimal?           @db.Decimal(6, 2)
+  // Manual cancellation fee: a CANCELLED visit bills exactly this amount when
+  // set; a CANCELLED visit without it is logged but never invoiced.
+  cancellationCharge  Decimal?           @db.Decimal(10, 2)
   postalCodeId        String?
   enteredById  String
   // Soft-delete stamps (testing-phase). Read paths filter deletedAt:null.
@@ -426,15 +493,24 @@ enum BookingKind {
 }
 
 // Coverage event for the Dedicated FTE flow. Logs who covered a BACKFILL-tier
-// technician's absence on a specific date. The covering technician's invoice
-// line picks up the days; the covered technician's line loses them. Billed at
-// the COVERED technician's Day Rate.
+// technician's absence on a specific date. The pre-invoice synthesizes a
+// separate "FTE (Backfill)" line for the covering TECHNICIAN (any active pool
+// tech — no account assignment required) and the covered technician's line
+// loses the day-fraction. Always billed at the COVERED technician's seat rates.
 model CoverageEvent {
   id                   String   @id @default(cuid())
   coveredAssignmentId  String
-  coveringAssignmentId String
+  // Legacy covering reference (assignment-based, pre-2026-06-10). Nullable so
+  // new events can be technician-based; kept for rollback. Do not write.
+  coveringAssignmentId String?
+  // The covering technician (technician-based model, 2026-06-10+).
+  coveringTechnicianId String?
   date                 DateTime @db.Date
   hours                Decimal  @db.Decimal(6, 2)
+  // Pass-through expense paid to the covering tech (travel etc.) — billed to
+  // the client under the pre-invoice footer's Reimbursements, dollar-for-dollar.
+  expenseAmount        Decimal? @db.Decimal(12, 2)
+  expenseNotes         String?
   notes                String?
   enteredById          String
   // Soft-delete stamps (cascade target when the covered day is soft-deleted).
@@ -442,9 +518,10 @@ model CoverageEvent {
   deletedById          String?
   createdAt            DateTime @default(now())
 
-  coveredAssignment  Assignment @relation("coveredEvents", fields: [coveredAssignmentId], references: [id])
-  coveringAssignment Assignment @relation("coveringEvents", fields: [coveringAssignmentId], references: [id])
-  enteredBy          User       @relation(fields: [enteredById], references: [id])
+  coveredAssignment  Assignment  @relation("coveredEvents", fields: [coveredAssignmentId], references: [id])
+  coveringAssignment Assignment? @relation("coveringEvents", fields: [coveringAssignmentId], references: [id])
+  coveringTechnician Technician? @relation("coveringTechnician", fields: [coveringTechnicianId], references: [id])
+  enteredBy          User        @relation(fields: [enteredById], references: [id])
 
   // (coveredAssignmentId, date) uniqueness is a SQL-managed PARTIAL unique index
   // "coverage_events_coveredAssignmentId_date_active" WHERE deletedAt IS NULL, so a
@@ -452,6 +529,7 @@ model CoverageEvent {
   // covered-assignment lookups fast now that the unique is gone.
   @@index([coveredAssignmentId, date])
   @@index([coveringAssignmentId, date])
+  @@index([coveringTechnicianId, date])
   @@map("coverage_events")
 }
 

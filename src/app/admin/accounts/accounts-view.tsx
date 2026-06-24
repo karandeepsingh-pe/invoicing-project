@@ -20,6 +20,9 @@ export type AccountCard = {
   invoiceRunCount: number;
   clientPocName: string | null;
   clientSpocEmail: string | null;
+  sdmName: string | null;
+  sdmEmail: string | null;
+  sdmPhone: string | null;
   projectDescription: string | null;
   defaultHours: number;
   addressLine1: string | null;
@@ -27,6 +30,11 @@ export type AccountCard = {
   state: string | null;
   postalCode: string | null;
   country: string | null;
+  dispatchPricingModel: string;
+  businessHoursStart: string | null;
+  businessHoursEnd: string | null;
+  dedicatedRetainerPerSite: string | null;
+  dispatchStandbyPerSite: string | null;
 };
 
 export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
@@ -48,7 +56,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
       <SearchBar
         value={query}
         onChange={setQuery}
-        placeholder="Search by account or org name…"
+        placeholder="Search by account or client name…"
         countLabel={`${filtered.length} of ${accounts.length}`}
       />
 
@@ -70,14 +78,14 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                     {initials(a.name)}
                   </div>
                   <div className="flex flex-col leading-tight">
-                    <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+                    <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
                       {a.name}
                     </span>
                     <span className="mt-0.5 text-xs text-fg-subtle">
                       under{" "}
                       <Link
                         href={`/admin/orgs/${a.orgId}` as never}
-                        className="text-fg-muted hover:text-accent"
+                        className="ui-link text-fg-muted"
                       >
                         {a.orgName}
                       </Link>
@@ -101,7 +109,7 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                   {effectiveCurrency}
                 </span>
                 {isOverride && (
-                  <span className="text-fg-subtle">override (org default {a.orgDefaultCurrency})</span>
+                  <span className="text-fg-subtle">override (client default {a.orgDefaultCurrency})</span>
                 )}
               </div>
 
@@ -119,6 +127,9 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 orgDefaultCurrency={a.orgDefaultCurrency}
                 clientPocName={a.clientPocName}
                 clientSpocEmail={a.clientSpocEmail}
+                sdmName={a.sdmName}
+                sdmEmail={a.sdmEmail}
+                sdmPhone={a.sdmPhone}
                 projectDescription={a.projectDescription}
                 defaultHours={a.defaultHours}
                 addressLine1={a.addressLine1}
@@ -126,12 +137,17 @@ export function AccountsView({ accounts }: { accounts: AccountCard[] }) {
                 state={a.state}
                 postalCode={a.postalCode}
                 country={a.country}
+                dispatchPricingModel={a.dispatchPricingModel}
+                businessHoursStart={a.businessHoursStart}
+                businessHoursEnd={a.businessHoursEnd}
+                dedicatedRetainerPerSite={a.dedicatedRetainerPerSite}
+                dispatchStandbyPerSite={a.dispatchStandbyPerSite}
               />
 
               <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
                 <Link
                   href={`/admin/accounts/${a.id}` as never}
-                  className="text-xs font-medium text-accent hover:text-accent-hover"
+                  className="ui-link-accent text-xs font-medium"
                 >
                   Manage rates →
                 </Link>

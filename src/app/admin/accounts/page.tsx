@@ -1,16 +1,20 @@
 import { prisma } from "@/lib/db";
+import { accountScopeWhere, requireSession } from "@/lib/auth/session";
 import { AccountsView, type AccountCard } from "./accounts-view";
 import { ClientAccountCreateDialog } from "./create-dialog";
 import { BulkUploadDialog } from "./bulk-upload-dialog";
 
 export default async function AccountsPage() {
+  const session = await requireSession();
+  const isAdmin = session.role === "ADMIN";
   const [orgs, accounts] = await Promise.all([
     prisma.org.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, defaultCurrency: true },
     }),
     prisma.clientAccount.findMany({
-      orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+      where: accountScopeWhere(session),
+      orderBy: { name: "asc" },
       include: {
         org: {
           select: {
@@ -46,6 +50,9 @@ export default async function AccountsPage() {
     invoiceRunCount: a._count.invoiceRuns,
     clientPocName: a.clientPocName,
     clientSpocEmail: a.clientSpocEmail,
+    sdmName: a.sdmName,
+    sdmEmail: a.sdmEmail,
+    sdmPhone: a.sdmPhone,
     projectDescription: a.projectDescription,
     defaultHours: a.defaultHours,
     addressLine1: a.addressLine1,
@@ -53,22 +60,27 @@ export default async function AccountsPage() {
     state: a.state,
     postalCode: a.postalCode,
     country: a.country,
+    dispatchPricingModel: a.dispatchPricingModel,
+    businessHoursStart: a.businessHoursStart,
+    businessHoursEnd: a.businessHoursEnd,
+    dedicatedRetainerPerSite: a.dedicatedRetainerPerSite?.toString() ?? null,
+    dispatchStandbyPerSite: a.dispatchStandbyPerSite?.toString() ?? null,
   }));
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Workspace</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Workspace</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Accounts</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Accounts</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{cards.length} total</span>
-            <BulkUploadDialog />
-            {orgs.length > 0 && <ClientAccountCreateDialog orgs={orgs} />}
+            {isAdmin && <BulkUploadDialog />}
+            {isAdmin && orgs.length > 0 && <ClientAccountCreateDialog orgs={orgs} />}
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Client billing units owned by orgs. Each account holds a rate sheet, misc fees, and the
+          Billing units owned by clients. Each account holds a rate sheet, misc fees, and the
           technicians assigned to it.
         </p>
       </header>

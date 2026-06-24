@@ -229,3 +229,51 @@ describe("calculateProjectRow basis tagging", () => {
     expect(r.extendedTotal.toNumber()).toBe(0);
   });
 });
+
+describe("calculateProjectRow weekend day rates", () => {
+  const dayRates: ProjectRateRow[] = [
+    { rateAmount: dec(410), band: 2, rateSubCategory: { code: "FULL_DAY" }, sla: { code: "SCHEDULE" } },
+  ];
+  const weekendRates: ProjectRateRow[] = [
+    ...dayRates,
+    { rateAmount: dec(600), band: 2, rateSubCategory: { code: "FULL_DAY_WEEKEND" }, sla: { code: "SCHEDULE" } },
+    { rateAmount: dec(360), band: 2, rateSubCategory: { code: "HALF_DAY_WEEKEND" }, sla: { code: "SCHEDULE" } },
+  ];
+  const sat = new Date(Date.UTC(2026, 2, 7)); // Sat 2026-03-07
+  const mon = new Date(Date.UTC(2026, 2, 9)); // Mon 2026-03-09
+  const fullOn = (d: Date): ProjectTimesheetCell => ({ hours: dec(8), status: null, date: d });
+
+  it("weekend days bill the weekend rate on top of the weekday day basis", () => {
+    // 2 weekday full days x 410 + 1 weekend full day x 600 = 820 + 600 = 1420.
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: [fullOn(mon), fullOn(mon), fullOn(sat)],
+      rates: weekendRates,
+    });
+    expect(r.weekendDaysWorked.toNumber()).toBe(1);
+    expect(r.weekendTotal.toNumber()).toBe(600);
+    expect(r.extendedTotal.toNumber()).toBe(1420);
+  });
+
+  it("with no weekend rate set, a weekend day folds into the day basis (back-compat)", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: [fullOn(mon), fullOn(sat)],
+      rates: dayRates,
+    });
+    expect(r.weekendTotal.toNumber()).toBe(0);
+    expect(r.extendedTotal.toNumber()).toBe(820); // 2 x 410
+  });
+
+  it("only a weekend rate set bills the weekend day alone", () => {
+    const r = calculateProjectRow({
+      defaultHours: 8,
+      band: 2,
+      entries: [fullOn(sat)],
+      rates: [weekendRates[1]],
+    });
+    expect(r.extendedTotal.toNumber()).toBe(600);
+  });
+});

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { TechnicianCreateDialog } from "./create-dialog";
 import {
@@ -13,6 +14,7 @@ function fmtDate(d: Date | null): string {
 }
 
 export default async function TechniciansPage() {
+  await requireAdmin();
   const [techs, orgs, accounts] = await Promise.all([
     prisma.technician.findMany({
       include: {
@@ -32,7 +34,7 @@ export default async function TechniciansPage() {
           orderBy: { startDate: "desc" },
         },
       },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     prisma.org.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.clientAccount.findMany({
@@ -40,7 +42,7 @@ export default async function TechniciansPage() {
         org: { select: { name: true, defaultCurrency: true } },
         accountRates: { include: { rateSubCategory: true, sla: true } },
       },
-      orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -126,9 +128,9 @@ export default async function TechniciansPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Workforce</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Workforce</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Technicians</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Technicians</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{cards.length} total</span>
             <TechnicianCreateDialog
@@ -148,8 +150,8 @@ export default async function TechniciansPage() {
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Field techs assignable to client accounts. The rate sheet on each card is computed
-          live from the tech&rsquo;s active assignments at their current band.
+          Field techs you can assign to accounts. The rate sheet on each card comes from the
+          tech&rsquo;s active assignments at their current band.
         </p>
       </header>
 

@@ -6,9 +6,9 @@ import { OrgCreateForm } from "./create-form";
 export function OrgCreateDialog() {
   return (
     <Dialog
-      trigger={<AddButton label="Add org" size="md" />}
-      title="Create org"
-      description="Pick the output template — HCL gets FSO; everyone else gets PRE_INVOICE."
+      trigger={<AddButton label="Add client" size="md" />}
+      title="Create client"
+      description="Choose the output template. HCL uses FSO; everyone else uses Pre-Invoice."
     >
       {({ close }) => <OrgCreateForm onSuccess={close} />}
     </Dialog>

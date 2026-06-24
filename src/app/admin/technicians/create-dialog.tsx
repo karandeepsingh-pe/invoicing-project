@@ -20,13 +20,13 @@ export function TechnicianCreateDialog({
     <Dialog
       trigger={<AddButton label="Add technician" size="md" />}
       title="Add technician"
-      description="Optionally assign to an account immediately — creates tech + assignment in one transaction."
+      description="You can assign them to an account now, or leave it for later. Assigning now creates the technician and the assignment together."
       size="xl"
     >
       {({ close }) =>
         orgs.length === 0 ? (
           <p className="text-sm text-fg-muted">
-            Create an org first so the technician has an employer.
+            Create a client first so the technician has an employer.
           </p>
         ) : (
           <TechnicianCreateForm

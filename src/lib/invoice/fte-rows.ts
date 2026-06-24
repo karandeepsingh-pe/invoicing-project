@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { businessDaysInRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import {
   calculateDedicatedFteRow,
   type RateRow,
@@ -12,8 +13,10 @@ import {
   applyCoverageEvents,
   type CoverageContext,
   type CoverageEventInput,
+  type CoveringTechInfo,
 } from "./coverage";
-import { dedicatedDayRate, pickBandAnnual } from "./billing-basis";
+import { pickBandAnnual, resolveDedicatedDayRate, resolveRebadgedDayRate } from "./billing-basis";
+import { isWithinWindow, toDayIso } from "./assignment-window";
 import type { PreInvoiceRow } from "./render-pre-invoice";
 
 function slaTierLabel(tier: "BACKFILL" | "NO_BACKFILL" | "NONE"): string {
@@ -36,6 +39,12 @@ export type UnpricedFteAssignment = {
 export type FteRowsResult = {
   rows: PreInvoiceRow[];
   unpriced: UnpricedFteAssignment[];
+  /**
+   * Pass-through backfill expenses for the period (travel etc. paid to covering
+   * techs), billed dollar-for-dollar under the pre-invoice footer's
+   * Reimbursements — NOT included in any row's extendedTotal.
+   */
+  coverageExpenses: number;
 };
 
 /**
@@ -55,7 +64,7 @@ export async function loadFteRows(
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
   });
-  if (!account) return { rows: [], unpriced: [] };
+  if (!account) return { rows: [], unpriced: [], coverageExpenses: 0 };
   const defaultHours = account.defaultHours;
   const accountRates = account.accountRates;
 
@@ -73,21 +82,40 @@ export async function loadFteRows(
       },
     },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 
-  // PH days now bill as paid working days (see splitCell), so the informational
-  // Business Days reference is simply the weekday count for the month.
-  const businessDays = businessDaysInRange(range, []);
+  // Business days exclude public holidays, which is how the client pays for
+  // PH: the day rate (annual / 12 / businessDays) rises so a full non-PH
+  // month bills exactly the monthly. PH itself credits 0 worked days.
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
 
-  // Resolve { dayRate, ot, weekend } for an assignment. The dedicated day rate is
-  // an annual salary spread over the month's business days (annual / 12 /
-  // businessDays), so a fully-worked month bills exactly annual / 12. OT and
-  // weekend are always per-hour from the sheet (rebadged uses its own).
+  // Resolve { dayRate, ot, weekend } for an assignment. ANNUAL is the only
+  // billing basis: the salary spreads as annual / 12 / businessDays so a
+  // fully-worked month bills exactly annual / 12 and partial months scale by
+  // daysWorked. OT and weekend are always per-hour from the sheet (rebadged
+  // uses its own).
   type AssignmentWithTech = (typeof assignments)[number];
   function resolveRates(a: AssignmentWithTech) {
+    // Rebadged techs bill entirely off their OWN annual salary through the same
+    // formula (full override — the account band sheet is ignored, including
+    // OT / weekend, which come from the rebadged hourly rates). A rebadged tech
+    // without an annual salary resolves to 0 and surfaces as unpriced.
+    if (a.technician.isRebadged) {
+      return {
+        dayRate: new Prisma.Decimal(
+          resolveRebadgedDayRate({
+            annual: Number(a.technician.annualSalary ?? 0),
+            businessDays,
+          }),
+        ),
+        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
+        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
+      };
+    }
+
     const techRates = ratesForTechnicianInRange(
       accountRates,
       "DEDICATED",
@@ -97,7 +125,8 @@ export async function loadFteRows(
     );
     // Band salary source: prefer the exact annual (ANNUAL_RATE row); fall back to
     // a legacy hourly day-rate row (MONTHLY_DAY_RATE / ANNUAL_BACKFILL, = annual /
-    // 2080) so accounts set up before the annual-storage change still price.
+    // 2080) so accounts set up before the annual-storage change still price. The
+    // retired DAY_RATE / MONTHLY / HOURLY basis rows are no longer read.
     const annualRow = techRates.find(
       (r) => r.rateSubCategory.code === "ANNUAL_RATE" && r.sla.code === a.slaTier,
     );
@@ -108,25 +137,15 @@ export async function loadFteRows(
         r.sla.code === a.slaTier,
     );
 
-    // Per-tech annual overrides the band salary (within-band exceptions + rebadged
-    // techs); otherwise the band rate applies.
+    // Per-tech annual overrides the band salary (within-band exceptions).
     const perTechAnnual = Number(a.technician.annualSalary ?? 0);
     const bandAnnual = pickBandAnnual(
       Number(annualRow?.rateAmount?.toString() ?? 0),
       Number(hourlyRow?.rateAmount?.toString() ?? 0),
     );
-    const annual = perTechAnnual > 0 ? perTechAnnual : bandAnnual;
-    const dayRate = new Prisma.Decimal(dedicatedDayRate(annual, businessDays));
-
-    // OT / weekend: rebadged techs use their own manual hourly rates; everyone
-    // else uses the band rate sheet.
-    if (a.technician.isRebadged) {
-      return {
-        dayRate,
-        ot: new Prisma.Decimal(a.technician.rebadgedOtRate?.toString() ?? "0"),
-        weekend: new Prisma.Decimal(a.technician.rebadgedWeekendRate?.toString() ?? "0"),
-      };
-    }
+    const dayRate = new Prisma.Decimal(
+      resolveDedicatedDayRate({ perTechAnnual, bandAnnual, businessDays }),
+    );
     const otRow = techRates.find(
       (r) =>
         (r.rateSubCategory.code === "OT_HOURLY_RATE" ||
@@ -147,13 +166,16 @@ export async function loadFteRows(
   }
 
   const assignmentIds = assignments.map((a) => a.id);
-  // Coverage (backfill) validity is governed per event by the covered technician's
-  // tier (BACKFILL) in the calculator, so load all coverage rows for the period.
+  // Coverage (backfill) events for the period. The covering side is technician-
+  // based: any active pool tech, no account assignment needed.
   const coverageRows = await prisma.coverageEvent.findMany({
     where: {
       ...notDeleted,
       date: { gte: range.start, lt: range.end },
       coveredAssignmentId: { in: assignmentIds },
+    },
+    include: {
+      coveringTechnician: { include: { postalCode: true } },
     },
   });
 
@@ -171,18 +193,34 @@ export async function loadFteRows(
     techNameByAssignment.set(a.id, `${a.technician.firstName} ${a.technician.lastName}`);
   }
 
-  const coverageEvents: CoverageEventInput[] = coverageRows.map((e) => ({
-    id: e.id,
-    coveredAssignmentId: e.coveredAssignmentId,
-    coveringAssignmentId: e.coveringAssignmentId,
-    date: e.date,
-    hours: e.hours,
-  }));
+  const coveringTechById = new Map<string, CoveringTechInfo>();
+  for (const e of coverageRows) {
+    const t = e.coveringTechnician;
+    if (!t || coveringTechById.has(t.id)) continue;
+    coveringTechById.set(t.id, {
+      name: `${t.firstName} ${t.lastName}`,
+      bandLabel: t.isRebadged ? "Rebadged" : `Band ${t.band}`,
+      location: t.postalCode ? `${t.postalCode.city}, ${t.postalCode.state}` : "—",
+    });
+  }
+
+  const coverageEvents: CoverageEventInput[] = coverageRows
+    .filter((e) => e.coveringTechnicianId !== null)
+    .map((e) => ({
+      id: e.id,
+      coveredAssignmentId: e.coveredAssignmentId,
+      coveringTechnicianId: e.coveringTechnicianId as string,
+      date: e.date,
+      hours: e.hours,
+      expenseAmount: e.expenseAmount,
+      expenseNotes: e.expenseNotes,
+    }));
   const coverage = applyCoverageEvents({
     events: coverageEvents,
     contextByAssignment,
     defaultHours,
     technicianNameByAssignment: techNameByAssignment,
+    coveringTechById,
   });
 
   const rows: PreInvoiceRow[] = [];
@@ -194,11 +232,17 @@ export async function loadFteRows(
       { rateAmount: rr.ot, rateSubCategory: { code: "OT_HOURLY_RATE" }, sla: { code: a.slaTier } },
       { rateAmount: rr.weekend, rateSubCategory: { code: "WEEKEND_HOURLY_RATE" }, sla: { code: a.slaTier } },
     ];
-    const entries: TimesheetCell[] = a.timesheetEntries.map((e) => ({
-      date: e.date,
-      hours: e.hours,
-      status: e.status,
-    }));
+    // Clamp to the assignment's active window (end inclusive): days before the
+    // start or after the end never bill, even if a stray entry exists.
+    const startIso = toDayIso(a.startDate);
+    const endIso = a.endDate ? toDayIso(a.endDate) : null;
+    const entries: TimesheetCell[] = a.timesheetEntries
+      .filter((e) => isWithinWindow(toDayIso(e.date), startIso, endIso))
+      .map((e) => ({
+        date: e.date,
+        hours: e.hours,
+        status: e.status,
+      }));
 
     const calc = calculateDedicatedFteRow({
       defaultHours,
@@ -207,11 +251,6 @@ export async function loadFteRows(
       rates,
       slaTier: a.slaTier,
       coverageDaysDelta: coverage.daysDeltaByAssignment.get(a.id),
-      coverageOtDelta: coverage.otDeltaByAssignment.get(a.id),
-      coverageWeekendDelta: coverage.weekendDeltaByAssignment.get(a.id),
-      overrideDayRate: coverage.overrideRateByCoveringAssignment.get(a.id),
-      overrideOtRate: coverage.overrideOtRateByCoveringAssignment.get(a.id),
-      overrideWeekendRate: coverage.overrideWeekendRateByCoveringAssignment.get(a.id),
     });
 
     const daysWorkedNum = Number(calc.daysWorked.toFixed(2));
@@ -237,15 +276,15 @@ export async function loadFteRows(
       ? `${a.technician.postalCode.city}, ${a.technician.postalCode.state}`
       : "—";
 
+    // OT / weekend get their own line items on the pre-invoice (see
+    // fte-line-items.ts), so no breakdown remark is needed here.
     const remarkParts: string[] = coverage.remarksByAssignment.get(a.id) ?? [];
-    const breakdownBits: string[] = [];
-    if (otHoursNum > 0) {
-      breakdownBits.push(`OT ${otHoursNum.toFixed(2)}h @ $${Number(calc.otRate.toFixed(2))}`);
-    }
-    if (weekendHoursNum > 0) {
-      breakdownBits.push(`Weekend ${weekendHoursNum.toFixed(2)}h @ $${Number(calc.weekendRate.toFixed(2))}`);
-    }
-    if (breakdownBits.length > 0) remarkParts.push(breakdownBits.join(" · "));
+
+    // PTO is paid to the technician but not billed to the client (0 billable
+    // days). Surface the count so the lower day total is explained. PH is
+    // invisible by design — billed via the business-day denominator, so no note.
+    const ptoCount = a.timesheetEntries.filter((e) => e.status === "PTO").length;
+    if (ptoCount > 0) remarkParts.push(`${ptoCount} PTO — paid, not billed`);
 
     rows.push({
       location,
@@ -265,5 +304,58 @@ export async function loadFteRows(
     });
   }
 
-  return { rows, unpriced };
+  // Synthesized backfill lines: one per (covering technician, covered seat),
+  // billed at the COVERED seat's rates. Shows who covered, the dates, the
+  // HOURS, and the amount — independent of any assignment the covering tech
+  // may or may not hold on this account.
+  for (const line of coverage.backfillLines) {
+    const daysNum = Number(line.regularDays.toFixed(2));
+    const otNum = Number(line.otHours.toFixed(2));
+    const weekendNum = Number(line.weekendHours.toFixed(2));
+    if (daysNum === 0 && otNum === 0 && weekendNum === 0) continue;
+
+    const extended = Number(
+      line.dayRate
+        .times(line.regularDays)
+        .plus(line.otRate.times(line.otHours))
+        .plus(line.weekendRate.times(line.weekendHours))
+        .toFixed(2),
+    );
+
+    const dateBits = line.perDate
+      .map((d) => `${d.dateLabel}, ${Number(d.hours.toFixed(2)).toFixed(2)} hrs`)
+      .join("; ");
+    // OT / weekend split into their own line items downstream (fte-line-items.ts).
+    const remarkParts = [`Backfill for ${line.coveredTechName} — ${dateBits}`];
+    const expenseNum = Number(line.expenseTotal.toFixed(2));
+    if (expenseNum > 0) {
+      const noteBit = line.expenseNotes.length > 0 ? ` (${line.expenseNotes.join(", ")})` : "";
+      remarkParts.push(`$${expenseNum.toFixed(2)} expenses${noteBit} → Reimbursements`);
+    }
+
+    rows.push({
+      location: line.coveringLocation,
+      technicianName: line.coveringTechName,
+      bandLabel: line.coveringBandLabel,
+      backfillLabel: line.coveredTierLabel, // the covered SEAT's tier
+      engineerType: "FTE (Backfill)",
+      businessDays,
+      daysWorked: daysNum,
+      dayRate: line.dayRate.toNumber(),
+      otHours: otNum,
+      otRate: Number(line.otRate.toFixed(2)),
+      weekendHours: weekendNum,
+      weekendRate: Number(line.weekendRate.toFixed(2)),
+      extendedTotal: extended,
+      remarks: remarkParts.join(" · "),
+    });
+  }
+
+  const coverageExpenses = Number(
+    coverage.backfillLines
+      .reduce((sum, l) => sum.plus(l.expenseTotal), new Prisma.Decimal(0))
+      .toFixed(2),
+  );
+
+  return { rows, unpriced, coverageExpenses };
 }

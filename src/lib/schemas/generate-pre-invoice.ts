@@ -6,6 +6,8 @@ export const generatePreInvoiceSchema = z.object({
   accountId: z.string().min(1),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Optional retainer site count (fee = count × the account's per-site price).
+  dedicatedSites: z.coerce.number().int().min(0).max(100000).optional(),
 });
 
 export type GeneratePreInvoiceInput = z.infer<typeof generatePreInvoiceSchema>;

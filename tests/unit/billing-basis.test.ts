@@ -4,6 +4,8 @@ import {
   dedicatedDayRate,
   monthlyFromAnnual,
   pickBandAnnual,
+  resolveDedicatedDayRate,
+  resolveRebadgedDayRate,
 } from "../../src/lib/invoice/billing-basis";
 
 describe("monthlyFromAnnual", () => {
@@ -63,5 +65,65 @@ describe("pickBandAnnual", () => {
   it("returns 0 when neither row is present or positive", () => {
     expect(pickBandAnnual(null, null)).toBe(0);
     expect(pickBandAnnual(0, 0)).toBe(0);
+  });
+});
+
+describe("resolveDedicatedDayRate (annual-only basis)", () => {
+  const bd = 22;
+
+  it("JLL unchanged: a band ANNUAL_RATE resolves to annual/12/bd", () => {
+    const r = resolveDedicatedDayRate({
+      perTechAnnual: 0,
+      bandAnnual: 74100,
+      businessDays: bd,
+    });
+    expect(r).toBeCloseTo(280.6818, 3); // == dedicatedDayRate(74100, 22)
+  });
+
+  it("a per-tech salary overrides the band annual (annual/12/bd)", () => {
+    const r = resolveDedicatedDayRate({
+      perTechAnnual: 96000,
+      bandAnnual: 74100,
+      businessDays: bd,
+    });
+    expect(r).toBeCloseTo(96000 / 12 / 22, 6);
+  });
+
+  it("retired DAY_RATE/MONTHLY rows never bill: only the annual sources resolve", () => {
+    // A band whose sheet still holds a legacy flat day rate (e.g. 380) bills the
+    // annual-derived rate — the legacy rows are not passed to the resolver at all.
+    const r = resolveDedicatedDayRate({
+      perTechAnnual: 0,
+      bandAnnual: 64000,
+      businessDays: 21,
+    });
+    expect(r).toBeCloseTo(64000 / 12 / 21, 6); // ~253.97, not 380
+  });
+
+  it("returns 0 (unpriced) when no annual source is present", () => {
+    expect(
+      resolveDedicatedDayRate({ perTechAnnual: 0, bandAnnual: 0, businessDays: bd }),
+    ).toBe(0);
+  });
+});
+
+describe("resolveRebadgedDayRate (annual-only basis)", () => {
+  const bd = 22;
+
+  it("rebadged bills own annual through the same formula (annual/12/bd)", () => {
+    expect(resolveRebadgedDayRate({ annual: 66000, businessDays: bd })).toBeCloseTo(
+      66000 / 12 / 22,
+      6,
+    );
+  });
+
+  it("a fully-worked month bills exactly annual/12; 21d + 2h bills 21.25 × dayRate", () => {
+    const dayRate = resolveRebadgedDayRate({ annual: 66000, businessDays: 22 });
+    expect(dayRate * 22).toBeCloseTo(5500, 2);
+    expect(dayRate * 21.25).toBeCloseTo(5312.5, 2);
+  });
+
+  it("returns 0 (unpriced, surfaced loudly) when the rebadged tech has no annual", () => {
+    expect(resolveRebadgedDayRate({ annual: 0, businessDays: bd })).toBe(0);
   });
 });

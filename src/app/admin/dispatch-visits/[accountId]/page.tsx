@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
+import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
+import { dispatchSlaCodes } from "@/lib/domain/rate-dimensions";
 import { DispatchVisitsView } from "./visits-view";
+import { DispatchBulkUploadDialog } from "./bulk-upload-dialog";
 import { DeleteMonthButton } from "../../timesheets/[accountId]/delete-month-button";
 import { TimesheetTypeTabs } from "@/components/admin/timesheet-type-tabs";
 
@@ -25,6 +29,7 @@ export default async function DispatchVisitsPage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();
@@ -32,11 +37,41 @@ export default async function DispatchVisitsPage({
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
-    include: { org: true },
+    include: { org: true, accountRates: { include: { rateSubCategory: true, sla: true } } },
   });
   if (!account) notFound();
 
   const range = monthRange(year, month);
+
+  // Auto-split business-hours window (both ends set = on).
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
+
+  // Price every visit through the SAME path the dispatch pre-invoice uses, so the
+  // tracker shows exactly what will be billed (rate sheet driven, per the visit's
+  // SLA + hours + after-hours/weekend flags, and the business-hours split).
+  const pricedRows = await loadDispatchTrackerRows(
+    accountId,
+    range,
+    dispatchRateRows(account.accountRates),
+    account.dispatchPricingModel,
+    businessWindow,
+  );
+  const billingByVisitId: Record<
+    string,
+    { billed: number; totalHrs: number; additionalHours: number; firstHourRate: number; additionalHourRate: number }
+  > = {};
+  for (const r of pricedRows) {
+    billingByVisitId[r.visitId] = {
+      billed: r.billed,
+      totalHrs: r.totalHrs,
+      additionalHours: r.additionalHours,
+      firstHourRate: r.firstHourRate,
+      additionalHourRate: r.additionalHourRate,
+    };
+  }
 
   const assignments = await prisma.assignment.findMany({
     where: {
@@ -47,8 +82,8 @@ export default async function DispatchVisitsPage({
     },
     include: { technician: true },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 
@@ -73,6 +108,27 @@ export default async function DispatchVisitsPage({
     orderBy: { sortOrder: "asc" },
   });
 
+  // Scope the SLA dropdown to this account's rate sheet. "Priced" = the SLA has a
+  // DISPATCH_SCHED First Hour rate on the account. STANDARD shows the full set of
+  // response SLAs (unpriced ones disabled so the gap is visible); TCS shows only
+  // the priority tiers actually configured. Priced first.
+  const isTcs = account.dispatchPricingModel === "TCS_PRIORITY";
+  const dispatchCodeSet = new Set<string>(dispatchSlaCodes);
+  const pricedCodes = new Set(
+    account.accountRates
+      .filter(
+        (r) =>
+          r.rateSubCategory.rateCategory === "DISPATCH_SCHED" &&
+          r.rateSubCategory.code === "FIRST_HOUR" &&
+          r.rateAmount != null,
+      )
+      .map((r) => r.sla.code),
+  );
+  const slaOpts = slas
+    .filter((s) => (isTcs ? pricedCodes.has(s.code) : dispatchCodeSet.has(s.code) || pricedCodes.has(s.code)))
+    .map((s) => ({ id: s.id, code: s.code, label: s.label, priced: pricedCodes.has(s.code) }))
+    .sort((a, b) => Number(b.priced) - Number(a.priced) || a.code.localeCompare(b.code));
+
   const monthName = range.start.toLocaleString("en-US", {
     month: "long",
     timeZone: "UTC",
@@ -87,20 +143,21 @@ export default async function DispatchVisitsPage({
         >
           ← Timesheets
         </Link>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Dispatch / Scheduled Visit
         </span>
-        <h1 className="text-3xl font-semibold tracking-tighter2">
+        <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
-          One row per technician site visit. Per-visit charge =
-          {" "}<code>FIRST_HOUR + max(0, hours-1) × ADDITIONAL_HOUR</code>, with
-          after-hours / weekend uplifts when applicable.
+          One row per site visit. Each visit charges
+          {" "}<code>FIRST_HOUR + max(0, hours-1) × ADDITIONAL_HOUR</code>, plus
+          after-hours or weekend uplifts where they apply.
         </p>
 
         <TimesheetTypeTabs accountId={accountId} year={year} month={month} active="DISPATCH" />
         <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
+          <DispatchBulkUploadDialog accountId={accountId} year={year} month={month} />
           <Link
             href={`/admin/invoices/generate/${accountId}/dispatch?year=${year}&month=${month}`}
             className="rounded-md border border-border-strong bg-surface px-2.5 py-1 font-medium text-fg transition-colors hover:bg-surface-2"
@@ -132,14 +189,18 @@ export default async function DispatchVisitsPage({
         accountId={accountId}
         year={year}
         month={month}
+        currency={account.currency ?? account.org.defaultCurrency}
+        billing={billingByVisitId}
         assignments={assignments.map((a) => ({
           id: a.id,
+          technicianId: a.technicianId,
           name: `${a.technician.firstName} ${a.technician.lastName}`,
           band: a.technician.band,
           phone: a.technician.phone,
           email: a.technician.email,
         }))}
-        slas={slas.map((s) => ({ id: s.id, code: s.code, label: s.label }))}
+        slas={slaOpts}
+        businessHours={businessWindow}
         visitTypes={visitTypes.map((t) => ({ id: t.id, code: t.code, label: t.label }))}
         visits={visits.map((v) => ({
           id: v.id,
@@ -156,6 +217,37 @@ export default async function DispatchVisitsPage({
             v.startDateTime && v.endDateTime
               ? `${fmtHM(v.startDateTime)}–${fmtHM(v.endDateTime)}`
               : null,
+          edit: {
+            id: v.id,
+            assignmentId: v.assignmentId,
+            slaId: v.slaId,
+            visitTypeId: v.visitTypeId,
+            workStatus: v.workStatus,
+            ticketNumber: v.ticketNumber,
+            hoursOnSite: Number(v.hoursOnSite.toString()),
+            oooHrs: v.oooHrs ? Number(v.oooHrs.toString()) : null,
+            cancellationCharge: v.cancellationCharge ? Number(v.cancellationCharge.toString()) : null,
+            afterHours: v.afterHours,
+            weekend: v.weekend,
+            inTime: v.startDateTime ? fmtHM(v.startDateTime) : null,
+            outTime: v.endDateTime ? fmtHM(v.endDateTime) : null,
+            visitDate: v.visitDate.toISOString().slice(0, 10),
+            requestReceivedDate: v.requestReceivedDate ? v.requestReceivedDate.toISOString().slice(0, 10) : null,
+            proposedOnsiteDate: v.proposedOnsiteDate ? v.proposedOnsiteDate.toISOString().slice(0, 10) : null,
+            visitTime: v.visitTime,
+            siteCode: v.siteCode,
+            siteLocation: v.siteLocation,
+            zipcode: v.postalCode?.zipcode ?? null,
+            city: v.postalCode?.city ?? null,
+            state: v.postalCode?.state ?? null,
+            country: v.postalCode?.country ?? null,
+            postalCodeId: v.postalCodeId,
+            travelHours: v.travelHours ? Number(v.travelHours.toString()) : null,
+            travelMiles: v.travelMiles ? Number(v.travelMiles.toString()) : null,
+            partsAmount: v.partsAmount ? Number(v.partsAmount.toString()) : null,
+            reimbursementNotes: v.reimbursementNotes,
+            notes: v.notes,
+          },
         }))}
       />
     </div>

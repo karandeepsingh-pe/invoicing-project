@@ -20,13 +20,13 @@ export function AssignTechToAccountDialog({
       trigger={
         <button
           type="button"
-          className="text-[11px] font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-[11px] font-medium"
         >
           Assign
         </button>
       }
       title={`Assign technicians to ${accountLabel}`}
-      description="Pick one or more employed technicians. Employ new techs from the org roster on the right."
+      description="Pick one or more employed technicians. Employ new techs from the client roster on the right."
       size="lg"
     >
       {({ close }) => (

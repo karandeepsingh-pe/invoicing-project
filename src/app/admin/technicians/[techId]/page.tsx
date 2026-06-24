@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ratesForTechnician } from "@/lib/domain/account-rate-resolver";
 import { type AccountOption } from "./create-assignment-form";
 import { AssignmentCreateDialog } from "./create-assignment-dialog";
@@ -31,6 +32,7 @@ export default async function TechnicianDetailPage({
   params: Promise<{ techId: string }>;
 }) {
   const { techId } = await params;
+  await requireAdmin();
   const tech = await prisma.technician.findUnique({
     where: { id: techId },
     include: {
@@ -61,7 +63,7 @@ export default async function TechnicianDetailPage({
       org: { select: { name: true, defaultCurrency: true } },
       accountRates: { include: { rateSubCategory: true, sla: true } },
     },
-    orderBy: [{ org: { name: "asc" } }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
 
   const today = new Date();
@@ -94,11 +96,11 @@ export default async function TechnicianDetailPage({
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
         <Link href="/admin/management" className="text-xs font-medium text-fg-subtle hover:text-fg">
-          ← Partner Management
+          ← Client Management
         </Link>
         <div className="mt-1 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
-            <h1 className="text-4xl font-semibold tracking-tighter2">
+            <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">
               {tech.firstName} {tech.lastName}
               {tech.employeeId && (
                 <span className="ml-3 align-middle text-sm font-medium text-fg-subtle">
@@ -114,7 +116,7 @@ export default async function TechnicianDetailPage({
             <div className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
               <CategoryPill category={tech.primaryCategory} />
               {tech.isRebadged ? (
-                <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
                   Rebadged
                   {tech.annualSalary ? ` · $${Number(tech.annualSalary).toLocaleString()}/yr` : ""}
                 </span>
@@ -161,18 +163,23 @@ export default async function TechnicianDetailPage({
             primaryCategory={tech.primaryCategory}
             band={tech.band}
             defaultSlaTier={tech.defaultSlaTier}
+            dedicatedBillingBasis={tech.dedicatedBillingBasis}
             active={tech.active}
             isAvailableForDedicated={tech.isAvailableForDedicated}
             isAvailableForProject={tech.isAvailableForProject}
             isAvailableForDispatch={tech.isAvailableForDispatch}
             isRebadged={tech.isRebadged}
             annualSalary={tech.annualSalary?.toString() ?? null}
+            rebadgedHourlyRate={tech.rebadgedHourlyRate?.toString() ?? null}
+            rebadgedDayRate={tech.rebadgedDayRate?.toString() ?? null}
+            rebadgedMonthlyRate={tech.rebadgedMonthlyRate?.toString() ?? null}
             rebadgedOtRate={tech.rebadgedOtRate?.toString() ?? null}
             rebadgedWeekendRate={tech.rebadgedWeekendRate?.toString() ?? null}
             employerOrgId={tech.employerOrgId}
             orgs={orgs}
             postalCodeId={tech.postalCodeId}
             addressLine1={tech.addressLine1}
+            startDate={tech.startDate ? tech.startDate.toISOString().slice(0, 10) : null}
             zipcode={tech.postalCode?.zipcode ?? null}
             city={tech.postalCode?.city ?? null}
             state={tech.postalCode?.state ?? null}
@@ -180,7 +187,7 @@ export default async function TechnicianDetailPage({
           />
         </div>
         {activeDedicated && (
-          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="mt-3 rounded-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs text-warning">
             Active DEDICATED assignment at {activeDedicated.clientAccount.org.name} /{" "}
             {activeDedicated.clientAccount.name}. End it before starting a new DEDICATED engagement.
           </div>
@@ -188,7 +195,7 @@ export default async function TechnicianDetailPage({
       </header>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold tracking-tightish">Assignments</h2>
           <div className="flex items-center gap-3">
             <span className="text-xs text-fg-subtle">
@@ -206,6 +213,7 @@ export default async function TechnicianDetailPage({
                 isAvailableForDispatch: tech.isAvailableForDispatch,
               }}
               hasActiveDedication={Boolean(activeDedicated)}
+              technicianStartDate={tech.startDate ? tech.startDate.toISOString().slice(0, 10) : null}
             />
           </div>
         </div>
@@ -224,7 +232,7 @@ export default async function TechnicianDetailPage({
               {tech.assignments.map((a) => (
                 <tr key={a.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-2">
                   <td className="px-4 py-2.5">
-                    <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${a.clientAccount.id}` as never}>
+                    <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${a.clientAccount.id}` as never}>
                       {a.clientAccount.org.name} / {a.clientAccount.name}
                     </Link>
                   </td>
@@ -280,7 +288,7 @@ export default async function TechnicianDetailPage({
                     <div className="flex items-baseline gap-2">
                       <Link
                         href={`/admin/accounts/${a.clientAccount.id}` as never}
-                        className="text-sm font-semibold tracking-tightish text-fg hover:text-accent"
+                        className="ui-link text-sm font-semibold tracking-tightish text-fg"
                       >
                         {a.clientAccount.org.name} / {a.clientAccount.name}
                       </Link>
@@ -297,7 +305,7 @@ export default async function TechnicianDetailPage({
                       No active rate rows for {categoryLabel[a.rateCategory]} at Band {tech.band} on{" "}
                       <Link
                         href={`/admin/accounts/${a.clientAccount.id}` as never}
-                        className="text-accent hover:text-accent-hover"
+                        className="ui-link-accent"
                       >
                         {a.clientAccount.name}
                       </Link>

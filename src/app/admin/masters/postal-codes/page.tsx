@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { PostalCodeRowActions } from "./postal-code-row";
 import { PostalCodeCreateDialog } from "./create-dialog";
 
 export default async function PostalCodesMastersPage() {
+  await requireAdmin();
   const rows = await prisma.postalCode.findMany({
     orderBy: [{ sortOrder: "asc" }, { zipcode: "asc" }],
     include: { _count: { select: { technicians: true } } },
@@ -11,18 +13,18 @@ export default async function PostalCodesMastersPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Postal codes</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Postal codes</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{rows.length} total</span>
             <PostalCodeCreateDialog />
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Canonical zipcode → city / state / country mapping. Entering a zipcode on a technician
-          form auto-fills the rest from here. Unknown zipcodes can be added inline from the
-          technician form too — they land in this list automatically.
+          Maps each zipcode to a city, state, and country. Enter a zipcode on a technician form and
+          the rest fills in from here. New zipcodes you add on the technician form show up in this
+          list too.
         </p>
       </header>
 

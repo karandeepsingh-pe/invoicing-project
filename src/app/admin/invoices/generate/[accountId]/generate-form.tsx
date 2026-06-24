@@ -47,6 +47,7 @@ export function GenerateForm({
   businessDays,
   assignments,
   unpriced,
+  retainerPerSite = null,
 }: {
   accountId: string;
   year: number;
@@ -54,8 +55,11 @@ export function GenerateForm({
   businessDays: number;
   assignments: AssignmentPreview[];
   unpriced: UnpricedAssignment[];
+  /** Per-site retainer price from the account; null = fee not offered. */
+  retainerPerSite?: number | null;
 }) {
   const [pending, startTransition] = useTransition();
+  const [dedicatedSites, setDedicatedSites] = useState("");
   const [actionState, setActionState] = useState<
     | { ok: true; filename: string }
     | { ok: false; formError?: string }
@@ -68,7 +72,12 @@ export function GenerateForm({
   });
 
   function handleGenerate() {
-    const payload = { accountId, year, month };
+    const payload = {
+      accountId,
+      year,
+      month,
+      dedicatedSites: dedicatedSites ? Number(dedicatedSites) : undefined,
+    };
     startTransition(async () => {
       const fd = new FormData();
       fd.append("payload", JSON.stringify(payload));
@@ -110,7 +119,7 @@ export function GenerateForm({
 
       <div className="glass overflow-x-auto rounded-lg">
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
             <tr>
               <th className="px-3 py-2 text-left">Technician</th>
               <th className="px-3 py-2 text-left">Band / SLA</th>
@@ -142,6 +151,30 @@ export function GenerateForm({
           </tbody>
         </table>
       </div>
+
+      {retainerPerSite != null && (
+        <label className="flex flex-col gap-1.5 self-start">
+          <span className="text-xs font-medium text-fg-muted">
+            Dedicated retainer sites
+            <span className="ml-1 text-fg-subtle">
+              (× ${retainerPerSite}
+              {Number(dedicatedSites) > 0
+                ? ` = $${(Number(dedicatedSites) * retainerPerSite).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                : ""}
+              )
+            </span>
+          </span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={dedicatedSites}
+            onChange={(e) => setDedicatedSites(e.target.value)}
+            placeholder="0 = skip"
+            className="glass-input w-44 rounded-md px-3 py-2 text-sm text-fg"
+          />
+        </label>
+      )}
 
       <button
         type="button"

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeCellText,
   parseCellText,
+  statusDayCredit,
+  statusHourCredit,
 } from "@/lib/validation/cell";
 
 describe("parseCellText", () => {
@@ -105,5 +107,31 @@ describe("normalizeCellText", () => {
 
   it("blank stays blank", () => {
     expect(normalizeCellText("   ")).toBe("");
+  });
+});
+
+describe("statusDayCredit", () => {
+  it("PH credits 0 worked days (billed via the business-day denominator); PTO not billed", () => {
+    expect(statusDayCredit("PH")).toBe(0);
+    expect(statusDayCredit("PTO")).toBe(0);
+  });
+
+  it("HALF_DAY credits half a day", () => {
+    expect(statusDayCredit("HALF_DAY")).toBe(0.5);
+  });
+
+  it("AB and NA credit zero", () => {
+    expect(statusDayCredit("AB")).toBe(0);
+    expect(statusDayCredit("NA")).toBe(0);
+  });
+});
+
+describe("statusHourCredit", () => {
+  it("= day credit × defaultHours", () => {
+    expect(statusHourCredit("PH", 8)).toBe(0);
+    expect(statusHourCredit("PTO", 8)).toBe(0);
+    expect(statusHourCredit("HALF_DAY", 8)).toBe(4);
+    expect(statusHourCredit("AB", 8)).toBe(0);
+    expect(statusHourCredit("NA", 7)).toBe(0);
   });
 });

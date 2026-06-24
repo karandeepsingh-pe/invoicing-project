@@ -113,7 +113,7 @@ export function LocationFields({
           : "Enter a zipcode above to auto-fill location.";
 
   return (
-    <fieldset className="grid grid-cols-1 gap-3 rounded-md border border-border/60 p-3 md:grid-cols-4">
+    <fieldset className="grid grid-cols-1 gap-3 rounded-md border border-border/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
       <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
         Location
       </legend>

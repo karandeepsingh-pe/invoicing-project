@@ -4,10 +4,10 @@ import { useActionState, useTransition } from "react";
 import { createCoverageEvent, deleteCoverageEvent } from "@/lib/actions/coverage";
 import {
   FormError,
-  SelectField,
   SubmitButton,
   TextField,
 } from "@/components/admin/field";
+import { SearchableSelectField } from "@/components/admin/searchable-select";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 
 type AssignmentOpt = {
@@ -17,12 +17,16 @@ type AssignmentOpt = {
   rateCategory: "DEDICATED" | "PROJECT_TM" | "DISPATCH_SCHED" | "SCHEDULED";
 };
 
+type PoolTechOpt = { id: string; label: string };
+
 type EventRow = {
   id: string;
   date: string;
   covered: string;
   covering: string;
   hours: number;
+  expenseAmount: number | null;
+  expenseNotes: string | null;
   notes: string | null;
 };
 
@@ -31,12 +35,14 @@ export function CoverageView({
   year,
   month,
   assignments,
+  poolTechs,
   events,
 }: {
   accountId: string;
   year: number;
   month: number;
   assignments: AssignmentOpt[];
+  poolTechs: PoolTechOpt[];
   events: EventRow[];
 }) {
   const [createState, createAction] = useActionState(createCoverageEvent, null);
@@ -57,8 +63,11 @@ export function CoverageView({
   const formError =
     createState && createState.ok === false ? createState.formError : undefined;
 
-  const backfillOpts = assignments.filter((a) => a.slaTier === "BACKFILL");
-  const coveringOpts = assignments;
+  // Covered side: BACKFILL-tier Dedicated seats on this account. Covering side:
+  // any active pool technician (loaded server-side, all accounts).
+  const backfillOpts = assignments.filter(
+    (a) => a.slaTier === "BACKFILL" && a.rateCategory === "DEDICATED",
+  );
 
   function handleDelete(id: string) {
     startTransition(() => {
@@ -83,31 +92,22 @@ export function CoverageView({
             </p>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <SelectField
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SearchableSelectField
                   label="Covered technician (BACKFILL)"
                   name="coveredAssignmentId"
                   required
+                  options={backfillOpts.map((a) => ({ value: a.id, label: a.name }))}
                   errors={fieldErrors?.coveredAssignmentId}
-                >
-                  {backfillOpts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
-                  label="Covering technician"
-                  name="coveringAssignmentId"
+                />
+                <SearchableSelectField
+                  label="Covering technician (any pool tech)"
+                  name="coveringTechnicianId"
                   required
-                  errors={fieldErrors?.coveringAssignmentId}
-                >
-                  {coveringOpts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </SelectField>
+                  options={poolTechs.map((t) => ({ value: t.id, label: t.label }))}
+                  errors={fieldErrors?.coveringTechnicianId}
+                  hint="Anyone in the active Project/Dispatch pool can cover; no assignment on this account needed. Billed at the covered tech's rates."
+                />
                 <TextField
                   label="Date"
                   name="date"
@@ -127,6 +127,23 @@ export function CoverageView({
                   required
                   errors={fieldErrors?.hours}
                 />
+                <TextField
+                  label="Expense $ (optional)"
+                  name="expenseAmount"
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  inputMode="decimal"
+                  placeholder="e.g. 10"
+                  errors={fieldErrors?.expenseAmount}
+                  hint="Paid to the covering tech (travel, etc.) and billed to the client under Reimbursements."
+                />
+                <TextField
+                  label="Expense note"
+                  name="expenseNotes"
+                  placeholder="e.g. travel"
+                  errors={fieldErrors?.expenseNotes}
+                />
                 <TextField label="Notes" name="notes" placeholder="" />
               </div>
               <SubmitButton>Add event</SubmitButton>
@@ -135,12 +152,13 @@ export function CoverageView({
         </form>
 
         <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
+          <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-muted">
             <tr>
               <th className="px-3 py-2 text-left">Date</th>
               <th className="px-3 py-2 text-left">Covered</th>
               <th className="px-3 py-2 text-left">Covering</th>
               <th className="px-3 py-2 text-right">Hours</th>
+              <th className="px-3 py-2 text-right">Expense</th>
               <th className="px-3 py-2 text-left">Notes</th>
               <th className="px-3 py-2"></th>
             </tr>
@@ -152,6 +170,11 @@ export function CoverageView({
                 <td className="px-3 py-2">{e.covered}</td>
                 <td className="px-3 py-2">{e.covering}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{e.hours.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-xs">
+                  {e.expenseAmount != null
+                    ? `$${e.expenseAmount.toFixed(2)}${e.expenseNotes ? ` (${e.expenseNotes})` : ""}`
+                    : "—"}
+                </td>
                 <td className="px-3 py-2 text-xs text-fg-muted">{e.notes ?? "—"}</td>
                 <td className="px-3 py-2 text-right">
                   <button
@@ -167,7 +190,7 @@ export function CoverageView({
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-sm text-fg-subtle">
+                <td colSpan={7} className="px-3 py-4 text-sm text-fg-subtle">
                   No coverage events for this month.
                 </td>
               </tr>

@@ -21,6 +21,7 @@ export async function renderCombinedInvoice(
   rows: PreInvoiceRow[],
   dispatchDetail: DispatchTrackerRow[],
   footer: CombinedFooter,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
@@ -40,6 +41,9 @@ export async function renderCombinedInvoice(
     });
     buildDispatchSheet(dispatch, header, dispatchDetail, { retainerFee: 0, reimbursements: 0 });
   }
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(workbook);
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer as ArrayBuffer);

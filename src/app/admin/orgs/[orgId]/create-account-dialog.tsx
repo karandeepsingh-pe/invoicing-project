@@ -14,7 +14,7 @@ export function CreateAccountUnderOrgDialog({
     <Dialog
       trigger={<AddButton label="Add account" size="md" />}
       title="Create client account"
-      description={`Defaults to org currency (${defaultCurrency}) unless overridden.`}
+      description={`Defaults to client currency (${defaultCurrency}) unless overridden.`}
     >
       {({ close }) => (
         <ClientAccountCreateForm

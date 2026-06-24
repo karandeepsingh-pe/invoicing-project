@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { generatePreInvoiceSchema } from "@/lib/schemas/generate-pre-invoice";
 import { lastDayOfMonth, monthRange } from "@/lib/invoice/period";
 import { renderPreInvoice } from "@/lib/invoice/render-pre-invoice";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { expandFteLineItems } from "@/lib/invoice/fte-line-items";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 type SuccessPayload = { ok: true; filename: string; base64: string };
 type ErrorPayload = { ok: false; formError?: string };
@@ -37,7 +39,7 @@ export async function generatePreInvoice(
   _prev: GeneratePreInvoiceResult,
   formData: FormData,
 ): Promise<GeneratePreInvoiceResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -49,7 +51,8 @@ export async function generatePreInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dedicatedSites } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -60,24 +63,40 @@ export async function generatePreInvoice(
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
 
-  const { rows } = await loadFteRows(accountId, range);
+  const { rows: rawRows, coverageExpenses } = await loadFteRows(accountId, range);
+  // One line per charge type: base days line + separate OT / Weekend lines.
+  const rows = expandFteLineItems(rawRows);
 
   // Add-ons: percentage fees (e.g. PM fee) computed on the line-item subtotal,
-  // plus flat retainer and reimbursements. Authoritative totals via assembleInvoice.
+  // plus flat retainer and reimbursements. Backfill expenses (travel etc. paid
+  // to covering techs this period) pass through under Reimbursements,
+  // dollar-for-dollar. Authoritative totals via assembleInvoice.
   const percentFees: FeeSpec[] = account.miscFees
     .filter((m) => m.percent != null)
     .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
     .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
-  const reimbursements = account.miscFees
-    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  const reimbursements =
+    account.miscFees
+      .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) + coverageExpenses;
+
+  // Per-site retainer: site count entered at generation × the account's price.
+  const retainerPerSite = Number(account.dedicatedRetainerPerSite?.toString() ?? 0);
+  const extraFees: { label: string; amount: number }[] = [];
+  if (dedicatedSites && retainerPerSite > 0) {
+    extraFees.push({
+      label: `Retainer — Dedicated (${dedicatedSites} site${dedicatedSites === 1 ? "" : "s"} × $${retainerPerSite})`,
+      amount: Math.round(dedicatedSites * retainerPerSite * 100) / 100,
+    });
+  }
 
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),
     [
       ...percentFees,
+      ...extraFees.map((f): FeeSpec => ({ kind: "flat", label: f.label, amount: f.amount })),
       { kind: "flat", label: "Retainer", amount: retainerFee },
       { kind: "flat", label: "Reimbursements", amount: reimbursements },
     ],
@@ -112,7 +131,8 @@ export async function generatePreInvoice(
       monthYearLabel: `${monthLabel} ${year}`,
     },
     rows,
-    { retainerFee, reimbursements, projectManagementFee },
+    { retainerFee, reimbursements, projectManagementFee, extraFees },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal }),
   );
 
   await prisma.invoiceRun.create({

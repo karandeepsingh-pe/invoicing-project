@@ -1,6 +1,10 @@
 "use client";
 
-import { type InputHTMLAttributes, type SelectHTMLAttributes } from "react";
+import {
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 type FieldProps = {
@@ -24,6 +28,27 @@ export function TextField({
     <label className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-fg-muted">{label}</span>
       <input name={name} className={inputClass} {...rest} />
+      {hint && <span className="text-xs text-fg-subtle">{hint}</span>}
+      {errors?.map((e) => (
+        <span key={e} className="text-xs text-danger">
+          {e}
+        </span>
+      ))}
+    </label>
+  );
+}
+
+export function TextAreaField({
+  label,
+  name,
+  errors,
+  hint,
+  ...rest
+}: FieldProps & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-fg-muted">{label}</span>
+      <textarea name={name} className={inputClass} {...rest} />
       {hint && <span className="text-xs text-fg-subtle">{hint}</span>}
       {errors?.map((e) => (
         <span key={e} className="text-xs text-danger">

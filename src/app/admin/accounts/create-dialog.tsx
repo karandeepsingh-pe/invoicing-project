@@ -12,7 +12,7 @@ export function ClientAccountCreateDialog({
     <Dialog
       trigger={<AddButton label="Add account" size="md" />}
       title="Create client account"
-      description="Account name must be unique within its org."
+      description="Account name must be unique within its client."
       size="lg"
     >
       {({ close }) => <ClientAccountCreateAnywhereForm orgs={orgs} onSuccess={close} />}

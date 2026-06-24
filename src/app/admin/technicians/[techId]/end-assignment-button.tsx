@@ -5,14 +5,13 @@ import { endAssignment } from "@/lib/actions/assignment";
 
 export function EndAssignmentButton({ id }: { id: string }) {
   const [state, action] = useActionState(endAssignment, null);
-  const today = new Date().toISOString().slice(0, 10);
   return (
     <form action={action} className="flex items-center justify-end gap-2">
       <input type="hidden" name="id" value={id} />
       <input
         type="date"
         name="endDate"
-        defaultValue={today}
+        aria-label="End date"
         className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
       />
       <button

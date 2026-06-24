@@ -22,6 +22,9 @@ export async function createClientAccount(
     currency: formData.get("currency") || undefined,
     clientPocName: formData.get("clientPocName") ?? undefined,
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
+    sdmName: formData.get("sdmName") ?? undefined,
+    sdmEmail: formData.get("sdmEmail") ?? undefined,
+    sdmPhone: formData.get("sdmPhone") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
@@ -29,6 +32,9 @@ export async function createClientAccount(
     state: formData.get("state") ?? undefined,
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
+    dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    businessHoursStart: formData.get("businessHoursStart") ?? undefined,
+    businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -65,6 +71,9 @@ export async function updateClientAccount(
     currency: formData.get("currency") || undefined,
     clientPocName: formData.get("clientPocName") ?? undefined,
     clientSpocEmail: formData.get("clientSpocEmail") ?? undefined,
+    sdmName: formData.get("sdmName") ?? undefined,
+    sdmEmail: formData.get("sdmEmail") ?? undefined,
+    sdmPhone: formData.get("sdmPhone") ?? undefined,
     projectDescription: formData.get("projectDescription") ?? undefined,
     defaultHours: formData.get("defaultHours") || undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
@@ -72,6 +81,11 @@ export async function updateClientAccount(
     state: formData.get("state") ?? undefined,
     postalCode: formData.get("postalCode") ?? undefined,
     country: formData.get("country") ?? undefined,
+    dispatchPricingModel: formData.get("dispatchPricingModel") || undefined,
+    businessHoursStart: formData.get("businessHoursStart") ?? undefined,
+    businessHoursEnd: formData.get("businessHoursEnd") ?? undefined,
+    dedicatedRetainerPerSite: formData.get("dedicatedRetainerPerSite") ?? undefined,
+    dispatchStandbyPerSite: formData.get("dispatchStandbyPerSite") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };

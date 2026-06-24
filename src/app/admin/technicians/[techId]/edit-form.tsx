@@ -25,18 +25,23 @@ export type TechEditFormProps = {
   primaryCategory: RateCategory;
   band: number;
   defaultSlaTier: AssignmentSlaTier;
+  dedicatedBillingBasis: string;
   active: boolean;
   isAvailableForDedicated: boolean;
   isAvailableForProject: boolean;
   isAvailableForDispatch: boolean;
   isRebadged: boolean;
   annualSalary: string | null;
+  rebadgedHourlyRate: string | null;
+  rebadgedDayRate: string | null;
+  rebadgedMonthlyRate: string | null;
   rebadgedOtRate: string | null;
   rebadgedWeekendRate: string | null;
   employerOrgId: string;
   orgs: { id: string; name: string }[];
   postalCodeId: string | null;
   addressLine1: string | null;
+  startDate: string | null;
   zipcode: string | null;
   city: string | null;
   state: string | null;
@@ -99,7 +104,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           name="employeeId"
           defaultValue={props.employeeId ?? ""}
           errors={fieldErrors?.employeeId}
-          hint="Optional. Unique per employer org."
+          hint="Optional. Unique per employer client."
         />
         <TextField
           label="Phone"
@@ -117,7 +122,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           hint="Contact email."
         />
         <SelectField
-          label="Employer org"
+          label="Employer client"
           name="employerOrgId"
           required
           defaultValue={props.employerOrgId}
@@ -151,7 +156,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
           required
           defaultValue={String(props.band)}
           errors={fieldErrors?.band}
-          hint="Existing assignments inherit rates per band — changing this affects future rate look-ups."
+          hint="Existing assignments keep their band's rates. Changing this only affects future lookups."
         >
           {[0, 1, 2, 3, 4].map((b) => (
             <option key={b} value={b}>
@@ -166,7 +171,7 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             required
             defaultValue={props.defaultSlaTier === "NONE" ? "" : props.defaultSlaTier}
             errors={fieldErrors?.defaultSlaTier}
-            hint="Dedicated rates differ with vs without backfill."
+            hint="Dedicated rates depend on backfill."
           >
             <option value="" disabled>
               Select…
@@ -175,6 +180,9 @@ export function TechnicianEditForm(props: TechEditFormProps) {
             <option value="NO_BACKFILL">No Backfill</option>
           </SelectField>
         )}
+        {/* Billing-basis selector retired (2026-06-10): Dedicated bills on annual
+            salary only. The stored value is ignored by billing; the column drops
+            after a clean prod month. */}
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-fg-muted">Active</span>
           <label className="inline-flex items-center gap-2 rounded-md border border-border-strong bg-surface px-3 py-2 text-sm">
@@ -203,9 +211,21 @@ export function TechnicianEditForm(props: TechEditFormProps) {
         defaults={{
           isRebadged: props.isRebadged,
           annualSalary: props.annualSalary,
+          rebadgedHourlyRate: props.rebadgedHourlyRate,
+          rebadgedDayRate: props.rebadgedDayRate,
+          rebadgedMonthlyRate: props.rebadgedMonthlyRate,
           rebadgedOtRate: props.rebadgedOtRate,
           rebadgedWeekendRate: props.rebadgedWeekendRate,
         }}
+      />
+
+      <TextField
+        label="Start date"
+        name="startDate"
+        type="date"
+        defaultValue={props.startDate ?? ""}
+        errors={fieldErrors?.startDate}
+        hint="Employment start (optional)."
       />
 
       <TextField

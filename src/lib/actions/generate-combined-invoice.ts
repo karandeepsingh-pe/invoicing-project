@@ -1,22 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type ExcelJS from "exceljs";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth, businessDaysInRange } from "@/lib/invoice/period";
+import { holidayDatesInRange } from "@/lib/domain/holidays";
 import { loadFteRows } from "@/lib/invoice/fte-rows";
+import { expandFteLineItems } from "@/lib/invoice/fte-line-items";
 import { loadProjectRows } from "@/lib/invoice/project-rows";
 import { loadScheduledRows } from "@/lib/invoice/scheduled-rows";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
 import { renderCombinedInvoice } from "@/lib/invoice/render-combined-invoice";
 import { assembleInvoice, type FeeSpec } from "@/lib/invoice/assemble";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
+import { orgSupportsFso } from "@/lib/invoice/fso-eligibility";
+import { writeFsoSheets } from "@/lib/invoice/render-fso";
+import {
+  loadFsoDedicatedRows,
+  loadFsoDispatchRows,
+  loadFsoProjectRows,
+  loadFsoScheduledRows,
+} from "@/lib/invoice/fso-rows";
 import type { PreInvoiceRow } from "@/lib/invoice/render-pre-invoice";
 
 const schema = z.object({
   accountId: z.string().min(1),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Optional per-site fee counts (fee = count × the account's per-site price).
+  dedicatedSites: z.coerce.number().int().min(0).max(100000).optional(),
+  dispatchSites: z.coerce.number().int().min(0).max(100000).optional(),
 });
 
 type Success = { ok: true; filename: string; base64: string };
@@ -42,7 +57,7 @@ export async function generateCombinedInvoice(
   _prev: GenerateCombinedResult,
   formData: FormData,
 ): Promise<GenerateCombinedResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -52,7 +67,8 @@ export async function generateCombinedInvoice(
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return { ok: false, formError: "Validation failed." };
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dedicatedSites, dispatchSites } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -66,19 +82,30 @@ export async function generateCombinedInvoice(
 
   const range = monthRange(year, month);
   const lastDay = lastDayOfMonth(year, month);
-  const businessDays = businessDaysInRange(range, []);
+  const businessDays = businessDaysInRange(range, await holidayDatesInRange(range));
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
 
   const [fteResult, projectRows, scheduledRows, dispatchDetail] = await Promise.all([
     loadFteRows(accountId, range),
     loadProjectRows(accountId, range),
     loadScheduledRows(accountId, range),
-    loadDispatchTrackerRows(accountId, range, dispatchRateRows(account.accountRates)),
+    loadDispatchTrackerRows(
+      accountId,
+      range,
+      dispatchRateRows(account.accountRates),
+      account.dispatchPricingModel,
+      businessWindow,
+    ),
   ]);
 
   // Merge every engagement type into ONE unified line-item table, in the order the
   // reference sheet uses: FTE, then Project, then Scheduled, then Dispatch (one row
   // per billable visit). FTE rows are already PreInvoiceRow-shaped; the rest map in.
-  const fteRows = fteResult.rows;
+  // One line per charge type: base days line + separate OT / Weekend lines.
+  const fteRows = expandFteLineItems(fteResult.rows);
   const projectAsRows: PreInvoiceRow[] = projectRows.map((r) => ({
     location: r.location,
     technicianName: r.technicianName,
@@ -124,20 +151,43 @@ export async function generateCombinedInvoice(
 
   // Add-on fees, identical to the single-type generator: percentage fees (e.g. the
   // 3% PM fee) on the line-item subtotal, plus flat retainer + reimbursements.
+  // Backfill expenses (travel etc. paid to covering techs) pass through under
+  // Reimbursements, dollar-for-dollar.
   const percentFees: FeeSpec[] = account.miscFees
     .filter((m) => m.percent != null)
     .map((m) => ({ kind: "percent", label: m.label, percent: Number(m.percent ?? 0) }));
   const retainerFee = account.miscFees
     .filter((m) => m.percent == null && m.kind === "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
-  const reimbursements = account.miscFees
-    .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  const reimbursements =
+    account.miscFees
+      .filter((m) => m.percent == null && m.kind !== "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) +
+    fteResult.coverageExpenses;
+
+  // Per-site recurring fees: site count entered at generation × the per-site
+  // price on the account. Skipped when either side is missing/zero.
+  const extraFees: { label: string; amount: number }[] = [];
+  const retainerPerSite = Number(account.dedicatedRetainerPerSite?.toString() ?? 0);
+  const standbyPerSite = Number(account.dispatchStandbyPerSite?.toString() ?? 0);
+  if (dedicatedSites && retainerPerSite > 0) {
+    extraFees.push({
+      label: `Retainer — Dedicated (${dedicatedSites} site${dedicatedSites === 1 ? "" : "s"} × $${retainerPerSite})`,
+      amount: Math.round(dedicatedSites * retainerPerSite * 100) / 100,
+    });
+  }
+  if (dispatchSites && standbyPerSite > 0) {
+    extraFees.push({
+      label: `Standby — Dispatch (${dispatchSites} site${dispatchSites === 1 ? "" : "s"} × $${standbyPerSite})`,
+      amount: Math.round(dispatchSites * standbyPerSite * 100) / 100,
+    });
+  }
 
   const assembled = assembleInvoice(
     rows.map((r) => r.extendedTotal),
     [
       ...percentFees,
+      ...extraFees.map((f): FeeSpec => ({ kind: "flat", label: f.label, amount: f.amount })),
       { kind: "flat", label: "Retainer", amount: retainerFee },
       { kind: "flat", label: "Reimbursements", amount: reimbursements },
     ],
@@ -157,6 +207,30 @@ export async function generateCombinedInvoice(
 
   const monthLabel = range.start.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
 
+  // For HCL accounts, embed the four FSO category sheets inside the combined
+  // workbook (the standalone "Generate FSO (HCL)" download is unaffected). Then
+  // always append the timesheet + rate sheet + remittance bundle.
+  const appendSheets = async (wb: ExcelJS.Workbook): Promise<void> => {
+    if (orgSupportsFso(account.org)) {
+      const [dedicated, project, scheduled, dispatch] = await Promise.all([
+        loadFsoDedicatedRows(accountId, range),
+        loadFsoProjectRows(accountId, range),
+        loadFsoScheduledRows(accountId, range),
+        loadFsoDispatchRows(accountId, range),
+      ]);
+      writeFsoSheets(
+        wb,
+        {
+          customerName: account.name,
+          currency: account.currency ?? account.org.defaultCurrency,
+          serviceMonth: `${monthLabel}-${String(range.start.getUTCFullYear()).slice(2)}`,
+        },
+        { dedicated, project, scheduled, dispatch },
+      );
+    }
+    await appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal: assembled.grandTotal });
+  };
+
   const buffer = await renderCombinedInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
@@ -173,7 +247,8 @@ export async function generateCombinedInvoice(
     },
     rows,
     dispatchDetail,
-    { retainerFee, reimbursements, projectManagementFee },
+    { retainerFee, reimbursements, projectManagementFee, extraFees },
+    appendSheets,
   );
 
   await prisma.invoiceRun.create({

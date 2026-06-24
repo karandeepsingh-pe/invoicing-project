@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { VisitTypeRowActions } from "./visit-type-row";
 import { VisitTypeCreateDialog } from "./create-dialog";
 
 export default async function VisitTypesMastersPage() {
+  await requireAdmin();
   const types = await prisma.dispatchVisitType.findMany({
     orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { visits: true } } },
@@ -11,17 +13,17 @@ export default async function VisitTypesMastersPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Dispatch visit types</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Dispatch visit types</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{types.length} total</span>
             <VisitTypeCreateDialog />
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Install / Repair / Audit / … picked per dispatch visit. Descriptive metadata for
-          now; the dispatch picker only offers active types.
+          The visit types you can pick on a dispatch visit (Install, Repair, Audit, and so on).
+          The picker only shows the active ones.
         </p>
       </header>
 

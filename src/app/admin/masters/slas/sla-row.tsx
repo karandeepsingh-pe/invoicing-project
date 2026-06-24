@@ -76,7 +76,7 @@ export function SlaRowActions({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-fg-muted backdrop-blur transition-colors hover:bg-surface hover:text-fg"
+        className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
       >
         Edit
       </button>
@@ -85,7 +85,7 @@ export function SlaRowActions({
           <button
             type="button"
             disabled={pending}
-            className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger backdrop-blur transition-colors hover:bg-danger-bg disabled:opacity-50"
+            className="rounded-md border border-border-strong bg-surface/60 px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-danger-bg disabled:opacity-50"
           >
             {pending ? "Deleting…" : "Delete"}
           </button>

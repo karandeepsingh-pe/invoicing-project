@@ -17,7 +17,13 @@
 //   4. Unpriced (no day/weekly/monthly rate): 0, surfaced for review.
 //
 // daysWorked uses the same convention as FTE (full day for hours >= defaultHours;
-// fractional below). No backfill semantics. OT / weekend / OOO are a later pass.
+// fractional below). No backfill semantics.
+//
+// Weekend: when the rate sheet carries FULL_DAY_WEEKEND / HALF_DAY_WEEKEND and a
+// cell's date is a Saturday/Sunday, that day is priced at the weekend rate and
+// ADDED on top of the weekday basis total (weekday days still drive the
+// weekly/day/monthly basis). With no weekend rate, weekend days fold into the
+// basis as regular days (back-compat).
 
 import { Prisma, type TimesheetDayStatus } from "@prisma/client";
 import { computeDaysWorked } from "./dedicated-fte-calculator";
@@ -35,6 +41,9 @@ export type ProjectRateRow = {
 export type ProjectTimesheetCell = {
   hours: DecimalLike;
   status: TimesheetDayStatus | null;
+  // Optional: a Saturday/Sunday date routes the day to the weekend rate when one
+  // is set (otherwise it folds into the weekday basis).
+  date?: Date;
 };
 
 export type ProjectCalcInput = {
@@ -55,12 +64,15 @@ export type ProjectCalcOutput = {
   dayRate: DecimalLike;
   weeklyRate: DecimalLike;
   monthlyRate: DecimalLike;
+  // Weekend-day surcharge added on top of the weekday basis (0 when no weekend rate).
+  weekendDaysWorked: DecimalLike;
+  weekendTotal: DecimalLike;
   extendedTotal: DecimalLike;
   basis: ProjectBasis;
   // true only when a Day-basis line hits the monthly cap.
   capped: boolean;
-  // Whether the line is a flat amount (weekly/monthly/day-capped) rather than a
-  // per-day rate × days line. Drives how the invoice renders the row.
+  // Whether the line is a flat amount (weekly/monthly/day-capped/has-weekend)
+  // rather than a per-day rate × days line. Drives how the invoice renders the row.
   flat: boolean;
   remark?: string;
 };
@@ -83,61 +95,118 @@ function pick(
   return new Decimal(row.rateAmount.toString());
 }
 
+function isWeekendUtc(d?: Date): boolean {
+  if (!d) return false;
+  const day = d.getUTCDay();
+  return day === 0 || day === 6;
+}
+
 export function calculateProjectRow(input: ProjectCalcInput): ProjectCalcOutput {
   const dayRate = pick(input.rates, input.band, "FULL_DAY", input.slaCode);
   const weeklyRate = pick(input.rates, input.band, "WEEKLY", input.slaCode);
   const monthlyRate = pick(input.rates, input.band, "MONTHLY", input.slaCode);
-  const daysWorked = computeDaysWorked(input.entries, input.defaultHours);
-  const base = { daysWorked, dayRate, weeklyRate, monthlyRate };
+  const fullDayWeekendRate = pick(input.rates, input.band, "FULL_DAY_WEEKEND", input.slaCode);
+  const halfDayWeekendRate = pick(input.rates, input.band, "HALF_DAY_WEEKEND", input.slaCode);
+  const hasWeekendRates = fullDayWeekendRate.greaterThan(0) || halfDayWeekendRate.greaterThan(0);
+
+  // Split weekend-dated days out of the basis when a weekend rate exists; the
+  // remaining (weekday) cells drive the weekly/day/monthly basis as before.
+  let basisEntries = input.entries;
+  let weekendFullDays = 0;
+  let weekendHalfDays = 0;
+  if (hasWeekendRates) {
+    basisEntries = [];
+    for (const cell of input.entries) {
+      if (!isWeekendUtc(cell.date)) {
+        basisEntries.push(cell);
+        continue;
+      }
+      if (cell.status === "HALF_DAY") {
+        weekendHalfDays += 1;
+      } else if (cell.status === null) {
+        const h = new Decimal(cell.hours.toString());
+        if (h.greaterThanOrEqualTo(input.defaultHours)) weekendFullDays += 1;
+        else if (h.greaterThan(0)) weekendHalfDays += 1;
+      }
+      // PH / AB / NA / PTO on a weekend -> not billed.
+    }
+  }
+  const weekendTotal = fullDayWeekendRate
+    .times(weekendFullDays)
+    .plus(halfDayWeekendRate.times(weekendHalfDays));
+  const weekendDaysWorked = new Decimal(weekendFullDays).plus(
+    new Decimal(weekendHalfDays).times("0.5"),
+  );
+
+  const weekdayDaysWorked = computeDaysWorked(basisEntries, input.defaultHours);
+  const daysWorked = weekdayDaysWorked.plus(weekendDaysWorked);
+  const hasWeekend = weekendTotal.greaterThan(0);
+  const weekendRemark = hasWeekend ? `+ ${weekendDaysWorked.toFixed(1)} weekend day(s)` : undefined;
+  const withWeekend = (remark?: string): string | undefined =>
+    [remark, weekendRemark].filter(Boolean).join(" · ") || undefined;
+  const base = { daysWorked, dayRate, weeklyRate, monthlyRate, weekendDaysWorked, weekendTotal };
 
   // 1. Weekly basis.
   if (weeklyRate.greaterThan(0)) {
-    const weeks = daysWorked.dividedBy(5);
+    const weeks = weekdayDaysWorked.dividedBy(5);
     return {
       ...base,
-      extendedTotal: weeklyRate.times(weeks),
+      extendedTotal: weeklyRate.times(weeks).plus(weekendTotal),
       basis: "weekly",
       capped: false,
       flat: true,
-      remark: `Weekly ${weeks.toFixed(2)} wk`,
+      remark: withWeekend(`Weekly ${weeks.toFixed(2)} wk`),
     };
   }
 
-  // 2. Day basis (optionally capped at the monthly rate).
+  // 2. Day basis (optionally capped at the monthly rate). The cap applies to the
+  // weekday day-rate portion; weekend days are added on top of the cap.
   if (dayRate.greaterThan(0)) {
-    const daysTotal = dayRate.times(daysWorked);
+    const daysTotal = dayRate.times(weekdayDaysWorked);
     const capped =
       monthlyRate.greaterThan(0) && daysTotal.greaterThanOrEqualTo(monthlyRate);
     return {
       ...base,
-      extendedTotal: capped ? monthlyRate : daysTotal,
+      extendedTotal: (capped ? monthlyRate : daysTotal).plus(weekendTotal),
       basis: "day",
       capped,
-      flat: capped,
-      remark: capped ? "Monthly cap" : undefined,
+      flat: capped || hasWeekend,
+      remark: withWeekend(capped ? "Monthly cap" : undefined),
     };
   }
 
-  // 3. Monthly basis (pure monthly, pro-rated by days / businessDays).
+  // 3. Monthly basis (pure monthly, pro-rated by weekday days / businessDays).
   if (monthlyRate.greaterThan(0)) {
     const bd =
       input.businessDays && input.businessDays > 0
         ? new Decimal(input.businessDays)
-        : daysWorked; // fallback: bills the full monthly when businessDays is unknown
-    const extendedTotal = bd.greaterThan(0)
-      ? monthlyRate.times(daysWorked).dividedBy(bd)
+        : weekdayDaysWorked; // fallback: bills the full monthly when businessDays is unknown
+    const monthlyPortion = bd.greaterThan(0)
+      ? monthlyRate.times(weekdayDaysWorked).dividedBy(bd)
       : ZERO;
     return {
       ...base,
-      extendedTotal,
+      extendedTotal: monthlyPortion.plus(weekendTotal),
       basis: "monthly",
       capped: false,
       flat: true,
-      remark: `Monthly pro-rated ${daysWorked.toFixed(0)}/${input.businessDays ?? daysWorked.toFixed(0)}`,
+      remark: withWeekend(
+        `Monthly pro-rated ${weekdayDaysWorked.toFixed(0)}/${input.businessDays ?? weekdayDaysWorked.toFixed(0)}`,
+      ),
     };
   }
 
-  // 4. Unpriced.
+  // 4. No weekday basis rate. If there are weekend-rate days, bill those; else 0.
+  if (hasWeekend) {
+    return {
+      ...base,
+      extendedTotal: weekendTotal,
+      basis: "day",
+      capped: false,
+      flat: true,
+      remark: weekendRemark,
+    };
+  }
   return {
     ...base,
     extendedTotal: ZERO,

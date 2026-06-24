@@ -5,13 +5,21 @@
 //   weekday  -> regular = min(hours, defaultHours)
 //               OT      = max(0, hours - defaultHours)
 //   weekend  -> weekend = hours (no day credit, no OT)
-//   PH/AB/NA/PTO -> 0 across all buckets (status overrides numeric value)
+//   PH       -> 0 worked days/hours; the client pays for PH via the business-day
+//               denominator instead (PH is excluded from businessDays, raising
+//               the day rate so a full non-PH month bills exactly the monthly)
+//   PTO      -> 0 billable (paid to the technician by Ovation, NOT billed to client)
 //   HALF_DAY -> 0.5 regular days, no OT, no weekend
+//   AB/NA    -> 0 across all buckets (status overrides numeric value)
+//
+// The status -> day-credit rule lives in validation/cell.ts (statusDayCredit) so
+// this engine and the timesheet grid summary share one source of truth.
 //
 // `regularDays` accumulates `regular / defaultHours` per cell, so a 6-hour
 // weekday adds 0.75 days and a 10-hour weekday adds 1 day + 2 OT.
 
 import { Prisma, type TimesheetDayStatus } from "@prisma/client";
+import { statusDayCredit } from "@/lib/validation/cell";
 
 const Decimal = Prisma.Decimal;
 type DecimalLike = InstanceType<typeof Decimal>;
@@ -24,6 +32,7 @@ export type DayCell = {
 
 export type SplitTotals = {
   regularDays: DecimalLike;
+  regularHours: DecimalLike;
   otHours: DecimalLike;
   weekendHours: DecimalLike;
 };
@@ -49,16 +58,12 @@ export function splitCell(cell: DayCell, defaultHours: number): PerCellSplit {
     throw new Error("splitCell: defaultHours must be > 0");
   }
   if (cell.status !== null) {
-    // PH (public holiday) bills as a full PAID day; HALF_DAY counts as half a
-    // worked day; AB / NA / PTO count as zero.
-    const isPh = cell.status === "PH";
-    const isHalf = cell.status === "HALF_DAY";
-    const regularDays = isPh ? new Decimal(1) : isHalf ? new Decimal("0.5") : ZERO;
-    const regularHours = isPh
-      ? new Decimal(defaultHours)
-      : isHalf
-        ? new Decimal(defaultHours).times("0.5")
-        : ZERO;
+    // HALF_DAY counts as half a worked day; PH / PTO / AB / NA count as zero
+    // (PH is billed through the business-day denominator, not as a day credit).
+    // Rule lives in validation/cell.ts (shared with the grid summary).
+    const dayCredit = statusDayCredit(cell.status);
+    const regularDays = new Decimal(dayCredit);
+    const regularHours = regularDays.times(defaultHours);
     return {
       date: cell.date,
       regularHours,
@@ -107,13 +112,15 @@ export function splitEntries(
   defaultHours: number,
 ): SplitTotals {
   let regularDays = new Decimal(0);
+  let regularHours = new Decimal(0);
   let otHours = new Decimal(0);
   let weekendHours = new Decimal(0);
   for (const cell of entries) {
     const s = splitCell(cell, defaultHours);
     regularDays = regularDays.plus(s.regularDays);
+    regularHours = regularHours.plus(s.regularHours);
     otHours = otHours.plus(s.otHours);
     weekendHours = weekendHours.plus(s.weekendHours);
   }
-  return { regularDays, otHours, weekendHours };
+  return { regularDays, regularHours, otHours, weekendHours };
 }

@@ -50,6 +50,9 @@ export async function createTechnician(
     email: formData.get("email") ?? undefined,
     isRebadged: checkbox(formData.get("isRebadged")),
     annualSalary: formData.get("annualSalary") || undefined,
+    rebadgedHourlyRate: formData.get("rebadgedHourlyRate") || undefined,
+    rebadgedDayRate: formData.get("rebadgedDayRate") || undefined,
+    rebadgedMonthlyRate: formData.get("rebadgedMonthlyRate") || undefined,
     rebadgedOtRate: formData.get("rebadgedOtRate") || undefined,
     rebadgedWeekendRate: formData.get("rebadgedWeekendRate") || undefined,
     isAvailableForDedicated: checkbox(formData.get("isAvailableForDedicated")),
@@ -60,10 +63,13 @@ export async function createTechnician(
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
+    startDate: formData.get("startDate") || undefined,
     defaultSlaTier: formData.get("defaultSlaTier") || undefined,
+    dedicatedBillingBasis: formData.get("dedicatedBillingBasis") || undefined,
     initialAccountId: rawAccount && rawAccount !== "" ? rawAccount : undefined,
     initialCategory: formData.get("initialCategory") || undefined,
     initialStartDate: formData.get("initialStartDate") || undefined,
+    initialEndDate: formData.get("initialEndDate") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -73,12 +79,15 @@ export async function createTechnician(
     initialAccountId,
     initialCategory,
     initialStartDate,
+    initialEndDate,
     zipcode,
     locationCity,
     locationState,
     locationCountry,
+    startDate: startDateStr,
     ...techData
   } = parsed.data;
+  const startDate = startDateStr ? new Date(startDateStr) : null;
 
   // Backfill trait: required for Dedicated techs (their rate splits by tier),
   // meaningless otherwise → force NONE. Applies whether or not we assign now.
@@ -86,7 +95,7 @@ export async function createTechnician(
   if (!tierResult.ok) {
     return { ok: false, fieldErrors: { defaultSlaTier: [tierResult.message] } };
   }
-  const techDataWithTier = { ...techData, defaultSlaTier: tierResult.value };
+  const techDataWithTier = { ...techData, defaultSlaTier: tierResult.value, startDate };
 
   const locationInput: LocationInput = {
     zipcode,
@@ -145,6 +154,7 @@ export async function createTechnician(
       endDate: null,
       technicianFlags: effectiveFlags,
       technicianIsRebadged: techData.isRebadged,
+      technicianAnnualSalary: Number(techData.annualSalary ?? 0),
       accountRates,
       existingTechnicianAssignments: [],
     });
@@ -166,6 +176,7 @@ export async function createTechnician(
             rateCategory: category,
             slaTier,
             startDate: new Date(initialStartDate),
+            endDate: initialEndDate ? new Date(initialEndDate) : null,
           },
         });
         return { kind: "created" as const, tech: created };
@@ -241,11 +252,15 @@ export async function updateTechnician(
     primaryCategory: formData.get("primaryCategory"),
     band: formData.get("band"),
     defaultSlaTier: formData.get("defaultSlaTier") || undefined,
+    dedicatedBillingBasis: formData.get("dedicatedBillingBasis") || undefined,
     active: rawActive === "on" || rawActive === "true",
     phone: formData.get("phone") ?? undefined,
     email: formData.get("email") ?? undefined,
     isRebadged: checkbox(formData.get("isRebadged")),
     annualSalary: formData.get("annualSalary") || undefined,
+    rebadgedHourlyRate: formData.get("rebadgedHourlyRate") || undefined,
+    rebadgedDayRate: formData.get("rebadgedDayRate") || undefined,
+    rebadgedMonthlyRate: formData.get("rebadgedMonthlyRate") || undefined,
     rebadgedOtRate: formData.get("rebadgedOtRate") || undefined,
     rebadgedWeekendRate: formData.get("rebadgedWeekendRate") || undefined,
     isAvailableForDedicated: checkbox(formData.get("isAvailableForDedicated")),
@@ -256,6 +271,7 @@ export async function updateTechnician(
     locationState: formData.get("locationState") ?? undefined,
     locationCountry: formData.get("locationCountry") ?? undefined,
     addressLine1: formData.get("addressLine1") ?? undefined,
+    startDate: formData.get("startDate") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
@@ -267,8 +283,10 @@ export async function updateTechnician(
     locationCity,
     locationState,
     locationCountry,
+    startDate: startDateStr,
     ...data
   } = parsed.data;
+  const startDate = startDateStr ? new Date(startDateStr) : null;
 
   const tierResult = resolveTechSlaTier(data.primaryCategory, data.defaultSlaTier);
   if (!tierResult.ok) {
@@ -288,7 +306,7 @@ export async function updateTechnician(
       if (!loc.ok) return { kind: "validation" as const, fieldErrors: loc.fieldErrors };
       await tx.technician.update({
         where: { id },
-        data: { ...data, defaultSlaTier: tierResult.value, postalCodeId: loc.postalCodeId },
+        data: { ...data, defaultSlaTier: tierResult.value, postalCodeId: loc.postalCodeId, startDate },
       });
       return { kind: "updated" as const };
     });

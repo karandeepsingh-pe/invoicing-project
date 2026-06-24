@@ -295,7 +295,7 @@ export function CascadingPlace({
       </label>
 
       {geoStatus === "failed" && (
-        <p className="text-xs text-amber-600 dark:text-amber-400 md:col-span-4">
+        <p className="text-xs text-warning md:col-span-4">
           Couldn&rsquo;t auto-detect location — please select manually.
         </p>
       )}

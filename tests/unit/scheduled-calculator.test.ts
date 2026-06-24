@@ -77,3 +77,44 @@ describe("calculateScheduledRow", () => {
     expect(at10.extendedTotal.toNumber()).toBe(260);
   });
 });
+
+describe("calculateScheduledRow weekend rates", () => {
+  const weekendRates: ScheduledRateRow[] = [
+    ...rates,
+    { rateAmount: dec(600), band: 2, rateSubCategory: { code: "FULL_DAY_WEEKEND" }, sla: { code: "SCHEDULE" } },
+    { rateAmount: dec(360), band: 2, rateSubCategory: { code: "HALF_DAY_WEEKEND" }, sla: { code: "SCHEDULE" } },
+  ];
+  const sat = new Date(Date.UTC(2026, 2, 7)); // Sat 2026-03-07
+  const mon = new Date(Date.UTC(2026, 2, 9)); // Mon 2026-03-09
+  const fullOn = (d: Date): ScheduledTimesheetCell => ({ hours: dec(8), status: null, date: d });
+
+  it("weekend full day bills FULL_DAY_WEEKEND; weekday full day bills FULL_DAY", () => {
+    const r = calculateScheduledRow({
+      defaultHours: 8,
+      band: 2,
+      entries: [fullOn(mon), fullOn(sat)],
+      rates: weekendRates,
+    });
+    expect(r.fullDays).toBe(1);
+    expect(r.weekendFullDays).toBe(1);
+    expect(r.extendedTotal.toNumber()).toBe(410 + 600);
+  });
+
+  it("weekend half day bills HALF_DAY_WEEKEND", () => {
+    const r = calculateScheduledRow({
+      defaultHours: 8,
+      band: 2,
+      entries: [{ hours: dec(4), status: null, date: sat }],
+      rates: weekendRates,
+    });
+    expect(r.weekendHalfDays).toBe(1);
+    expect(r.extendedTotal.toNumber()).toBe(360);
+  });
+
+  it("with NO weekend rate set, a weekend day bills the regular Full Day rate (back-compat)", () => {
+    const r = calculateScheduledRow({ defaultHours: 8, band: 2, entries: [fullOn(sat)], rates });
+    expect(r.fullDays).toBe(1);
+    expect(r.weekendFullDays).toBe(0);
+    expect(r.extendedTotal.toNumber()).toBe(410);
+  });
+});

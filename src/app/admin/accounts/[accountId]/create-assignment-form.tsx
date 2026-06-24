@@ -5,6 +5,8 @@ import { AssignmentSlaTier, RateCategory } from "@prisma/client";
 import { createAssignments } from "@/lib/actions/assignment";
 import { flagForCategory, type TechnicianFlags } from "@/lib/domain/technician-pools";
 import { FormError, SelectField, TextField } from "@/components/admin/field";
+import { FilterInput } from "@/components/admin/filter-input";
+import { filterByText } from "@/lib/display/option-filter";
 import { useActionToast } from "@/lib/hooks/use-action-toast";
 import {
   buildTechDisplayMap,
@@ -63,6 +65,14 @@ export function AccountAssignmentCreateForm({
   );
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [techQuery, setTechQuery] = useState("");
+  const visibleTechs = useMemo(
+    () =>
+      filterByText(eligibleTechs, techQuery, (t) =>
+        formatTechDisplay(displayMap.get(t.id), `${t.firstName} ${t.lastName}`),
+      ),
+    [eligibleTechs, techQuery, displayMap],
+  );
   // Drop any selected techs no longer eligible after a category change.
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -139,8 +149,13 @@ export function AccountAssignmentCreateForm({
           label="End date"
           name="endDate"
           type="date"
+          required={category !== RateCategory.DEDICATED}
           errors={fieldErrors?.endDate}
-          hint="Open-ended if blank (typical for DEDICATED)"
+          hint={
+            category === RateCategory.DEDICATED
+              ? "Open-ended if blank (ongoing FTE)"
+              : "Required — this engagement only shows in its active months"
+          }
         />
       </div>
 
@@ -152,16 +167,21 @@ export function AccountAssignmentCreateForm({
       )}
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-medium text-fg-muted">
             Technicians · {categoryLabel[category]} · {selectedIds.size} selected
+            {techQuery.trim() !== "" && ` · ${visibleTechs.length} of ${eligibleTechs.length} shown`}
           </span>
           {eligibleTechs.length > 0 && (
             <div className="flex items-center gap-3 text-xs">
               <button
                 type="button"
-                onClick={() => setSelectedIds(new Set(eligibleTechs.map((t) => t.id)))}
-                className="font-medium text-accent hover:text-accent-hover"
+                onClick={() =>
+                  setSelectedIds(
+                    (prev) => new Set([...prev, ...visibleTechs.map((t) => t.id)]),
+                  )
+                }
+                className="ui-link-accent font-medium"
               >
                 Select all
               </button>
@@ -180,8 +200,19 @@ export function AccountAssignmentCreateForm({
             No technicians flagged for {categoryLabel[category]} (or all are dedicated elsewhere).
           </p>
         ) : (
-          <div className="max-h-56 overflow-y-auto rounded-md border border-border-strong bg-surface">
-            {eligibleTechs.map((t) => (
+          <>
+            <FilterInput
+              value={techQuery}
+              onChange={setTechQuery}
+              placeholder="Search technicians…"
+            />
+            <div className="max-h-56 overflow-y-auto rounded-md border border-border-strong bg-surface">
+              {visibleTechs.length === 0 && (
+                <p className="px-3 py-3 text-sm text-fg-subtle">
+                  No technicians match &ldquo;{techQuery}&rdquo; — clear the search to see all.
+                </p>
+              )}
+              {visibleTechs.map((t) => (
               <label
                 key={t.id}
                 className="flex cursor-pointer items-center gap-3 border-b border-border/60 px-3 py-2 text-sm last:border-b-0 hover:bg-surface-2"
@@ -212,8 +243,9 @@ export function AccountAssignmentCreateForm({
                   <span>Band {t.band}</span>
                 </span>
               </label>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
         <div className="text-xs text-fg-subtle">
           Account: <span className="font-medium text-fg">{accountLabel}</span>

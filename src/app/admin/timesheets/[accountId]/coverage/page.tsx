@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { requireAccountAccess } from "@/lib/auth/session";
 import { notDeleted } from "@/lib/domain/soft-delete";
 import { monthRange } from "@/lib/invoice/period";
 import { CoverageView } from "./coverage-view";
@@ -13,6 +14,7 @@ export default async function CoveragePage({
   searchParams: Promise<{ year?: string; month?: string }>;
 }) {
   const { accountId } = await params;
+  await requireAccountAccess(accountId);
   const sp = await searchParams;
   const now = new Date();
   const year = sp.year ? Number(sp.year) : now.getUTCFullYear();
@@ -34,8 +36,8 @@ export default async function CoveragePage({
     },
     include: { technician: true },
     orderBy: [
-      { technician: { lastName: "asc" } },
       { technician: { firstName: "asc" } },
+      { technician: { lastName: "asc" } },
     ],
   });
 
@@ -48,8 +50,20 @@ export default async function CoveragePage({
     include: {
       coveredAssignment: { include: { technician: true } },
       coveringAssignment: { include: { technician: true } },
+      coveringTechnician: true,
     },
     orderBy: { date: "asc" },
+  });
+
+  // Covering candidates: ANY active pool technician (Project or Dispatch
+  // availability), no assignment on this account required.
+  const poolTechs = await prisma.technician.findMany({
+    where: {
+      active: true,
+      OR: [{ isAvailableForProject: true }, { isAvailableForDispatch: true }],
+    },
+    include: { employerOrg: { select: { name: true } } },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
 
   const monthName = range.start.toLocaleString("en-US", {
@@ -66,16 +80,18 @@ export default async function CoveragePage({
         >
           ← Timesheet
         </Link>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
           Backfill log
         </span>
-        <h1 className="text-3xl font-semibold tracking-tighter2">
+        <h1 className="break-words text-2xl font-semibold tracking-tighter2 sm:text-3xl">
           {account.org.name} / {account.name} · {monthName} {year}
         </h1>
         <p className="text-sm text-fg-muted">
-          Log who covered whom. Only valid when the covered technician&apos;s
-          assignment slaTier = <code>BACKFILL</code>. The covering tech&apos;s
-          line picks up the covered tech&apos;s rates at invoice time.
+          Log who covered whom. This only applies when the covered technician&apos;s
+          assignment is on the <code>BACKFILL</code> tier. Any active pool technician can
+          cover; they don&apos;t need an assignment on this account. The pre-invoice then gets
+          a separate <em>FTE (Backfill)</em> line at the covered tech&apos;s rates, showing the
+          hours.
         </p>
 
         <details className="glass-soft rounded-md p-3 text-xs text-fg-muted">
@@ -84,19 +100,18 @@ export default async function CoveragePage({
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              <strong>Weekday event</strong>: hours up to Default Hours count as
-              one regular day on the covering tech&apos;s line (the covered tech
-              loses the same day). Anything above goes on the covering tech&apos;s
-              OT bucket at the covered tech&apos;s OT rate.
+              <strong>On a weekday</strong>, hours up to Default Hours count as one regular
+              day for the covering tech, and the covered tech loses that day. Anything above
+              goes to the covering tech&apos;s OT at the covered tech&apos;s OT rate.
             </li>
             <li>
-              <strong>Sat / Sun event</strong>: every hour goes into the covering
-              tech&apos;s Weekend bucket at the covered tech&apos;s Weekend rate.
-              No day delta on either side.
+              <strong>On Saturday or Sunday</strong>, every hour goes to the covering
+              tech&apos;s Weekend bucket at the covered tech&apos;s Weekend rate. Neither
+              tech&apos;s day count changes.
             </li>
             <li>
-              <strong>NO_BACKFILL / NONE</strong> covered tier: event is skipped
-              at invoice time and surfaced as a warning.
+              If the covered tier is <strong>NO_BACKFILL</strong> or <strong>NONE</strong>, the
+              event is skipped at invoice time and flagged as a warning.
             </li>
           </ul>
         </details>
@@ -112,12 +127,22 @@ export default async function CoveragePage({
           slaTier: a.slaTier,
           rateCategory: a.rateCategory,
         }))}
+        poolTechs={poolTechs.map((t) => ({
+          id: t.id,
+          label: `${t.firstName} ${t.lastName} · ${t.isRebadged ? "Rebadged" : `Band ${t.band}`} · ${t.employerOrg.name}`,
+        }))}
         events={events.map((e) => ({
           id: e.id,
           date: e.date.toISOString().slice(0, 10),
           covered: `${e.coveredAssignment.technician.firstName} ${e.coveredAssignment.technician.lastName}`,
-          covering: `${e.coveringAssignment.technician.firstName} ${e.coveringAssignment.technician.lastName}`,
+          covering: e.coveringTechnician
+            ? `${e.coveringTechnician.firstName} ${e.coveringTechnician.lastName}`
+            : e.coveringAssignment
+              ? `${e.coveringAssignment.technician.firstName} ${e.coveringAssignment.technician.lastName}`
+              : "—",
           hours: Number(e.hours.toString()),
+          expenseAmount: e.expenseAmount != null ? Number(e.expenseAmount.toString()) : null,
+          expenseNotes: e.expenseNotes,
           notes: e.notes,
         }))}
       />

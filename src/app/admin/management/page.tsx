@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { ManagementView, type OrgRow } from "./management-view";
 import { OrgCreateDialog } from "@/app/admin/orgs/create-dialog";
+import { BulkUploadDialog as AccountBulkUploadDialog } from "@/app/admin/accounts/bulk-upload-dialog";
+import { TechnicianBulkUploadDialog } from "@/app/admin/technicians/bulk-upload-dialog";
 import type { TechOption } from "@/app/admin/accounts/[accountId]/create-assignment-form";
 
 export default async function ManagementPage() {
+  await requireAdmin();
   // Active = not yet ended as of today. An ended assignment no longer attaches
   // the technician to the account.
   const today = new Date();
@@ -24,8 +28,8 @@ export default async function ManagementPage() {
           assignments: {
             where: { OR: [{ endDate: null }, { endDate: { gte: today } }] },
             orderBy: [
-              { technician: { lastName: "asc" } },
               { technician: { firstName: "asc" } },
+              { technician: { lastName: "asc" } },
             ],
             include: {
               technician: {
@@ -36,7 +40,7 @@ export default async function ManagementPage() {
         },
       },
       technicians: {
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
         include: {
           _count: { select: { assignments: true } },
           postalCode: { select: { zipcode: true, city: true, state: true, country: true } },
@@ -57,7 +61,7 @@ export default async function ManagementPage() {
         select: { clientAccountId: true },
       },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
   const techOptions: TechOption[] = allTechs.map((t) => ({
     id: t.id,
@@ -115,18 +119,21 @@ export default async function ManagementPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-          Partner Management
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">
+          Client Management
         </span>
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Orgs · Accounts · Technicians</h1>
-          <OrgCreateDialog />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Clients · Accounts · Technicians</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <AccountBulkUploadDialog />
+            <TechnicianBulkUploadDialog />
+            <OrgCreateDialog />
+          </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Single workspace for vendor orgs, their client accounts, rate sheets, and technicians.
-          Create, edit, and delete from here — changes propagate everywhere the data is used.
-          Open an account to manage rate cards, misc fees, and assignments; open a technician to
-          manage their employment and assignments.
+          Your clients, their accounts, and technicians in one place. Anything you change here
+          updates wherever the data is used. Open an account to manage its rate card, misc fees,
+          and assignments. Open a technician to manage their details and assignments.
         </p>
       </header>
 

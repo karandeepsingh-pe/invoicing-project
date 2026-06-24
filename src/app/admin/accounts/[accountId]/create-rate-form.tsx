@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { RateCategory } from "@prisma/client";
 import { createAccountRate } from "@/lib/actions/account-rate";
+import { slaCodesForCategory } from "@/lib/domain/rate-dimensions";
 import { FormError, SelectField, SubmitButton, TextField } from "@/components/admin/field";
 
 type SubCat = { id: string; rateCategory: RateCategory; code: string; label: string };
@@ -45,7 +46,9 @@ export function AccountRateCreateForm({
           // Dedicated day rate is entered as an annual salary (ANNUAL_RATE). The
           // legacy hourly day-rate row is no longer offered for new entries; old
           // rows still price via the resolver's x2080 fallback.
-          !(category === RateCategory.DEDICATED && s.code === "MONTHLY_DAY_RATE"),
+          !(category === RateCategory.DEDICATED && s.code === "MONTHLY_DAY_RATE") &&
+          // Rebadged is a per-technician property, not an account rate row.
+          !(category === RateCategory.DEDICATED && s.code.startsWith("REBADGED")),
       ),
     [category, subCategories],
   );
@@ -60,37 +63,19 @@ export function AccountRateCreateForm({
   const isAnnualRate =
     subCatsForCategory.find((s) => s.id === subCatId)?.code === "ANNUAL_RATE";
 
-  // Per-category SLA filter so the dropdown only shows codes that actually
-  // apply to that rate dimension.
-  // DEDICATED uses Backfill tier (BACKFILL / NO_BACKFILL).
-  // DISPATCH_SCHED uses response SLAs (NBD / SBD / 2BD / 3BD / 9X5X4 / 24X7X4).
-  // PROJECT_TM uses SCHEDULE / NA.
+  // Per-category SLA filter (single source of truth in rate-dimensions). Dispatch
+  // shows the full on-site response SLA list; Dedicated the backfill tiers; Project
+  // / Scheduled SCHEDULE / NA.
   const slasForCategory = useMemo(() => {
-    const dedicatedTiers = new Set(["BACKFILL", "NO_BACKFILL"]);
-    const dispatchCodes = new Set([
-      "NBD",
-      "SBD",
-      "2BD",
-      "3BD",
-      "9X5X4",
-      "24X7X4",
-      "SCHEDULE",
-    ]);
-    const projectCodes = new Set(["SCHEDULE", "NA"]);
-    if (category === RateCategory.DEDICATED) {
-      return slas.filter((s) => dedicatedTiers.has(s.code));
-    }
-    if (category === RateCategory.DISPATCH_SCHED) {
-      return slas.filter((s) => dispatchCodes.has(s.code));
-    }
-    return slas.filter((s) => projectCodes.has(s.code));
+    const allowed = new Set(slaCodesForCategory(category));
+    return slas.filter((s) => allowed.has(s.code));
   }, [category, slas]);
 
   const fieldErrors = state && state.ok === false ? state.fieldErrors : undefined;
   const formError = state && state.ok === false ? state.formError : undefined;
 
   return (
-    <form action={action} className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <form action={action} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <input type="hidden" name="clientAccountId" value={clientAccountId} />
 
       {!lockedCategory && (

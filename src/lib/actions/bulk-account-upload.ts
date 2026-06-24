@@ -114,7 +114,7 @@ export async function bulkUploadAccounts(
           if (!r.outputTemplate) {
             errors.push({
               row: rowNumber,
-              message: `Org "${r.orgName}" does not exist. To auto-create it, set an Output Template (FSO or PRE_INVOICE).`,
+              message: `Client "${r.orgName}" does not exist. To auto-create it, set an Output Template (FSO or PRE_INVOICE).`,
             });
             continue;
           }
@@ -139,6 +139,9 @@ export async function bulkUploadAccounts(
           currency: r.accountCurrency ?? null,
           clientPocName: r.clientPocName ?? null,
           clientSpocEmail: r.clientSpocEmail ?? null,
+          sdmName: r.sdmName ?? null,
+          sdmEmail: r.sdmEmail ?? null,
+          sdmPhone: r.sdmPhone ?? null,
           projectDescription: r.projectDescription ?? null,
           defaultHours: r.defaultHours,
           addressLine1: r.addressLine1 ?? null,
@@ -198,6 +201,9 @@ export async function downloadBulkAccountTemplate(): Promise<TemplateResult> {
     "CA",
     "94016",
     "USA",
+    "Karandeep Talwar",
+    "kstalwar@ovationwps.com",
+    "+1 555 0100",
   ]);
   sheet.columns.forEach((col) => {
     col.width = 26;

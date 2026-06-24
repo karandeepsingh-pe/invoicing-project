@@ -51,13 +51,13 @@ export function FillRangeDialog({
       trigger={
         <button
           type="button"
-          className="text-[11px] font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-[11px] font-medium"
         >
           Fill range
         </button>
       }
       title={`Fill ${technicianName}'s month`}
-      description="Set one value across a range of days, then review and Save month to persist."
+      description="Fill one value across a range of days, then review the grid and save."
       size="sm"
     >
       {({ close }) => (
@@ -137,7 +137,7 @@ export function FillRangeDialog({
             <button
               type="button"
               onClick={close}
-              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted backdrop-blur transition-colors hover:bg-surface hover:text-fg"
+              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
             >
               Cancel
             </button>

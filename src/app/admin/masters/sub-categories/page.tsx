@@ -1,5 +1,6 @@
 import { RateCategory } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { SubCategoryRowActions } from "./sub-cat-row";
 import { SubCategoryCreateDialog } from "./create-dialog";
 
@@ -11,6 +12,7 @@ const categoryLabel: Record<RateCategory, string> = {
 };
 
 export default async function SubCategoriesMastersPage() {
+  await requireAdmin();
   const rows = await prisma.rateSubCategory.findMany({
     orderBy: [{ rateCategory: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { accountRates: true } } },
@@ -23,14 +25,14 @@ export default async function SubCategoriesMastersPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">Rate sub-categories</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">Rate sub-categories</h1>
           <span className="text-sm text-fg-subtle">{rows.length} total</span>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Rows in the rate matrix. Each (rate category, code) is unique. Adding new sub-categories
-          here exposes them in every account&rsquo;s &ldquo;Add rate row&rdquo; form.
+          The rows in the rate matrix. Each (rate category, code) pair is unique. Add one here and
+          it shows up in every account&rsquo;s &ldquo;Add rate row&rdquo; form.
         </p>
       </header>
 

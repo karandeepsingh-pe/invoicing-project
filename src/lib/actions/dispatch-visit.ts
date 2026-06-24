@@ -4,20 +4,21 @@ import { revalidatePath } from "next/cache";
 import { Prisma, AuditKind, BookingKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import {
   dispatchVisitCreateSchema,
+  dispatchVisitUpdateSchema,
   dispatchVisitDeleteSchema,
 } from "@/lib/schemas/dispatch-visit";
+import { bookingEnvelope } from "@/lib/domain/booking-overlap";
+import {
+  executeDispatchVisitCreate,
+  type DispatchConflict,
+} from "@/lib/domain/dispatch-visit-create";
 import { resolvePostalCodeId } from "./postal-code-resolve";
 import type { ActionResult } from "./result";
 
-export type DispatchConflict = {
-  kind: BookingKind;
-  startDateTime: string;
-  endDateTime: string;
-  accountLabel: string;
-};
+export type { DispatchConflict };
 
 export type DispatchVisitResult =
   | { ok: true; id?: string; message?: string }
@@ -53,7 +54,7 @@ export async function createDispatchVisit(
   _prev: DispatchVisitResult,
   formData: FormData,
 ): Promise<DispatchVisitResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   const parsed = dispatchVisitCreateSchema.safeParse({
     assignmentId: formData.get("assignmentId"),
@@ -68,6 +69,80 @@ export async function createDispatchVisit(
     afterHours: formData.get("afterHours") === "on" || formData.get("afterHours") === "true",
     weekend: formData.get("weekend") === "on" || formData.get("weekend") === "true",
     workStatus: formData.get("workStatus") || undefined,
+    cancellationCharge: formData.get("cancellationCharge") || undefined,
+    slaId: formData.get("slaId"),
+    visitTypeId: formData.get("visitTypeId") || undefined,
+    inTime: formData.get("inTime") || undefined,
+    outTime: formData.get("outTime") || undefined,
+    siteLocation: formData.get("siteLocation") ?? undefined,
+    zipcode: formData.get("zipcode") ?? undefined,
+    locationCity: formData.get("locationCity") ?? undefined,
+    locationState: formData.get("locationState") ?? undefined,
+    locationCountry: formData.get("locationCountry") ?? undefined,
+    travelHours: formData.get("travelHours") || undefined,
+    travelMiles: formData.get("travelMiles") || undefined,
+    partsAmount: formData.get("partsAmount") || undefined,
+    reimbursementNotes: formData.get("reimbursementNotes") ?? undefined,
+    notes: formData.get("notes") ?? undefined,
+    override: formData.get("override") === "on" || formData.get("override") === "true",
+    overrideReason: formData.get("overrideReason") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  // SDM may only add visits to assignments on accounts they own (admin: any).
+  const owner = await prisma.assignment.findUnique({
+    where: { id: parsed.data.assignmentId },
+    select: { clientAccountId: true },
+  });
+  if (!owner) return { ok: false, formError: "Assignment not found." };
+  await requireAccountAccess(owner.clientAccountId);
+
+  // Shared core (also used by the bulk xlsx upload) — same validation,
+  // conflict, booking, and audit behavior for every visit.
+  const outcome = await executeDispatchVisitCreate(parsed.data, admin.userId);
+  switch (outcome.kind) {
+    case "created":
+      revalidatePath(`/admin/dispatch-visits/${outcome.clientAccountId}`);
+      return { ok: true, id: outcome.id, message: "Visit added." };
+    case "validation":
+      return { ok: false, fieldErrors: outcome.fieldErrors };
+    case "conflict":
+      return {
+        ok: false,
+        needsOverride: true,
+        conflicts: outcome.conflicts,
+        formError: `Time-slot conflict with ${outcome.conflicts.length} existing booking(s) for this technician.`,
+      };
+    case "notFound":
+      return { ok: false, formError: "Assignment not found." };
+    case "dbError":
+      return { ok: false, formError: `Database error: ${outcome.code}` };
+  }
+}
+
+export async function updateDispatchVisit(
+  _prev: DispatchVisitResult,
+  formData: FormData,
+): Promise<DispatchVisitResult> {
+  const admin = await requireSession();
+
+  const parsed = dispatchVisitUpdateSchema.safeParse({
+    id: formData.get("id"),
+    assignmentId: formData.get("assignmentId"),
+    visitDate: formData.get("visitDate"),
+    requestReceivedDate: formData.get("requestReceivedDate") || undefined,
+    proposedOnsiteDate: formData.get("proposedOnsiteDate") || undefined,
+    visitTime: formData.get("visitTime") || undefined,
+    siteCode: formData.get("siteCode") ?? undefined,
+    ticketNumber: formData.get("ticketNumber") ?? undefined,
+    hoursOnSite: formData.get("hoursOnSite"),
+    oooHrs: formData.get("oooHrs") || undefined,
+    afterHours: formData.get("afterHours") === "on" || formData.get("afterHours") === "true",
+    weekend: formData.get("weekend") === "on" || formData.get("weekend") === "true",
+    workStatus: formData.get("workStatus") || undefined,
+    cancellationCharge: formData.get("cancellationCharge") || undefined,
     slaId: formData.get("slaId"),
     visitTypeId: formData.get("visitTypeId") || undefined,
     inTime: formData.get("inTime") || undefined,
@@ -90,25 +165,51 @@ export async function createDispatchVisit(
   }
   const d = parsed.data;
 
+  const existing = await prisma.dispatchVisit.findFirst({
+    where: { id: d.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) return { ok: false, formError: "Visit not found." };
+
   const assignment = await prisma.assignment.findUnique({
     where: { id: d.assignmentId },
     select: { id: true, technicianId: true, clientAccountId: true },
   });
   if (!assignment) return { ok: false, formError: "Assignment not found." };
+  await requireAccountAccess(assignment.clientAccountId);
+
+  const acct = await prisma.clientAccount.findUnique({
+    where: { id: assignment.clientAccountId },
+    select: { businessHoursStart: true, businessHoursEnd: true },
+  });
+  if (acct?.businessHoursStart && acct.businessHoursEnd && (!d.inTime || !d.outTime)) {
+    return {
+      ok: false,
+      fieldErrors: {
+        outTime: ["In-Time and Out-Time are required for this account (business-hours auto-split)."],
+      },
+    };
+  }
 
   const isWeekend = d.weekend || isWeekendDate(d.visitDate);
   const start = d.inTime ? composeUtc(d.visitDate, d.inTime) : null;
-  const end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  // Out ≤ In = the visit crossed midnight (overnight ticket): end on day+1.
+  const crossesMidnight = Boolean(d.inTime && d.outTime && d.outTime <= d.inTime);
+  let end = d.outTime ? composeUtc(d.visitDate, d.outTime) : null;
+  if (end && crossesMidnight) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+  // Whole-hour booking envelope of In/Out (see createDispatchVisit).
+  const slot = d.inTime && d.outTime ? bookingEnvelope(d.visitDate, d.inTime, d.outTime) : null;
 
-  // Time-slot overlap (half-open [start,end)) against the tech's other live bookings.
+  // Conflict check excludes THIS visit's own booking (so it never clashes with itself).
   let conflicts: DispatchConflict[] = [];
-  if (start && end) {
+  if (slot) {
     const overlapping = await prisma.technicianBooking.findMany({
       where: {
         technicianId: assignment.technicianId,
         deletedAt: null,
-        startDateTime: { lt: end },
-        endDateTime: { gt: start },
+        dispatchVisitId: { not: d.id },
+        startDateTime: { lt: slot.end },
+        endDateTime: { gt: slot.start },
       },
       select: { assignmentId: true, kind: true, startDateTime: true, endDateTime: true },
     });
@@ -149,7 +250,8 @@ export async function createDispatchVisit(
       });
       if (!loc.ok) return { kind: "validation" as const, fieldErrors: loc.fieldErrors };
 
-      const created = await tx.dispatchVisit.create({
+      await tx.dispatchVisit.update({
+        where: { id: d.id },
         data: {
           assignmentId: assignment.id,
           visitDate: new Date(`${d.visitDate}T00:00:00.000Z`),
@@ -163,6 +265,7 @@ export async function createDispatchVisit(
           afterHours: d.afterHours,
           weekend: isWeekend,
           workStatus: d.workStatus,
+          cancellationCharge: decimalOrNull(d.cancellationCharge),
           slaId: d.slaId,
           visitTypeId: d.visitTypeId ?? null,
           startDateTime: start,
@@ -174,19 +277,23 @@ export async function createDispatchVisit(
           partsAmount: decimalOrNull(d.partsAmount),
           reimbursementNotes: d.reimbursementNotes ?? null,
           notes: d.notes ?? null,
-          enteredById: admin.userId,
         },
       });
 
-      if (start && end) {
+      // Re-sync the linked booking: soft-delete any live one, then recreate if timed.
+      await tx.technicianBooking.updateMany({
+        where: { dispatchVisitId: d.id, deletedAt: null },
+        data: { deletedAt: new Date(), deletedById: admin.userId },
+      });
+      if (slot) {
         await tx.technicianBooking.create({
           data: {
             technicianId: assignment.technicianId,
             assignmentId: assignment.id,
             kind: BookingKind.DISPATCH,
-            startDateTime: start,
-            endDateTime: end,
-            dispatchVisitId: created.id,
+            startDateTime: slot.start,
+            endDateTime: slot.end,
+            dispatchVisitId: d.id,
             isOverride: hasConflict && d.override,
             overrideReason: hasConflict && d.override ? (d.overrideReason ?? null) : null,
             enteredById: admin.userId,
@@ -200,9 +307,9 @@ export async function createDispatchVisit(
               technicianId: assignment.technicianId,
               assignmentId: assignment.id,
               detail: {
-                dispatchVisitId: created.id,
-                start: start.toISOString(),
-                end: end.toISOString(),
+                dispatchVisitId: d.id,
+                start: slot.start.toISOString(),
+                end: slot.end.toISOString(),
                 reason: d.overrideReason ?? null,
                 conflicts: conflicts as unknown as Prisma.InputJsonValue,
               },
@@ -210,14 +317,14 @@ export async function createDispatchVisit(
           });
         }
       }
-      return { kind: "created" as const, id: created.id };
+      return { kind: "updated" as const };
     });
 
     if (result.kind === "validation") {
       return { ok: false, fieldErrors: result.fieldErrors };
     }
     revalidatePath(`/admin/dispatch-visits/${assignment.clientAccountId}`);
-    return { ok: true, id: result.id, message: "Visit added." };
+    return { ok: true, id: d.id, message: "Visit updated." };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       return { ok: false, formError: `Database error: ${err.code}` };
@@ -230,7 +337,7 @@ export async function deleteDispatchVisit(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
   // Soft-delete (testing-phase), gated. Cascade-soft-deletes the linked booking.
   if (!env.SOFT_DELETE_ENABLED) {
     return {
@@ -243,6 +350,14 @@ export async function deleteDispatchVisit(
   if (!parsed.success) {
     return { ok: false, formError: "Missing visit id." };
   }
+  // Resolve the owning account and gate before soft-deleting.
+  const owner = await prisma.dispatchVisit.findUnique({
+    where: { id: parsed.data.id },
+    include: { assignment: { select: { clientAccountId: true } } },
+  });
+  if (!owner) return { ok: false, formError: "Visit not found." };
+  await requireAccountAccess(owner.assignment.clientAccountId);
+
   const now = new Date();
   const visit = await prisma.$transaction(async (tx) => {
     const v = await tx.dispatchVisit.update({

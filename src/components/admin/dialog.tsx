@@ -74,13 +74,13 @@ export function Dialog({
       role="dialog"
       aria-labelledby={headingId}
       aria-describedby={description ? descId : undefined}
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-fg/40 px-4 py-8 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8 backdrop-blur-sm animate-fade-in dark:bg-black/70"
     >
       <div
-        className={`glass-strong w-full ${widthClass} rounded-2xl ${paddingClass} shadow-2xl animate-fade-in`}
+        className={`glass-strong flex max-h-[calc(100vh-4rem)] w-full ${widthClass} flex-col rounded-2xl ${paddingClass} shadow-2xl animate-pop-in motion-reduce:animate-none`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className={`${headerMb} flex items-start justify-between gap-4`}>
+        <header className={`${headerMb} flex flex-shrink-0 items-start justify-between gap-4`}>
           <div className="flex flex-col gap-1">
             <h2 id={headingId} className="text-base font-semibold tracking-tightish">
               {title}
@@ -100,7 +100,9 @@ export function Dialog({
             <XIcon className="h-4 w-4" />
           </button>
         </header>
-        <div>{children({ close })}</div>
+        {/* Body scrolls within the capped card height so tall forms never overflow
+            the viewport (header + close button stay visible). */}
+        <div className="-mx-1 flex-1 overflow-y-auto px-1">{children({ close })}</div>
       </div>
     </div>
   ) : null;

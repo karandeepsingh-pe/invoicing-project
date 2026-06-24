@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth/session";
 import { SlaRowActions } from "./sla-row";
 import { SlaCreateDialog } from "./create-dialog";
 
 export default async function SlasMastersPage() {
+  await requireAdmin();
   const slas = await prisma.sla.findMany({
     orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     include: { _count: { select: { accountRates: true } } },
@@ -11,17 +13,17 @@ export default async function SlasMastersPage() {
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       <header className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">Masters</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-accent">Masters</span>
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-4xl font-semibold tracking-tighter2">SLAs</h1>
+          <h1 className="text-3xl font-semibold tracking-tighter2 sm:text-4xl">SLAs</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-fg-subtle">{slas.length} total</span>
             <SlaCreateDialog />
           </div>
         </div>
         <p className="max-w-2xl text-sm text-fg-muted">
-          Service level codes referenced on every rate row. Adding, renaming, or removing an SLA
-          here propagates to all account rate sheets and dropdowns.
+          Service-level codes used on every rate row. Add, rename, or remove one here and it
+          updates across all account rate sheets and dropdowns.
         </p>
       </header>
 

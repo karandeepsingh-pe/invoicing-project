@@ -31,11 +31,11 @@ export function BulkUploadDialog() {
     <Dialog
       trigger={
         <span className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3.5 py-2 text-sm font-medium text-fg-muted shadow-sm transition-colors hover:bg-surface-2 hover:text-fg">
-          Bulk upload (.xlsx)
+          Upload accounts (.xlsx)
         </span>
       }
       title="Bulk upload accounts"
-      description="Create many accounts at once from a spreadsheet. Each row's org is matched by name; a missing org is created automatically when the row sets an Output Template."
+      description="Add many accounts at once from a spreadsheet. Each row's client is matched by name. If the client doesn't exist yet, it's created when the row has an Output Template."
       size="lg"
     >
       {({ close }) => <BulkUploadForm onClose={close} />}
@@ -116,14 +116,14 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
             {result.created === 1 ? "" : "s"}
             {result.orgsCreated > 0 && (
               <>
-                {" "}· <strong>{result.orgsCreated}</strong> new org
+                {" "}· <strong>{result.orgsCreated}</strong> new client
                 {result.orgsCreated === 1 ? "" : "s"}
               </>
             )}
             {result.skipped > 0 && <> · {result.skipped} skipped (duplicates)</>}.
           </div>
           {result.errors.length > 0 && (
-            <div className="max-h-48 overflow-y-auto rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="max-h-48 overflow-y-auto rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               <p className="mb-1 font-semibold">
                 {result.errors.length} row{result.errors.length === 1 ? "" : "s"} need attention:
               </p>

@@ -32,7 +32,7 @@ export function ConfirmDialog({
               type="button"
               onClick={close}
               disabled={busy}
-              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted backdrop-blur transition-colors hover:bg-surface hover:text-fg disabled:opacity-50"
+              className="inline-flex items-center rounded-md border border-border-strong bg-surface/60 px-3.5 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg disabled:opacity-50"
             >
               {cancelLabel}
             </button>
@@ -51,7 +51,7 @@ export function ConfirmDialog({
               className={
                 "inline-flex items-center rounded-md px-3.5 py-2 text-sm font-medium shadow-sm transition-colors disabled:opacity-50 " +
                 (destructive
-                  ? "bg-danger text-white hover:bg-danger/90"
+                  ? "bg-danger text-bg hover:bg-danger/90"
                   : "bg-accent text-accent-fg hover:bg-accent-hover")
               }
             >

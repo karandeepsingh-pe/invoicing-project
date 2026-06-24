@@ -2,16 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/dev-session";
+import { requireAccountAccess, requireSession } from "@/lib/auth/session";
 import { z } from "zod";
 import { monthRange, lastDayOfMonth } from "@/lib/invoice/period";
-import { renderDispatchInvoice } from "@/lib/invoice/render-dispatch";
+import { renderDispatchPreInvoice } from "@/lib/invoice/render-dispatch-preinvoice";
 import { dispatchRateRows, loadDispatchTrackerRows } from "@/lib/invoice/dispatch-rows";
+import { appendInvoiceBundle } from "@/lib/invoice/append-bundle";
 
 const schema = z.object({
   accountId: z.string().min(1),
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
+  // Optional standby site count (fee = count × the account's per-site price).
+  dispatchSites: z.coerce.number().int().min(0).max(100000).optional(),
 });
 
 type Success = { ok: true; filename: string; base64: string };
@@ -41,7 +44,7 @@ export async function generateDispatchInvoice(
   _prev: GenerateDispatchResult,
   formData: FormData,
 ): Promise<GenerateDispatchResult> {
-  const admin = await requireAdmin();
+  const admin = await requireSession();
 
   let payload: unknown;
   try {
@@ -53,7 +56,8 @@ export async function generateDispatchInvoice(
   if (!parsed.success) {
     return { ok: false, formError: "Validation failed." };
   }
-  const { accountId, year, month } = parsed.data;
+  const { accountId, year, month, dispatchSites } = parsed.data;
+  await requireAccountAccess(accountId);
 
   const account = await prisma.clientAccount.findUnique({
     where: { id: accountId },
@@ -69,11 +73,29 @@ export async function generateDispatchInvoice(
   const lastDay = lastDayOfMonth(year, month);
 
   const rateRows = dispatchRateRows(account.accountRates);
-  const rows = await loadDispatchTrackerRows(accountId, range, rateRows);
+  const businessWindow =
+    account.businessHoursStart && account.businessHoursEnd
+      ? { start: account.businessHoursStart, end: account.businessHoursEnd }
+      : null;
+  const rows = await loadDispatchTrackerRows(
+    accountId,
+    range,
+    rateRows,
+    account.dispatchPricingModel,
+    businessWindow,
+  );
 
-  const retainerFee = account.miscFees
-    .filter((m) => m.kind === "RETAINER_FEES")
-    .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
+  // Standby (per-site) folds into the retainer line on the dispatch-only sheet
+  // — the client format shows it as a single "Retainer ... Sites" row.
+  const standbyPerSite = Number(account.dispatchStandbyPerSite?.toString() ?? 0);
+  const standbyFee =
+    dispatchSites && standbyPerSite > 0
+      ? Math.round(dispatchSites * standbyPerSite * 100) / 100
+      : 0;
+  const retainerFee =
+    account.miscFees
+      .filter((m) => m.kind === "RETAINER_FEES")
+      .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0) + standbyFee;
   const reimbursements = account.miscFees
     .filter((m) => m.kind !== "RETAINER_FEES")
     .reduce((n, m) => n + Number(m.amount?.toString() ?? 0), 0);
@@ -83,7 +105,10 @@ export async function generateDispatchInvoice(
     timeZone: "UTC",
   });
 
-  const buffer = await renderDispatchInvoice(
+  const invoiceTotal =
+    rows.reduce((n, r) => n + (r.billed || 0), 0) + retainerFee + reimbursements;
+
+  const buffer = await renderDispatchPreInvoice(
     {
       timePeriod: `${fmtIsoDate(range.start)} - ${fmtIsoDate(lastDay)}`,
       clientName: account.org.name,
@@ -99,6 +124,7 @@ export async function generateDispatchInvoice(
     },
     rows,
     { retainerFee, reimbursements },
+    (wb) => appendInvoiceBundle(wb, { accountId, year, month, invoiceTotal }),
   );
 
   await prisma.invoiceRun.create({

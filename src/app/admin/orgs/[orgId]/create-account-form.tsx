@@ -37,7 +37,7 @@ export function ClientAccountCreateForm({
         name="currency"
         maxLength={3}
         placeholder={defaultCurrency}
-        hint={`Leave blank to inherit org default (${defaultCurrency}).`}
+        hint={`Leave blank to inherit client default (${defaultCurrency}).`}
         errors={fieldErrors?.currency}
       />
       <TextField
@@ -55,6 +55,29 @@ export function ClientAccountCreateForm({
         errors={fieldErrors?.clientSpocEmail}
       />
       <TextField
+        label="SDM name"
+        name="sdmName"
+        required
+        placeholder="e.g. Karandeep Talwar"
+        errors={fieldErrors?.sdmName}
+        hint="Owns this account. Required."
+      />
+      <TextField
+        label="SDM email"
+        name="sdmEmail"
+        type="email"
+        required
+        placeholder="name@ovationwps.com"
+        errors={fieldErrors?.sdmEmail}
+        hint="Must be @ovationwps.com — drives who can see this account."
+      />
+      <TextField
+        label="SDM phone"
+        name="sdmPhone"
+        placeholder="Optional"
+        errors={fieldErrors?.sdmPhone}
+      />
+      <TextField
         label="Project description"
         name="projectDescription"
         placeholder="FTE - Dedicated Support"
@@ -69,7 +92,7 @@ export function ClientAccountCreateForm({
         max={24}
         defaultValue={8}
         errors={fieldErrors?.defaultHours}
-        hint="Hours counted as one full working day. Pre-fills FTE weekday cells; anything above becomes OT."
+        hint="Hours that count as one full working day. Pre-fills FTE weekday cells; anything above becomes OT."
       />
       <SubmitButton>Create account</SubmitButton>
       {state && state.ok && !onSuccess && <div className="text-sm text-success">Account created.</div>}

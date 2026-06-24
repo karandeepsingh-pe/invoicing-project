@@ -28,7 +28,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
       <SearchBar
         value={query}
         onChange={setQuery}
-        placeholder="Search orgs by name…"
+        placeholder="Search clients by name…"
         countLabel={`${filtered.length} of ${orgs.length}`}
       />
 
@@ -44,7 +44,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
                   {initials(o.name)}
                 </div>
                 <div className="flex flex-col leading-tight">
-                  <span className="text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
+                  <span className="ui-link text-base font-semibold tracking-tightish text-fg group-hover:text-accent">
                     {o.name}
                   </span>
                   <span className="mt-0.5 text-[11px] uppercase tracking-wider text-fg-subtle">
@@ -63,7 +63,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
             <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
               <Link
                 href={`/admin/orgs/${o.id}` as never}
-                className="text-xs font-medium text-accent hover:text-accent-hover"
+                className="ui-link-accent text-xs font-medium"
               >
                 Open →
               </Link>
@@ -74,7 +74,7 @@ export function OrgsGrid({ orgs }: { orgs: OrgCard[] }) {
 
         {filtered.length === 0 && (
           <div className="col-span-full rounded-xl border border-dashed border-border bg-surface p-8 text-center text-sm text-fg-muted">
-            {q ? `No orgs match "${query}".` : "No orgs yet. Create one below."}
+            {q ? `No clients match "${query}".` : "No clients yet. Create one below."}
           </div>
         )}
       </section>

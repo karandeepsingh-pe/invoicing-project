@@ -27,6 +27,9 @@ export type DispatchFooter = {
 
 // One fully-resolved tracker row (billing already computed in the generator).
 export type DispatchTrackerRow = {
+  visitId: string;
+  firstHourRate: number;
+  additionalHourRate: number;
   requestReceivedDate: string | null;
   visitDate: string;
   visitTime: string | null;

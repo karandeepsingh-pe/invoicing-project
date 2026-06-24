@@ -180,7 +180,7 @@ export function ManagementView({
   }
 
   const tabs: { key: Tab; label: string; count: number }[] = [
-    { key: "orgs", label: "Orgs", count: grandTotals.orgs },
+    { key: "orgs", label: "Clients", count: grandTotals.orgs },
     { key: "accounts", label: "Accounts", count: grandTotals.accounts },
     { key: "technicians", label: "Technicians", count: grandTotals.techs },
   ];
@@ -189,11 +189,11 @@ export function ManagementView({
       ? "Search accounts…"
       : tab === "technicians"
         ? "Search technicians…"
-        : "Search orgs, accounts, technicians…";
+        : "Search clients, accounts, technicians…";
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-3 bg-bg/80 px-1 pb-2 pt-1 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-1 flex flex-col gap-3 bg-bg px-1 pb-2 pt-1">
         {/* Tabs (with total counts) */}
         <div className="flex flex-wrap gap-1.5 text-sm">
           {tabs.map((t) => (
@@ -249,7 +249,7 @@ export function ManagementView({
             {tab === "orgs" && (
               <>
                 <span className="tabular-nums">
-                  {totals.orgs} org{totals.orgs === 1 ? "" : "s"} · {totals.accounts} account
+                  {totals.orgs} client{totals.orgs === 1 ? "" : "s"} · {totals.accounts} account
                   {totals.accounts === 1 ? "" : "s"} · {totals.techs} tech{totals.techs === 1 ? "" : "s"}
                 </span>
                 <span className="text-fg-subtle/50">·</span>
@@ -280,7 +280,7 @@ export function ManagementView({
         <>
           {filtered.length === 0 && (
             <div className="glass rounded-lg p-8 text-center text-sm text-fg-muted">
-              {isFiltering ? `No matches for "${query}".` : "No orgs yet."}
+              {isFiltering ? `No matches for "${query}".` : "No clients yet."}
             </div>
           )}
           <div className="flex flex-col gap-3">
@@ -387,7 +387,7 @@ export function ManagementView({
                               <div key={a.id}>
                                 <Link
                                   href={`/admin/accounts/${a.id}` as never}
-                                  className="text-xs font-medium text-fg hover:text-accent"
+                                  className="ui-link text-xs font-medium text-fg"
                                 >
                                   {a.name}
                                 </Link>
@@ -398,7 +398,7 @@ export function ManagementView({
                                         key={t.id}
                                         href={`/admin/technicians/${t.id}` as never}
                                         title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
-                                        className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+                                        className="ui-chip inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted"
                                       >
                                         <span>{t.name}</span>
                                         <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
@@ -431,7 +431,7 @@ export function ManagementView({
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Account</th>
-                <th className="px-4 py-2 text-left font-medium">Org</th>
+                <th className="px-4 py-2 text-left font-medium">Client</th>
                 <th className="px-4 py-2 text-right font-medium">Rates</th>
                 <th className="px-4 py-2 text-right font-medium">Misc</th>
                 <th className="px-4 py-2 text-right font-medium">Assign.</th>
@@ -486,7 +486,7 @@ export function ManagementView({
             <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Name</th>
-                <th className="px-4 py-2 text-left font-medium">Org</th>
+                <th className="px-4 py-2 text-left font-medium">Client</th>
                 <th className="px-4 py-2 text-left font-medium">Category</th>
                 <th className="px-4 py-2 text-left font-medium">Band</th>
                 <th className="px-4 py-2 text-right font-medium">Assign.</th>
@@ -539,7 +539,7 @@ function AccountNameCell({
 }) {
   return (
     <>
-      <Link className="font-medium text-fg hover:text-accent" href={`/admin/accounts/${id}` as never}>
+      <Link className="ui-link font-medium text-fg" href={`/admin/accounts/${id}` as never}>
         {name}
       </Link>
       <div className="text-[11px] text-fg-subtle">{currency}</div>
@@ -551,7 +551,7 @@ function AccountNameCell({
                 key={t.id}
                 href={`/admin/technicians/${t.id}` as never}
                 title={`${t.name} · Band ${t.band} · ${categoryLabel[t.category]}`}
-                className="inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted hover:text-accent"
+                className="ui-chip inline-flex items-center gap-1 rounded-full bg-bg px-2 py-0.5 text-[11px] text-fg-muted"
               >
                 <span>{t.name}</span>
                 <span className="text-fg-subtle">· {categoryShort[t.category]}</span>
@@ -583,10 +583,10 @@ function AccountActions({
         accountLabel={accountLabel}
         technicians={technicians}
       />
-      <Link href={`/admin/timesheets/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
+      <Link href={`/admin/timesheets/${id}` as never} className="ui-link-accent text-[11px] font-medium">
         Timesheet
       </Link>
-      <Link href={`/admin/invoices/generate/${id}` as never} className="text-[11px] font-medium text-accent hover:text-accent-hover">
+      <Link href={`/admin/invoices/generate/${id}` as never} className="ui-link-accent text-[11px] font-medium">
         Invoice
       </Link>
       <DeleteAccountButton id={id} name={name} />
@@ -607,7 +607,7 @@ function TechNameCell({
 }) {
   return (
     <>
-      <Link className="font-medium text-fg hover:text-accent" href={`/admin/technicians/${id}` as never}>
+      <Link className="ui-link font-medium text-fg" href={`/admin/technicians/${id}` as never}>
         {firstName} {lastName}
       </Link>
       {location && <div className="text-[11px] text-fg-subtle">{location}</div>}

@@ -68,6 +68,7 @@ export async function renderProjectInvoice(
   header: ProjectHeader,
   rows: ProjectRow[],
   footer: ProjectFooter,
+  appendSheets?: (wb: ExcelJS.Workbook) => Promise<void>,
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Ovation Invoicing";
@@ -252,6 +253,9 @@ export async function renderProjectInvoice(
   sheet.getCell(`B${noteRow}`).font = { bold: true };
   sheet.getCell(`C${noteRow}`).value = `Invoice is for the month ${header.monthYearLabel}`;
   sheet.mergeCells(`C${noteRow}:F${noteRow}`);
+
+  // Optional extra sheets (timesheet + rate sheet + remittance) before serialise.
+  if (appendSheets) await appendSheets(workbook);
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
   return Buffer.from(arrayBuffer as ArrayBuffer);

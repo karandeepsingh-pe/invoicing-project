@@ -17,13 +17,13 @@ export function AddAccountForOrgDialog({
       trigger={
         <button
           type="button"
-          className="text-xs font-medium text-accent hover:text-accent-hover"
+          className="ui-link-accent text-xs font-medium"
         >
           + Add account
         </button>
       }
       title={`Create account under ${orgName}`}
-      description={`Defaults to org currency (${defaultCurrency}) unless overridden.`}
+      description={`Defaults to client currency (${defaultCurrency}) unless overridden.`}
     >
       {({ close }) => (
         <ClientAccountCreateForm

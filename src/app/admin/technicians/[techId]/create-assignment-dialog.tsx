@@ -13,6 +13,7 @@ export function AssignmentCreateDialog({
   accounts,
   flags,
   hasActiveDedication,
+  technicianStartDate,
 }: {
   technicianId: string;
   technicianBand: number;
@@ -21,6 +22,7 @@ export function AssignmentCreateDialog({
   accounts: AccountOption[];
   flags: TechnicianFlags;
   hasActiveDedication: boolean;
+  technicianStartDate?: string | null;
 }) {
   return (
     <Dialog
@@ -43,6 +45,7 @@ export function AssignmentCreateDialog({
             accounts={accounts}
             flags={flags}
             hasActiveDedication={hasActiveDedication}
+            technicianStartDate={technicianStartDate}
             onSuccess={close}
           />
         )
